@@ -1,0 +1,20 @@
+.DS_Store
+
+# Claude Code per-machine overrides (never commit)
+.claude/settings.local.json
+.claude/.credentials.json
+.claude/projects/
+.claude/shell-snapshots/
+.claude/todos/
+.claude/statsig/
+.claude/ide/
+
+# Local worktrees used by parallel Claude sessions
+.claude/worktrees/
+
+# Mempalace local index (if user opts in)
+.mempalace/
+
+# MemPalace per-project files (issue #185)
+mempalace.yaml
+entities.json
