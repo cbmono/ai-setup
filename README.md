@@ -6,6 +6,18 @@ Built for Opus 4.7 with stacked-PR workflows in mind.
 
 ---
 
+## Getting started
+
+1. Copy the `.claude/` folder into your project.
+2. Start Claude Code in your terminal: `claude`.
+3. Run `/init`.
+4. Done.
+5. Check the list of agents and commands in `.claude/` — or see [What's inside](#whats-inside) below.
+
+For user-wide install or finer-grained setup, see [Install](#install).
+
+---
+
 ## What's inside
 
 ### Agents (`.claude/agents/`)

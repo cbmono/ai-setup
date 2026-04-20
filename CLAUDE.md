@@ -19,6 +19,11 @@ Public, opinionated Claude Code defaults for Node.js / TypeScript projects. It s
 - `.claude/techdebt.md` — rolling backlog for `/techdebt` (deferred items only, not a log). Created on first run.
 - `.claude/README.md` — human inventory + commands-vs-skills note. Must stay in sync with the top-level `README.md` when agents/commands change.
 - `README.md` (root) — public-facing setup guide.
+- `entities.json`, `mempalace.yaml` (root) — gitignored local mempalace state. Not source, don't edit or commit.
+
+## Commands vs skills
+
+This repo ships **commands** (`.claude/commands/<name>.md`, invoked only when the user types `/<name>`). Skills (`.claude/skills/<name>/SKILL.md`) auto-invoke via intent matching. When asked to add a capability, default to a command unless proactive invocation is explicitly wanted. See `.claude/README.md` for the full distinction.
 
 ## Conventions when editing
 
@@ -30,6 +35,15 @@ Public, opinionated Claude Code defaults for Node.js / TypeScript projects. It s
 - **`settings.json` is checked in.** Only add permission entries that are safe for everyone on a team. Per-machine additions go in `.claude/settings.local.json` (gitignored).
 - **Don't invent tool invocations.** If a command references `gh stack`, `mempalace`, `coderabbit`, etc., check the actual command surface before committing — users run these verbatim.
 - **After adding/moving commands or agents, restart Claude Code and verify registration** — `/exit`, then `claude`. New files aren't picked up mid-session.
+- **Don't rename or move `.claude/claude-defaults.md`.** Consumer projects pin it as `@.claude/claude-defaults.md` in their own CLAUDE.md; renaming or relocating it silently breaks every downstream setup that pulled from this repo.
+
+## Verifying a change
+
+No build, lint, or test suite — markdown + JSON only. The verification loop is:
+
+1. `/exit` and relaunch `claude` so the session re-scans `.claude/agents/` and `.claude/commands/`.
+2. Invoke the changed command (`/<name>`) or ask Claude to use the changed agent; confirm it registers without a `skills:` prefix and behaves as intended.
+3. For `settings.json` edits, trigger an affected tool call and confirm the expected allow/deny/prompt outcome.
 
 ## Out of scope
 
