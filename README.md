@@ -10,9 +10,10 @@ Built for Opus 4.7 with stacked-PR workflows in mind.
 
 1. Copy the `.claude/` folder into your project.
 2. Start Claude Code in your terminal: `claude`.
-3. Run `/init`.
+3. Run `/init` and then `/boris` if you want to load Boris Cherny's workflow best-practices/tips.
 4. Done.
-5. Check the list of agents and commands in `.claude/` — or see [What's inside](#whats-inside) below.
+
+Check the list of agents and commands in `.claude/` — or see [What's inside](#whats-inside) below.
 
 For user-wide install or finer-grained setup, see [Install](#install).
 
@@ -24,13 +25,13 @@ For user-wide install or finer-grained setup, see [Install](#install).
 
 Generic Node/TS agents — they infer your toolchain from `package.json` instead of hardcoding paths.
 
-| Agent               | Model  | Purpose                                                                             | Invoked by commands            |
-| ------------------- | ------ | ----------------------------------------------------------------------------------- | ------------------------------ |
-| **build-validator** | Sonnet | Typecheck / lint / test / build. `--deep` = clean-install + sequenced unit→int→e2e | `/verify`                      |
-| **code-architect**  | Opus   | Staff-level review of staged + unstaged changes                                     | `/plan-review`, `/grill`       |
-| **deep-bug-scan**   | Opus   | Deep scan for logic bugs, null risks, race conditions, SQL issues, weak tests       | `/scan`                        |
-| **oncall-guide**    | Sonnet | Diagnoses test/CI failures and classifies the cause                                 | `/verify` (on failure)         |
-| **stack-navigator** | Sonnet | Reads `gh stack view` and proposes the next safe action in a stacked-PR flow        | `/stack` (no args)             |
+| Agent               | Model  | Purpose                                                                            | Invoked by commands      |
+| ------------------- | ------ | ---------------------------------------------------------------------------------- | ------------------------ |
+| **build-validator** | Sonnet | Typecheck / lint / test / build. `--deep` = clean-install + sequenced unit→int→e2e | `/verify`                |
+| **code-architect**  | Opus   | Staff-level review of staged + unstaged changes                                    | `/plan-review`, `/grill` |
+| **deep-bug-scan**   | Opus   | Deep scan for logic bugs, null risks, race conditions, SQL issues, weak tests      | `/scan`                  |
+| **oncall-guide**    | Sonnet | Diagnoses test/CI failures and classifies the cause                                | `/verify` (on failure)   |
+| **stack-navigator** | Sonnet | Reads `gh stack view` and proposes the next safe action in a stacked-PR flow       | `/stack` (no args)       |
 
 For cleaning up recently changed code, use the built-in `/simplify` skill — that's what it's for.
 
@@ -38,18 +39,18 @@ For cleaning up recently changed code, use the built-in `/simplify` skill — th
 
 One `.md` per command; filename becomes `/<name>`. No frontmatter required; `$ARGUMENTS` expands to whatever the user typed after the command. See [`.claude/README.md`](./.claude/README.md) for the command-vs-skill distinction and editing guidelines.
 
-| Command        | What it does                                                                   | Dispatches agents             |
-| -------------- | ------------------------------------------------------------------------------ | ----------------------------- |
-| `/acp`         | Stage, commit with a generated message, and push (stack-aware)                 | —                             |
-| `/verify`      | Pre-PR gate: typecheck / lint / test / build. `--deep` = full install + e2e    | build-validator, oncall-guide |
-| `/scan [dir]`  | Deep bug scan of a folder; appends findings to `.claude/potential-bugs.md`     | deep-bug-scan                 |
-| `/grill`       | Devil's advocate on your own diff — find what's wrong before a reviewer does   | —                             |
-| `/plan-review` | Write a plan, then spin up a reviewer before implementation                    | code-architect                |
-| `/stack`       | gh-stack wrapper (bare = smart recommendation, args = specific actions)        | stack-navigator               |
+| Command        | What it does                                                                                  | Dispatches agents             |
+| -------------- | --------------------------------------------------------------------------------------------- | ----------------------------- |
+| `/acp`         | Stage, commit with a generated message, and push (stack-aware)                                | —                             |
+| `/boris`       | Boris Cherny's Claude Code workflow tips (parallel sessions, hooks, plan mode)                | —                             |
+| `/grill`       | Devil's advocate on your own diff — find what's wrong before a reviewer does                  | —                             |
+| `/plan-review` | Write a plan, then spin up a reviewer before implementation                                   | code-architect                |
+| `/rabbit`      | Run CodeRabbit review on the current branch against `main`                                    | —                             |
+| `/save`        | Persist durable context to memory (+ mempalace if installed), then compact                    | —                             |
+| `/scan [dir]`  | Deep bug scan of a folder; appends findings to `.claude/potential-bugs.md`                    | deep-bug-scan                 |
+| `/stack`       | gh-stack wrapper (bare = smart recommendation, args = specific actions)                       | stack-navigator               |
 | `/techdebt`    | Scan for duplication/dead code; defer/apply/reject per item. Backlog in `.claude/techdebt.md` | —                             |
-| `/rabbit`      | Run CodeRabbit review on the current branch against `main`                     | —                             |
-| `/save`        | Persist durable context to memory (+ mempalace if installed), then compact     | —                             |
-| `/boris`       | Boris Cherny's Claude Code workflow tips (parallel sessions, hooks, plan mode) | —                             |
+| `/verify`      | Pre-PR gate: typecheck / lint / test / build. `--deep` = full install + e2e                   | build-validator, oncall-guide |
 
 ### Settings (`.claude/settings.json`)
 
@@ -107,7 +108,7 @@ Run `/init` in your project — it analyzes the codebase and generates an accura
 > 1. **Put `CLAUDE.md` at the repo root**, alongside the `.claude/` directory. The `@` import below uses a path relative to the CLAUDE.md file — if you move CLAUDE.md elsewhere, adjust the path or it will silently fail to load.
 > 2. **Approve the import on first run.** The first time Claude Code encounters a new `@` import, it shows a one-time approval dialog. **Click approve** — if you decline, imports stay disabled for that project and `.claude/claude-defaults.md` won't load (silent failure: Claude will just ignore the defaults without error).
 
-````markdown
+```markdown
 ## Working with Claude here
 
 @.claude/claude-defaults.md
@@ -129,7 +130,7 @@ Run `/init` in your project — it analyzes the codebase and generates an accura
 - `generated/` — regenerated from schema, edits will be lost
 - `migrations/` — never edit past migrations, always add new
 -->
-````
+```
 
 > **How the `@` import works (and what to watch):**
 >
