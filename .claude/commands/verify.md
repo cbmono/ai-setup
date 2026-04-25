@@ -12,4 +12,4 @@ Pre-PR verification gate. Runs the project's checks and hands off to diagnosis o
 3. If anything fails, dispatch the `oncall-guide` agent with the failing output to classify the cause (regression / flake / environment / test data / configuration) and propose next steps.
 4. End with `git status --short`.
 
-Do not modify files from this skill. Fixes are applied by the user (or by a follow-up prompt), not by the verifier.
+Do not modify files from this command. Fixes are applied by the user (or by a follow-up prompt), not by the verifier.

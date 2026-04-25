@@ -48,6 +48,12 @@ Severity levels:
 
 ## Output
 
-After scanning, append **only new findings** (dedupe against existing entries) to `.claude/potential-bugs.md`. Read the file first.
+Maintain `.claude/potential-bugs.md` so it always reflects the *current* state of the code, not a historical log:
+
+1. **Read** the file. For each existing finding, verify the bug still exists by reading the cited file (line numbers may have shifted — search the file for the described pattern, not just the line).
+2. **Remove** entries whose bug has been fixed or whose cited file no longer exists.
+3. **Append** new findings, deduping against the (now-pruned) existing entries by file + bug pattern, not by line number.
+
+In your final message, list every entry you removed with one-line justification (`removed file/path.ts:42 — pattern no longer present after refactor`). Silent deletions hide judgment errors; surfacing them lets the user catch a wrong "looks fixed" call before the finding is lost.
 
 Spawn multiple subagents in the same turn when fanning out across large directories — one per top-level subfolder — so the scan finishes faster.

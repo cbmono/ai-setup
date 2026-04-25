@@ -7,12 +7,15 @@ Manage a stacked-PR workflow using GitHub's `gh stack` extension.
 
 ## Actions
 
-- **`status`** — `gh stack view`, then summarize: current branch, position in stack, PR numbers and CI state. If not in a stack, say so and suggest `init`.
+Each maps to a real `gh stack` subcommand (run `gh stack --help` to see the full surface).
+
+- **`view`** (alias: `status`) — `gh stack view`, then summarize: current branch, position in stack, PR numbers and CI state. If not in a stack, say so and suggest `init`.
 - **`init <branch>`** — `gh stack init <branch>`. Confirm the stack root was created.
 - **`add <branch>`** — `gh stack add <branch>`. Remind the user to commit before the next `submit`.
 - **`submit`** — `gh stack view` first (show what will be pushed), then `gh stack submit`. Report PR URLs.
 - **`sync`** — `gh stack sync` (fetch + rebase + push + sync PR state). On rebase conflict, stop and hand back to the user with a clear summary. Do not resolve conflicts silently.
 - **`rebase`** — `gh stack rebase`. Same conflict rule as sync.
+- **`merge`** — confirm the bottom PR is green, then `gh stack merge`. After it merges, run `gh stack sync` so the rest rebases onto the new base.
 - **`up [n]` / `down [n]` / `top` / `bottom`** — navigate via `gh stack up/down/top/bottom`. Confirm the new branch.
 - **`unstack`** — confirm with the user before running `gh stack unstack` — it removes the stack locally and on GitHub.
 

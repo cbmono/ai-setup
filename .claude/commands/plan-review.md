@@ -10,7 +10,7 @@ Use this for any non-trivial task where a weak plan would compound into a bad im
    - Step-by-step approach
    - Edge cases and risks
    - Out-of-scope (explicitly)
-2. Dispatch the `code-architect` agent in a subagent call with the plan as input. Ask it to review **the plan, not the code** — look for missing edge cases, wrong layering, scope creep, and better alternatives.
+2. Dispatch the `plan-architect` agent in a subagent call with the plan as input. It reviews plans (not diffs) for missing edge cases, wrong layering, scope creep, and better alternatives.
 3. Present both the plan and the review to the user side by side.
 4. Wait for the user to accept, redirect, or revise. Do not start implementation until the user confirms.
 

@@ -28,12 +28,13 @@ Generic Node/TS agents — they infer your toolchain from `package.json` instead
 | Agent               | Model  | Purpose                                                                            | Invoked by commands      |
 | ------------------- | ------ | ---------------------------------------------------------------------------------- | ------------------------ |
 | **build-validator** | Sonnet | Typecheck / lint / test / build. `--deep` = clean-install + sequenced unit→int→e2e | `/verify`                |
-| **code-architect**  | Opus   | Staff-level review of staged + unstaged changes                                    | `/plan-review`, `/grill` |
+| **code-architect**  | Opus   | Staff-level review of staged + unstaged changes                                    | `/grill` (parallel), direct dispatch |
 | **deep-bug-scan**   | Opus   | Deep scan for logic bugs, null risks, race conditions, SQL issues, weak tests      | `/scan`                  |
 | **oncall-guide**    | Sonnet | Diagnoses test/CI failures and classifies the cause                                | `/verify` (on failure)   |
+| **plan-architect**  | Opus   | Critiques an implementation plan before code is written                            | `/plan-review`           |
 | **stack-navigator** | Sonnet | Reads `gh stack view` and proposes the next safe action in a stacked-PR flow       | `/stack` (no args)       |
 
-For cleaning up recently changed code, use the built-in `/simplify` skill — that's what it's for.
+For cleaning up recently changed code, use the built-in `/simplify` skill (a Claude Code built-in, not a command this repo ships) — that's what it's for.
 
 ### Slash commands (`.claude/commands/`)
 
@@ -44,11 +45,10 @@ One `.md` per command; filename becomes `/<name>`. No frontmatter required; `$AR
 | `/acp`         | Stage, commit with a generated message, and push (stack-aware)                                | —                             |
 | `/boris`       | Boris Cherny's Claude Code workflow tips (parallel sessions, hooks, plan mode)                | —                             |
 | `/grill`       | Devil's advocate on your own diff — find what's wrong before a reviewer does                  | —                             |
-| `/plan-review` | Write a plan, then spin up a reviewer before implementation                                   | code-architect                |
+| `/plan-review` | Write a plan, then spin up a reviewer before implementation                                   | plan-architect                |
 | `/rabbit`      | Run CodeRabbit review on the current branch against `main`                                    | —                             |
-| `/save`        | Persist durable context to memory (+ mempalace if installed), then compact                    | —                             |
 | `/scan [dir]`  | Deep bug scan of a folder; appends findings to `.claude/potential-bugs.md`                    | deep-bug-scan                 |
-| `/stack`       | gh-stack wrapper (bare = smart recommendation, args = specific actions)                       | stack-navigator               |
+| `/stack`       | gh-stack wrapper (bare = smart recommendation, args = specific actions)                       | stack-navigator (no args)     |
 | `/techdebt`    | Scan for duplication/dead code; defer/apply/reject per item. Backlog in `.claude/techdebt.md` | —                             |
 | `/verify`      | Pre-PR gate: typecheck / lint / test / build. `--deep` = full install + e2e                   | build-validator, oncall-guide |
 
@@ -62,9 +62,9 @@ Pre-allows common safe operations so you see fewer permission prompts:
 - `npx tsc`, `eslint`, `prettier`, `vitest`, `jest` (and `bunx` / `yarn` equivalents)
 - `Read` / `Edit` / `Write` scoped to the current repo (`./**`) — not the whole filesystem
 
-And denies dangerous defaults: `git push --force` (common orderings), `git reset --hard`, `rm -rf /`, `.env` reads **and** writes, SSH keys (read/edit/write), AWS credentials (read/edit/write), `sudo`.
+And denies dangerous defaults: `git push --force …` and `git push -f …` (flag-first only), `git reset --hard …`, `git clean -f …`, `rm -rf /` / `~` / `$HOME`, `.env` reads **and** writes, SSH private keys (read/edit/write), AWS credentials (read/edit/write), `sudo`.
 
-> **Note on deny patterns.** Claude Code matches Bash deny rules positionally, not semantically. We cover the two most common force-push orderings (`git push --force …` and `git push … --force`), but a pathological ordering could still slip through. If that matters to your team, add a `PreToolUse` hook in `settings.local.json`.
+> **Note on deny patterns.** Mid-pattern wildcards (e.g. `git push * --force`) are documented but fragile — Anthropic's own docs warn that argument-constraint rules don't survive flag re-ordering, redirects, env-var substitution, or extra whitespace. So the deny rules above only catch flag-first force-push orderings (`git push --force origin main`, not `git push origin main --force`). If you need stronger coverage, add a `PreToolUse` hook in `settings.local.json` that inspects the full command line.
 
 Per-machine overrides go in `.claude/settings.local.json` (gitignored).
 
@@ -105,8 +105,9 @@ Run `/init` in your project — it analyzes the codebase and generates an accura
 
 > **Before you paste:**
 >
-> 1. **Put `CLAUDE.md` at the repo root**, alongside the `.claude/` directory. The `@` import below uses a path relative to the CLAUDE.md file — if you move CLAUDE.md elsewhere, adjust the path or it will silently fail to load.
-> 2. **Approve the import on first run.** The first time Claude Code encounters a new `@` import, it shows a one-time approval dialog. **Click approve** — if you decline, imports stay disabled for that project and `.claude/claude-defaults.md` won't load (silent failure: Claude will just ignore the defaults without error).
+> 1. **Make sure `.claude/claude-defaults.md` actually exists.** If you didn't copy it across (Step 1 of "Getting started" or Option B in "Install"), the `@` line below resolves to nothing and Claude Code does **not** raise an error — your defaults silently won't load. Verify with `ls .claude/claude-defaults.md` before pasting.
+> 2. **Put `CLAUDE.md` at the repo root**, alongside the `.claude/` directory. The `@` import below uses a path relative to the CLAUDE.md file — if you move CLAUDE.md elsewhere, adjust the path or it will silently fail to load.
+> 3. **Approve the import on first run.** The first time Claude Code encounters a new `@` import, it shows a one-time approval dialog. **Click approve** — if you decline, imports stay disabled for that project and `.claude/claude-defaults.md` won't load (silent failure: Claude will just ignore the defaults without error).
 
 ```markdown
 ## Working with Claude here
@@ -156,11 +157,12 @@ gh extension install github/gh-stack
 **Typical flow with Claude:**
 
 ```
-> /stack status                      # where am I?
+> /stack view                        # where am I?
 > /stack add feat/api-endpoints      # next branch on top
 > (edit + commit)
 > /stack submit                      # push and open/update PRs
 > /stack sync                        # after a PR below merges
+> /stack merge                       # land the bottom PR
 ```
 
 Use the `stack-navigator` agent when you want a summary plus the recommended next action:
@@ -187,7 +189,7 @@ mempalace init .
 
 **Wire into Claude Code:** copy the MCP + hooks block from `.claude/settings.mempalace.example.json` into your `.claude/settings.json` (or `~/.claude/settings.json` for user-wide). The example uses `PreCompact` and `Stop` hooks to mine the session before context compaction and at turn end.
 
-The `/save` skill auto-detects mempalace and runs `mempalace mine` if the CLI is on your `PATH`.
+Run `mempalace mine` directly when you want to index a session, or rely on the `PreCompact` / `Stop` hooks above to mine automatically.
 
 See [mempalaceofficial.com/guide/hooks](https://mempalaceofficial.com/guide/hooks) for the canonical hook commands — the example file uses reasonable defaults but check upstream for the current syntax.
 
