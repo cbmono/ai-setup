@@ -16,4 +16,4 @@ Grill the current changes before they become a PR. Play devil's advocate against
 
 Don't be polite. The goal is to find what's wrong before a human reviewer does.
 
-If the diff is *only* doc/config changes (no executable code), skip the `code-architect` dispatch — it has nothing to chew on.
+If the diff is _only_ doc/config changes (no executable code), skip the `code-architect` dispatch — it has nothing to chew on.

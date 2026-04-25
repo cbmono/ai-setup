@@ -19,15 +19,15 @@ Read `package.json` once. Use the package manager that matches the lockfile: `pn
 
 Map checks to scripts in this order, running the first one that exists per bucket. Skip a bucket cleanly if no script matches.
 
-| Bucket        | Preferred scripts (in order)                                          |
-| ------------- | --------------------------------------------------------------------- |
-| Typecheck     | `typecheck`, `type-check`, `tsc`                                      |
-| Lint          | `lint`                                                                |
-| Test          | `test`                                                                |
-| Test:unit     | `test:unit`, `test-unit`                                              |
-| Test:integ    | `test:integration`, `test:int`                                        |
-| Test:e2e      | `test:e2e`, `e2e`                                                     |
-| Build         | `build`                                                               |
+| Bucket     | Preferred scripts (in order)     |
+| ---------- | -------------------------------- |
+| Typecheck  | `typecheck`, `type-check`, `tsc` |
+| Lint       | `lint`                           |
+| Test       | `test`                           |
+| Test:unit  | `test:unit`, `test-unit`         |
+| Test:integ | `test:integration`, `test:int`   |
+| Test:e2e   | `test:e2e`, `e2e`                |
+| Build      | `build`                          |
 
 If no typecheck script exists but `tsconfig.json` does, fall back to `npx tsc --noEmit` (use the detected PM's dlx/exec equivalent).
 

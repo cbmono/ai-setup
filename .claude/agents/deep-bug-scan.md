@@ -48,7 +48,7 @@ Severity levels:
 
 ## Output
 
-Maintain `.claude/potential-bugs.md` so it always reflects the *current* state of the code, not a historical log:
+Maintain `.claude/potential-bugs.md` so it always reflects the _current_ state of the code, not a historical log:
 
 1. **Read** the file. For each existing finding, verify the bug still exists by reading the cited file (line numbers may have shifted — search the file for the described pattern, not just the line).
 2. **Remove** entries whose bug has been fixed or whose cited file no longer exists.

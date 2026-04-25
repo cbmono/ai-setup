@@ -322,7 +322,7 @@ Run `/model` to pick your preferred effort level. Opus 4.7 exposes five tiers:
 
 - **`low` / `medium`** — cost- and latency-sensitive work. Still beats Opus 4.6 at equivalent settings.
 - **`high`** — balance intelligence and cost; good for multiple concurrent sessions.
-- **`xhigh`** *(default)* — "Best setting for most coding and agentic uses." Strong autonomy without runaway tokens.
+- **`xhigh`** _(default)_ — "Best setting for most coding and agentic uses." Strong autonomy without runaway tokens.
 - **`max`** — reserve for genuinely hard problems (gnarly debugging, architecture decisions). Diminishing returns vs `xhigh` in most cases.
 
 Don't port old effort configurations blindly — experiment with `xhigh` before assuming you need `max`.
@@ -661,7 +661,6 @@ Boris's take: "no 👏 more 👏 permission prompts 👏"
 
 ---
 
-
 ## 43. /schedule — Cloud Jobs from Your Terminal
 
 Use `/schedule` to create recurring cloud-based jobs for Claude, directly from the terminal. Unlike `/loop` (which runs locally for up to 3 days), scheduled jobs run in the cloud — they work even when your laptop is closed.
@@ -673,4 +672,3 @@ Use `/schedule` to create recurring cloud-based jobs for Claude, directly from t
 ```
 
 The Anthropic team uses these internally to automatically resolve CI failures, push doc updates, and power automations that need to exist beyond a closed laptop.
-

@@ -21,14 +21,14 @@ Defaults shipped by this repo. See the [top-level README](../README.md) for inst
 
 ## Agents
 
-| Agent             | Model  | Purpose                                                                                    | Invoked by commands                           |
-| ----------------- | ------ | ------------------------------------------------------------------------------------------ | --------------------------------------------- |
-| `build-validator` | Sonnet | Typecheck / lint / test / build. `--deep` = clean-install + sequenced unit→integration→e2e | `/verify`                                     |
-| `code-architect`  | Opus   | Staff-level review of staged + unstaged changes                                            | `/grill` (parallel dispatch), direct dispatch |
-| `deep-bug-scan`   | Opus   | Scans a folder for logic, null, async, SQL, API-misuse, assertion, mutation, and security-smell bugs | `/scan`                                 |
-| `oncall-guide`    | Sonnet | Diagnoses test or CI failures and classifies the cause                                     | `/verify` (on failure)                        |
-| `plan-architect`  | Opus   | Critiques an implementation plan before code is written                                    | `/plan-review`                                |
-| `stack-navigator` | Sonnet | Reads `gh stack view` and proposes the next safe action                                    | `/stack` (no args)                            |
+| Agent             | Model  | Purpose                                                                                              | Invoked by commands                           |
+| ----------------- | ------ | ---------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| `build-validator` | Sonnet | Typecheck / lint / test / build. `--deep` = clean-install + sequenced unit→integration→e2e           | `/verify`                                     |
+| `code-architect`  | Opus   | Staff-level review of staged + unstaged changes                                                      | `/grill` (parallel dispatch), direct dispatch |
+| `deep-bug-scan`   | Opus   | Scans a folder for logic, null, async, SQL, API-misuse, assertion, mutation, and security-smell bugs | `/scan`                                       |
+| `oncall-guide`    | Sonnet | Diagnoses test or CI failures and classifies the cause                                               | `/verify` (on failure)                        |
+| `plan-architect`  | Opus   | Critiques an implementation plan before code is written                                              | `/plan-review`                                |
+| `stack-navigator` | Sonnet | Reads `gh stack view` and proposes the next safe action                                              | `/stack` (no args)                            |
 
 Recently-changed-code cleanup uses the **built-in** `/simplify` skill (a Claude Code built-in, not a command this repo ships) — no custom agent needed.
 
@@ -36,26 +36,26 @@ Recently-changed-code cleanup uses the **built-in** `/simplify` skill (a Claude 
 
 One `.md` per command in `.claude/commands/`. Filename (minus `.md`) is the command name: `grill.md` → `/grill`. No frontmatter. Use `$ARGUMENTS` inside the file to reference text typed after the command.
 
-| Command        | What it does                                                               | Dispatches agents             |
-| -------------- | -------------------------------------------------------------------------- | ----------------------------- |
-| `/acp`         | Stage, commit with a generated message, push (stack-aware)                 | —                             |
-| `/boris`       | Boris Cherny's workflow tips & best practices                              | —                             |
-| `/grill`       | Grill your own diff — correctness, concurrency, edge cases                 | —                             |
-| `/plan-review` | Write a plan, then spin up a reviewer before implementation                | plan-architect                |
-| `/rabbit`      | CodeRabbit review on the current branch against `main`                     | —                             |
-| `/scan [dir]`  | Deep bug scan; appends findings to `potential-bugs.md`                     | deep-bug-scan                 |
-| `/stack`       | gh-stack wrapper. Bare call = smart recommendation                         | stack-navigator (no args)     |
-| `/techdebt`    | Scan for duplication, dead code, low-value abstractions; defer/apply/reject per item. Deferred items go to `techdebt.md` (rolling backlog, dedupes against prior runs). | — |
-| `/verify`      | Pre-PR gate. `--deep` = full install + sequenced unit→int→e2e              | build-validator, oncall-guide |
+| Command        | What it does                                                                                                                                                            | Dispatches agents             |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- |
+| `/acp`         | Stage, commit with a generated message, push (stack-aware)                                                                                                              | —                             |
+| `/boris`       | Boris Cherny's workflow tips & best practices                                                                                                                           | —                             |
+| `/grill`       | Grill your own diff — correctness, concurrency, edge cases                                                                                                              | —                             |
+| `/plan-review` | Write a plan, then spin up a reviewer before implementation                                                                                                             | plan-architect                |
+| `/rabbit`      | CodeRabbit review on the current branch against `main`                                                                                                                  | —                             |
+| `/scan [dir]`  | Deep bug scan; appends findings to `potential-bugs.md`                                                                                                                  | deep-bug-scan                 |
+| `/stack`       | gh-stack wrapper. Bare call = smart recommendation                                                                                                                      | stack-navigator (no args)     |
+| `/techdebt`    | Scan for duplication, dead code, low-value abstractions; defer/apply/reject per item. Deferred items go to `techdebt.md` (rolling backlog, dedupes against prior runs). | —                             |
+| `/verify`      | Pre-PR gate. `--deep` = full install + sequenced unit→int→e2e                                                                                                           | build-validator, oncall-guide |
 
 ## Workflow patterns
 
 How the tools fit together — useful for picking the right one and combining them.
 
 - **Pre-PR verification:** `/verify` → fix anything red → `/grill` (which dispatches `code-architect` in parallel) → `/acp`.
-- **Two complementary review lenses, run together:** `/grill` covers correctness, edge cases, concurrency, observability — questions about *the diff*. `code-architect` covers architecture, layering, naming, dependency choices — questions about *the design*. `/grill` fans out both in parallel and merges results.
+- **Two complementary review lenses, run together:** `/grill` covers correctness, edge cases, concurrency, observability — questions about _the diff_. `code-architect` covers architecture, layering, naming, dependency choices — questions about _the design_. `/grill` fans out both in parallel and merges results.
 - **Plan-first work:** `/plan-review` writes a plan and dispatches `plan-architect` for critique before any code is written. For changes already in progress, `code-architect` reviews staged + unstaged diffs.
-- **Bugs vs. tech debt:** `/scan` (via `deep-bug-scan`) finds real bugs — wrong logic, null risks, race conditions, SQL issues, weak assertions. Output is `.claude/potential-bugs.md`, kept current (fixed entries are pruned). `/techdebt` finds *structural* issues — duplication, dead code, low-value abstractions. Output is `.claude/techdebt.md`, a deferred-only backlog. There's a small overlap (dead code, near-duplicates) — run `/scan` when you suspect correctness problems, `/techdebt` when you want cleanup.
+- **Bugs vs. tech debt:** `/scan` (via `deep-bug-scan`) finds real bugs — wrong logic, null risks, race conditions, SQL issues, weak assertions. Output is `.claude/potential-bugs.md`, kept current (fixed entries are pruned). `/techdebt` finds _structural_ issues — duplication, dead code, low-value abstractions. Output is `.claude/techdebt.md`, a deferred-only backlog. There's a small overlap (dead code, near-duplicates) — run `/scan` when you suspect correctness problems, `/techdebt` when you want cleanup.
 - **CI failure triage:** `/verify` fails → it dispatches `oncall-guide` for diagnosis. You can also dispatch `oncall-guide` directly with a failing test name or CI job URL.
 
 ## Commands vs skills
