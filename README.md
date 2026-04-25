@@ -25,14 +25,14 @@ For user-wide install or finer-grained setup, see [Install](#install).
 
 Generic Node/TS agents — they infer your toolchain from `package.json` instead of hardcoding paths.
 
-| Agent               | Model  | Purpose                                                                            | Invoked by commands      |
-| ------------------- | ------ | ---------------------------------------------------------------------------------- | ------------------------ |
-| **build-validator** | Sonnet | Typecheck / lint / test / build. `--deep` = clean-install + sequenced unit→int→e2e | `/verify`                |
+| Agent               | Model  | Purpose                                                                            | Invoked by commands                  |
+| ------------------- | ------ | ---------------------------------------------------------------------------------- | ------------------------------------ |
+| **build-validator** | Sonnet | Typecheck / lint / test / build. `--deep` = clean-install + sequenced unit→int→e2e | `/verify`                            |
 | **code-architect**  | Opus   | Staff-level review of staged + unstaged changes                                    | `/grill` (parallel), direct dispatch |
-| **deep-bug-scan**   | Opus   | Deep scan for logic bugs, null risks, race conditions, SQL issues, weak tests      | `/scan`                  |
-| **oncall-guide**    | Sonnet | Diagnoses test/CI failures and classifies the cause                                | `/verify` (on failure)   |
-| **plan-architect**  | Opus   | Critiques an implementation plan before code is written                            | `/plan-review`           |
-| **stack-navigator** | Sonnet | Reads `gh stack view` and proposes the next safe action in a stacked-PR flow       | `/stack` (no args)       |
+| **deep-bug-scan**   | Opus   | Deep scan for logic bugs, null risks, race conditions, SQL issues, weak tests      | `/scan`                              |
+| **oncall-guide**    | Sonnet | Diagnoses test/CI failures and classifies the cause                                | `/verify` (on failure)               |
+| **plan-architect**  | Opus   | Critiques an implementation plan before code is written                            | `/plan-review`                       |
+| **stack-navigator** | Sonnet | Reads `gh stack view` and proposes the next safe action in a stacked-PR flow       | `/stack` (no args)                   |
 
 For cleaning up recently changed code, use the built-in `/simplify` skill (a Claude Code built-in, not a command this repo ships) — that's what it's for.
 
