@@ -2,6 +2,11 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+@.claude/claude-defaults.md
+@.claude/MEMORY.md
+
+<!-- Eat our own dog food: load the same defaults + memory artifacts we ship to consumers when working on this repo itself. -->
+
 ## What this repo is
 
 Public, opinionated Claude Code defaults for Node.js / TypeScript projects. It ships subagents, user-invocable slash commands, a permissions baseline, and a CLAUDE.md template that users drop into consumer projects. No application code, no build, no test suite. Work here is editing markdown and JSON under `.claude/` plus the top-level `README.md`.
