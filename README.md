@@ -31,7 +31,7 @@ Generic Node/TS agents — they infer your toolchain from `package.json` instead
 | **code-architect**  | Opus   | Staff-level review of staged + unstaged changes                                    | `/grill` (parallel), direct dispatch |
 | **deep-bug-scan**   | Opus   | Deep scan for logic bugs, null risks, race conditions, SQL issues, weak tests      | `/scan`                              |
 | **oncall-guide**    | Sonnet | Diagnoses test/CI failures and classifies the cause                                | `/verify` (on failure)               |
-| **plan-architect**  | Opus   | Critiques an implementation plan before code is written                            | `/plan-review`                       |
+| **plan-architect**  | Opus   | Critiques an implementation plan before code is written                            | `/plan`                              |
 | **stack-navigator** | Sonnet | Reads `gh stack view` and proposes the next safe action in a stacked-PR flow       | `/stack` (no args)                   |
 
 For cleaning up recently changed code, use the built-in `/simplify` skill (a Claude Code built-in, not a command this repo ships) — that's what it's for.
@@ -45,7 +45,7 @@ One `.md` per command; filename becomes `/<name>`. No frontmatter required; `$AR
 | `/acp`         | Stage, commit with a generated message, and push (stack-aware)                                | —                             |
 | `/dave`        | Critique current diff/plan via Dave AI (Alteos-internal — requires `dave` CLI)                | —                             |
 | `/grill`       | Devil's advocate on your own diff — find what's wrong before a reviewer does                  | —                             |
-| `/plan-review` | Write a plan, then spin up a reviewer before implementation                                   | plan-architect                |
+| `/plan`        | Draft → review → save plan to `.claude/plans/<slug>.md` (rides with the stack)                | plan-architect                |
 | `/rabbit`      | Run CodeRabbit review on the current branch against `main`                                    | —                             |
 | `/scan [dir]`  | Deep bug scan of a folder; appends findings to `.claude/potential-bugs.md`                    | deep-bug-scan                 |
 | `/stack`       | gh-stack wrapper (bare = smart recommendation, args = specific actions)                       | stack-navigator (no args)     |
@@ -113,8 +113,9 @@ Run `/init` in your project — it analyzes the codebase and generates an accura
 ## Working with Claude here
 
 @.claude/claude-defaults.md
+@.claude/MEMORY.md
 
-<!-- Imports `.claude/claude-defaults.md` into every session: planning, adaptive thinking, subagent spawning, compounding engineering. Edit that file to change the defaults project-wide. -->
+<!-- `claude-defaults.md` carries behavioural defaults (planning, adaptive thinking, subagent spawning, compounding engineering). `MEMORY.md` carries project conventions (slash-command natural-language triggers, etc.). Both are auto-loaded every session. Edit either file to change defaults project-wide. The MEMORY.md import is optional — drop the second `@` line if you don't ship a `.claude/MEMORY.md`. -->
 
 ## Things Claude has learned here
 
@@ -172,6 +173,8 @@ Use the `stack-navigator` agent when you want a summary plus the recommended nex
 ```
 
 **Pre-allowed in settings.json:** read-only `gh stack` commands (`view`, `up`, `down`, `top`, `bottom`, `checkout`). Mutating commands (`submit`, `sync`, `unstack`, `rebase`) still prompt — because they push to GitHub.
+
+**Plans ride with the work.** `/plan` saves the refined plan to `.claude/plans/<slug>.md` (slug = Jira key when detected, else a kebab-case verb-prefixed summary like `feat-…` / `fix-…` / `chore-…`). The file is checked in alongside the related PR(s) and updated in-place (checkboxes) as steps land. Once the work merges to main (the last PR in the stack, if stacked), delete it.
 
 ---
 

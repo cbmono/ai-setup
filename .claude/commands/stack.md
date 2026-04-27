@@ -15,7 +15,7 @@ Each maps to a real `gh stack` subcommand (run `gh stack --help` to see the full
 - **`submit`** — `gh stack view` first (show what will be pushed), then `gh stack submit`. Report PR URLs.
 - **`sync`** — `gh stack sync` (fetch + rebase + push + sync PR state). On rebase conflict, stop and hand back to the user with a clear summary. Do not resolve conflicts silently.
 - **`rebase`** — `gh stack rebase`. Same conflict rule as sync.
-- **`merge`** — confirm the bottom PR is green, then `gh stack merge`. After it merges, run `gh stack sync` so the rest rebases onto the new base.
+- **`merge`** — confirm the bottom PR is green, then `gh stack merge`. After it merges, run `gh stack sync` so the rest rebases onto the new base. If the stack is now empty (or only the base branch remains), list any files in `.claude/plans/` and ask the user which (if any) to delete — the merged stack may have produced one. Where possible, highlight the likely candidate by matching plan filenames against Jira keys / branch names from the merged commits.
 - **`up [n]` / `down [n]` / `top` / `bottom`** — navigate via `gh stack up/down/top/bottom`. Confirm the new branch.
 - **`unstack`** — confirm with the user before running `gh stack unstack` — it removes the stack locally and on GitHub.
 

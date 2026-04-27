@@ -9,6 +9,7 @@ Public, opinionated Claude Code defaults for Node.js / TypeScript projects. It s
 ## Layout
 
 - `.claude/claude-defaults.md` — behavioural defaults (planning, thinking, subagents, verification) that consumer projects pull into their own `CLAUDE.md` via `@.claude/claude-defaults.md`. Edit this to change the per-session rules everywhere at once. Keep it under ~20 lines — it's re-sent every turn in every consumer project. Don't restate guidance that already lives in Claude Code's built-in system prompt.
+- `.claude/MEMORY.md` — project conventions Claude should know about, currently a slash-command natural-language trigger table. Optional `@.claude/MEMORY.md` import from a consumer's `CLAUDE.md`; not auto-loaded otherwise.
 - `.claude/agents/` — subagent definitions (frontmatter: `name`, `description`, optional `model`, `isolation`).
 - `.claude/commands/` — slash commands triggered by `/<name>`. Filename = command name. No frontmatter. Use `$ARGUMENTS` for user-supplied args. **Never put a `README.md` in here** — Claude Code would register it as `/README`.
 - `.claude/settings.json` — checked-in, team-shared permissions baseline.
@@ -16,6 +17,7 @@ Public, opinionated Claude Code defaults for Node.js / TypeScript projects. It s
 - `.claude/settings.mempalace.example.json` — opt-in mempalace MCP + hooks, for users to copy from.
 - `.claude/potential-bugs.md` — append-only output sink for `deep-bug-scan`.
 - `.claude/techdebt.md` — rolling backlog for `/techdebt` (deferred items only, not a log). Created on first run.
+- `.claude/plans/` — `/plan` output. Slug = Jira key when detected on branch / recent commits, else a kebab-case verb-prefixed summary (`feat-…`, `fix-…`, `chore-…`). Checked in, rides with the related PR(s) as a checkbox progress tracker, deleted by the user once the work merges to main.
 - `.claude/README.md` — human inventory + commands-vs-skills note. Must stay in sync with the top-level `README.md` when agents/commands change.
 - `README.md` (root) — public-facing setup guide.
 - `entities.json`, `mempalace.yaml` (root) — gitignored local mempalace state. Not source, don't edit or commit.

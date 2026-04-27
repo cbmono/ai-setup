@@ -8,6 +8,7 @@ Defaults shipped by this repo. See the [top-level README](../README.md) for inst
 .claude/
   README.md                           # this file (inventory + conventions)
   claude-defaults.md                  # @-imported from CLAUDE.md → loaded every session
+  MEMORY.md                           # project conventions (slash-command triggers); optional @-import
   potential-bugs.md                   # append-only sink for deep-bug-scan
   techdebt.md                         # rolling backlog for /techdebt (deferred items only)
   settings.json                       # team-shared permissions (checked in)
@@ -15,6 +16,7 @@ Defaults shipped by this repo. See the [top-level README](../README.md) for inst
   settings.mempalace.example.json     # opt-in mempalace MCP + hooks
   agents/                             # subagents (one .md per agent, YAML frontmatter)
   commands/                           # slash commands (one .md per command, no frontmatter)
+  plans/                              # /plan output; checked in, rides with stacked PRs, deleted post-merge
 ```
 
 > Don't put a `README.md` inside `commands/` — Claude Code registers every `.md` there as a slash command, so a README becomes `/README`.
@@ -27,7 +29,7 @@ Defaults shipped by this repo. See the [top-level README](../README.md) for inst
 | `code-architect`  | Opus   | Staff-level review of staged + unstaged changes                                                      | `/grill` (parallel dispatch), direct dispatch |
 | `deep-bug-scan`   | Opus   | Scans a folder for logic, null, async, SQL, API-misuse, assertion, mutation, and security-smell bugs | `/scan`                                       |
 | `oncall-guide`    | Sonnet | Diagnoses test or CI failures and classifies the cause                                               | `/verify` (on failure)                        |
-| `plan-architect`  | Opus   | Critiques an implementation plan before code is written                                              | `/plan-review`                                |
+| `plan-architect`  | Opus   | Critiques an implementation plan before code is written                                              | `/plan`                                       |
 | `stack-navigator` | Sonnet | Reads `gh stack view` and proposes the next safe action                                              | `/stack` (no args)                            |
 
 Recently-changed-code cleanup uses the **built-in** `/simplify` skill (a Claude Code built-in, not a command this repo ships) — no custom agent needed.
@@ -41,7 +43,7 @@ One `.md` per command in `.claude/commands/`. Filename (minus `.md`) is the comm
 | `/acp`         | Stage, commit with a generated message, push (stack-aware)                                                                                                              | —                             |
 | `/dave`        | Critique current diff/plan via Dave AI (Alteos-internal — requires `dave` CLI)                                                                                          | —                             |
 | `/grill`       | Grill your own diff — correctness, concurrency, edge cases                                                                                                              | —                             |
-| `/plan-review` | Write a plan, then spin up a reviewer before implementation                                                                                                             | plan-architect                |
+| `/plan`        | Draft → review → save plan to `.claude/plans/<slug>.md` (rides with the stack)                                                                                          | plan-architect                |
 | `/rabbit`      | CodeRabbit review on the current branch against `main`                                                                                                                  | —                             |
 | `/scan [dir]`  | Deep bug scan; appends findings to `potential-bugs.md`                                                                                                                  | deep-bug-scan                 |
 | `/stack`       | gh-stack wrapper. Bare call = smart recommendation                                                                                                                      | stack-navigator (no args)     |
@@ -54,7 +56,7 @@ How the tools fit together — useful for picking the right one and combining th
 
 - **Pre-PR verification:** `/verify` → fix anything red → `/grill` (which dispatches `code-architect` in parallel) → `/acp`.
 - **Two complementary review lenses, run together:** `/grill` covers correctness, edge cases, concurrency, observability — questions about _the diff_. `code-architect` covers architecture, layering, naming, dependency choices — questions about _the design_. `/grill` fans out both in parallel and merges results.
-- **Plan-first work:** `/plan-review` writes a plan and dispatches `plan-architect` for critique before any code is written. For changes already in progress, `code-architect` reviews staged + unstaged diffs.
+- **Plan-first work:** `/plan` drafts a plan, dispatches `plan-architect` for critique, then saves the refined plan to `.claude/plans/<slug>.md` — slug is the Jira key when detected on branch / recent commits, else a kebab-case verb-prefixed summary (`feat-…`, `fix-…`, `chore-…`). The file is checked in, rides along with the related PR(s) as a checkbox progress tracker, and is deleted by the user once the work merges to main (`/stack merge` will prompt for cleanup when the stack drains). **Caveat for stacked PRs:** every PR that ticks a checkbox modifies the same file, so frequent updates create rebase friction during `gh stack sync` — update at PR boundaries, not after every commit. For changes already in progress, `code-architect` reviews staged + unstaged diffs.
 - **Bugs vs. tech debt:** `/scan` (via `deep-bug-scan`) finds real bugs — wrong logic, null risks, race conditions, SQL issues, weak assertions. Output is `.claude/potential-bugs.md`, kept current (fixed entries are pruned). `/techdebt` finds _structural_ issues — duplication, dead code, low-value abstractions. Output is `.claude/techdebt.md`, a deferred-only backlog. There's a small overlap (dead code, near-duplicates) — run `/scan` when you suspect correctness problems, `/techdebt` when you want cleanup.
 - **CI failure triage:** `/verify` fails → it dispatches `oncall-guide` for diagnosis. You can also dispatch `oncall-guide` directly with a failing test name or CI job URL.
 
