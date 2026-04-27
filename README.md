@@ -44,6 +44,7 @@ One `.md` per command; filename becomes `/<name>`. No frontmatter required; `$AR
 | -------------- | --------------------------------------------------------------------------------------------- | ----------------------------- |
 | `/acp`         | Stage, commit with a generated message, and push (stack-aware)                                | —                             |
 | `/boris`       | Boris Cherny's Claude Code workflow tips (parallel sessions, hooks, plan mode)                | —                             |
+| `/dave`        | Critique current diff/plan via Dave AI (Alteos-internal — requires `dave` CLI)                | —                             |
 | `/grill`       | Devil's advocate on your own diff — find what's wrong before a reviewer does                  | —                             |
 | `/plan-review` | Write a plan, then spin up a reviewer before implementation                                   | plan-architect                |
 | `/rabbit`      | Run CodeRabbit review on the current branch against `main`                                    | —                             |
