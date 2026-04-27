@@ -4,14 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repo is
 
-Public, opinionated Claude Code defaults for Node.js / TypeScript projects. It ships subagents, user-invocable slash commands (including a Boris Cherny tips command), a permissions baseline, and a CLAUDE.md template that users drop into consumer projects. No application code, no build, no test suite. Work here is editing markdown and JSON under `.claude/` plus the top-level `README.md`.
+Public, opinionated Claude Code defaults for Node.js / TypeScript projects. It ships subagents, user-invocable slash commands, a permissions baseline, and a CLAUDE.md template that users drop into consumer projects. No application code, no build, no test suite. Work here is editing markdown and JSON under `.claude/` plus the top-level `README.md`.
 
 ## Layout
 
 - `.claude/claude-defaults.md` — behavioural defaults (planning, thinking, subagents, verification) that consumer projects pull into their own `CLAUDE.md` via `@.claude/claude-defaults.md`. Edit this to change the per-session rules everywhere at once. Keep it under ~20 lines — it's re-sent every turn in every consumer project. Don't restate guidance that already lives in Claude Code's built-in system prompt.
 - `.claude/agents/` — subagent definitions (frontmatter: `name`, `description`, optional `model`, `isolation`).
 - `.claude/commands/` — slash commands triggered by `/<name>`. Filename = command name. No frontmatter. Use `$ARGUMENTS` for user-supplied args. **Never put a `README.md` in here** — Claude Code would register it as `/README`.
-- `.claude/commands/boris.md` — the `/boris` command: Boris Cherny's Claude Code tips. The first line in the body carries the version — bump it when content changes materially.
 - `.claude/settings.json` — checked-in, team-shared permissions baseline.
 - `.claude/settings.local.json` — per-machine overrides, gitignored.
 - `.claude/settings.mempalace.example.json` — opt-in mempalace MCP + hooks, for users to copy from.
@@ -34,8 +33,6 @@ This repo ships **commands** (`.claude/commands/<name>.md`, invoked only when th
 - **`settings.json` is the checked-in, permissions-only baseline.** Only add permission entries safe for everyone on a team. Per-machine additions go in `.claude/settings.local.json` (gitignored). Hooks, MCP servers, and env vars belong in opt-in example files (e.g. `settings.mempalace.example.json`) so consumers choose to wire them up — don't add `hooks` or `mcpServers` blocks to the checked-in `settings.json`.
 - **Permission patterns: prefer the simple shapes.** `Bash(cmd:*)` (trailing wildcard, equivalent to `Bash(cmd *)`) and exact-string matches are reliable. Mid-pattern wildcards (`Bash(git push * --force)`) are documented and supported, but per Anthropic's own docs they're fragile against flag re-ordering, redirects, env-var substitution, and extra whitespace — i.e. anyone trying to evade is likely to. Don't ship them as deny rules. If you need argument-level filtering, use a `PreToolUse` hook in `settings.local.json` that inspects the full command line.
 - **Don't ship deny rules that block harmless files.** `.env.example` / `.env.template` / `.env.sample` are templates meant to be read; only block real env files (`.env`, `.env.local`, `.env.*.local`). Same logic for SSH: block `id_rsa` / `id_ed25519` / `id_ecdsa`, not `*.pub` (public keys are meant to be shareable).
-- **`boris.md` is external content.** Treat edits surgically — bump the version line at the top when you change it. The source is howborisusesclaudecode.com.
-- **Never `@`-import `boris.md` from `claude-defaults.md`** (or anywhere that loads every turn). The file is ~23 KB; auto-loading it would dominate the context budget for every consumer project. `/boris` stays explicit by design.
 - **Opus 4.7 is the target.** Guidance in agents and the CLAUDE.md template assumes 4.7 behavior (adaptive thinking, explicit subagent spawning, xhigh default). Don't rewrite for 4.6.
 - **Don't invent tool invocations.** If a command references `gh stack`, `mempalace`, `coderabbit`, etc., check the actual command surface before committing — users run these verbatim.
 - **After adding/moving commands or agents, restart Claude Code and verify registration** — `/exit`, then `claude`. New files aren't picked up mid-session.

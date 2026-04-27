@@ -1,6 +1,6 @@
 # ai-setup
 
-Opinionated defaults for [Claude Code](https://claude.com/claude-code), tuned for Node.js and TypeScript projects. Agents, slash commands, settings, and a curated workflow-tips command — ready to drop into `~/.claude` or cherry-pick per project.
+Opinionated defaults for [Claude Code](https://claude.com/claude-code), tuned for Node.js and TypeScript projects. Agents, slash commands, and settings — ready to drop into `~/.claude` or cherry-pick per project.
 
 Built for Opus 4.7 with stacked-PR workflows in mind.
 
@@ -10,7 +10,7 @@ Built for Opus 4.7 with stacked-PR workflows in mind.
 
 1. Copy the `.claude/` folder into your project.
 2. Start Claude Code in your terminal: `claude`.
-3. Run `/init` and then `/boris` if you want to load Boris Cherny's workflow best-practices/tips.
+3. Run `/init` to bootstrap your project's `CLAUDE.md`.
 4. Done.
 
 Check the list of agents and commands in `.claude/` — or see [What's inside](#whats-inside) below.
@@ -43,7 +43,6 @@ One `.md` per command; filename becomes `/<name>`. No frontmatter required; `$AR
 | Command        | What it does                                                                                  | Dispatches agents             |
 | -------------- | --------------------------------------------------------------------------------------------- | ----------------------------- |
 | `/acp`         | Stage, commit with a generated message, and push (stack-aware)                                | —                             |
-| `/boris`       | Boris Cherny's Claude Code workflow tips (parallel sessions, hooks, plan mode)                | —                             |
 | `/dave`        | Critique current diff/plan via Dave AI (Alteos-internal — requires `dave` CLI)                | —                             |
 | `/grill`       | Devil's advocate on your own diff — find what's wrong before a reviewer does                  | —                             |
 | `/plan-review` | Write a plan, then spin up a reviewer before implementation                                   | plan-architect                |
@@ -115,11 +114,11 @@ Run `/init` in your project — it analyzes the codebase and generates an accura
 
 @.claude/claude-defaults.md
 
-<!-- Imports `.claude/claude-defaults.md` into every session: planning, adaptive thinking, subagent spawning, compounding engineering. Edit that file to change the defaults project-wide. Full Boris Cherny tips: `/boris`. -->
+<!-- Imports `.claude/claude-defaults.md` into every session: planning, adaptive thinking, subagent spawning, compounding engineering. Edit that file to change the defaults project-wide. -->
 
 ## Things Claude has learned here
 
-<!-- Add one-liners as you correct Claude. "Anytime we see Claude do something incorrectly we add it to the CLAUDE.md." — Boris Cherny. Example:
+<!-- Add one-liners as you correct Claude — anytime Claude does something incorrectly, capture the rule here so it doesn't recur. Example:
 
 - Never import from `lodash` — we use `remeda` everywhere.
 - API handlers must call `logger.withContext(req)` before any awaits.
@@ -208,8 +207,6 @@ Key behaviour differences vs 4.6 (worth internalizing):
 - **Fewer tool calls.** Tell it explicitly: "Grep thoroughly before answering."
 - **Front-load the spec.** Every turn adds reasoning overhead — state constraints, acceptance criteria, and file locations in turn one.
 
-Fire `/boris` for the full tips list (parallel worktrees, plan mode, hooks, permissions, MCP integrations, auto-memory).
-
 ---
 
 ## Customizing
@@ -217,7 +214,7 @@ Fire `/boris` for the full tips list (parallel worktrees, plan mode, hooks, perm
 - **Add a command:** drop an `.md` file in `.claude/commands/` — the filename (minus `.md`) becomes the `/command`. Use `$ARGUMENTS` for user-supplied args. No frontmatter needed. **Don't put a `README.md` in `.claude/commands/`** — Claude Code scans every `.md` there as a command, so a README becomes `/README`. See [`.claude/README.md`](./.claude/README.md) for the command-vs-skill distinction.
 - **Add an agent:** drop an `.md` file in `.claude/agents/` with YAML frontmatter (`name`, `description`, optional `model`, `isolation: worktree`).
 - **Adjust permissions:** edit `.claude/settings.json` for team-shared rules, `.claude/settings.local.json` for this machine only.
-- **Compounding engineering:** when Claude does something wrong, add the rule to your project's `CLAUDE.md`. "Anytime we see Claude do something incorrectly we add it to the CLAUDE.md." (Boris)
+- **Compounding engineering:** when Claude does something wrong, add the rule to your project's `CLAUDE.md` so it doesn't recur.
 
 > **Restart after adding commands or agents.** Claude Code scans `.claude/commands/` and `.claude/agents/` at session start. New files aren't picked up until you `/exit` and relaunch `claude`. If `/<your-new-command>` returns "Unknown command", that's why.
 >

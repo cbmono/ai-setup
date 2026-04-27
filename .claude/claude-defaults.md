@@ -1,6 +1,6 @@
 # Claude Code defaults for this project
 
-Session-level rules. Derived from [howborisusesclaudecode.com](https://howborisusesclaudecode.com); full tips: `/boris`.
+Session-level rules. Keep this file under ~20 lines — it's re-sent every turn.
 
 ## Planning & thinking (Opus 4.7)
 
