@@ -52,6 +52,8 @@ One `.md` per command; filename becomes `/<name>`. No frontmatter required; `$AR
 | `/techdebt`    | Scan for duplication/dead code; defer/apply/reject per item. Backlog in `.claude/techdebt.md` | —                             |
 | `/verify`      | Pre-PR gate: typecheck / lint / test / build. `--deep` = full install + e2e                   | build-validator, oncall-guide |
 
+**Picking among the review commands:** `/grill` reviews the current diff (diff-scoped, ephemeral, pre-PR). `/scan` hunts bugs in existing code (folder-scoped, durable backlog at `.claude/potential-bugs.md`). `/techdebt` finds structural cleanup opportunities (repo-scoped, deferred backlog at `.claude/techdebt.md`). See [`.claude/README.md`](./.claude/README.md) for the full workflow patterns.
+
 ### Settings (`.claude/settings.json`)
 
 Pre-allows common safe operations so you see fewer permission prompts:
