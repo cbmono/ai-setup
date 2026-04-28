@@ -16,6 +16,7 @@ Defaults shipped by this repo. See the [top-level README](../README.md) for inst
   settings.mempalace.example.json     # opt-in mempalace MCP + hooks
   agents/                             # subagents (one .md per agent, YAML frontmatter)
   commands/                           # slash commands (one .md per command, no frontmatter)
+  skills/                             # auto-invocable capabilities; see skills/README.md
   plans/                              # /plan output; checked in, rides with stacked PRs, deleted post-merge
 ```
 

@@ -17,6 +17,7 @@ Public, opinionated Claude Code defaults for Node.js / TypeScript projects. It s
 - `.claude/MEMORY.md` — project conventions Claude should know about, currently a slash-command natural-language trigger table. Optional `@.claude/MEMORY.md` import from a consumer's `CLAUDE.md`; not auto-loaded otherwise.
 - `.claude/agents/` — subagent definitions (frontmatter: `name`, `description`, optional `model`, `isolation`).
 - `.claude/commands/` — slash commands triggered by `/<name>`. Filename = command name. No frontmatter. Use `$ARGUMENTS` for user-supplied args. **Never put a `README.md` in here** — Claude Code would register it as `/README`.
+- `.claude/skills/` — auto-invocable capabilities (one subdirectory per skill, each with a `SKILL.md` carrying YAML frontmatter). Repo currently ships none; see `.claude/skills/README.md` for the convention.
 - `.claude/settings.json` — checked-in, team-shared permissions baseline.
 - `.claude/settings.local.json` — per-machine overrides, gitignored.
 - `.claude/settings.mempalace.example.json` — opt-in mempalace MCP + hooks, for users to copy from.
