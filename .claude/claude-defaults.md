@@ -16,3 +16,7 @@ Session-level rules. Keep this file under ~20 lines — it's re-sent every turn.
 ## Compounding engineering
 
 - **Learn from corrections.** When the user points out a mistake or preference, add a specific rule to this project's `CLAUDE.md` so it doesn't recur. `Don't import from lodash — we use remeda` beats `be careful with imports`.
+
+## PR sizing
+
+- **Keep PRs under ~500 LoC for reviewability.** If a change is heading past that, propose a `gh stack` split before committing. Line count is a heuristic — generated boilerplate, codemods, and dense logic are context-dependent — so suggest, don't block.
