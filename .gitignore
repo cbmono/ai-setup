@@ -9,6 +9,11 @@
 .claude/statsig/
 .claude/ide/
 
+# Project-state artifacts auto-created by /scan, /techdebt, /plan on first run
+.claude/potential-bugs.md
+.claude/techdebt.md
+.claude/plans/
+
 # Local worktrees used by parallel Claude sessions
 .claude/worktrees/
 

@@ -8,14 +8,17 @@ Built for Opus 4.7 with stacked-PR workflows in mind.
 
 ## Getting started
 
-1. Copy the `.claude/` folder into your project.
-2. Start Claude Code in your terminal: `claude`.
-3. Run `/init` to bootstrap your project's `CLAUDE.md`.
-4. Done.
+The recommended setup is **user-wide**: symlink this repo's `.claude/` into `~/.claude/` once, and every project picks up the agents, commands, skills, and defaults automatically.
 
-Check the list of agents and commands in `.claude/` — or see [What's inside](#whats-inside) below.
+```bash
+git clone https://github.com/<your-fork>/ai-setup.git ~/ai-setup
+mv ~/.claude ~/.claude.bak.$(date +%s) 2>/dev/null || true
+ln -s ~/ai-setup/.claude ~/.claude
+```
 
-For user-wide install or finer-grained setup, see [Install](#install).
+Then in any project: `claude`, then `/init` to bootstrap the project's `CLAUDE.md`. Project-state files (`/scan`, `/techdebt`, `/plan` outputs) land in the project's local `.claude/`, created lazily on first write.
+
+Prefer per-project copy, or have an existing `.claude/` to overlay? See [Install](#install).
 
 ---
 
@@ -91,15 +94,21 @@ Agents and commands apply to every project. `settings.json` becomes your user-wi
 
 ### Option B — Per-project
 
-Copy just what you want into the project's `.claude/`:
+Use this when you want stability per project (frozen defaults), or for project-specific tweaks.
+
+For a fresh project (no existing `.claude/`):
 
 ```bash
-# In the target project
-mkdir -p .claude/agents .claude/commands
-cp -r ~/path/to/ai-setup/.claude/agents/* .claude/agents/
-cp -r ~/path/to/ai-setup/.claude/commands/* .claude/commands/
-cp ~/path/to/ai-setup/.claude/settings.json .claude/settings.json
+cp -r ~/path/to/ai-setup/.claude ./.claude
 ```
+
+For a project that already has a `.claude/`:
+
+```bash
+rsync -a --exclude='settings.local.json' ~/path/to/ai-setup/.claude/ ./.claude/
+```
+
+That single exclusion is enough — this repo's `.claude/` no longer carries `potential-bugs.md`, `techdebt.md`, or `plans/`. Those project-state artifacts are auto-created in the target by their respective commands (`/scan`, `/techdebt`, `/plan`) on first run, and stay gitignored. `CLAUDE.md` at the project root is also never touched. If you've customised `.claude/MEMORY.md`, back it up before syncing — it will be overwritten.
 
 ### Bootstrap a CLAUDE.md
 
@@ -107,17 +116,20 @@ Run `/init` in your project — it analyzes the codebase and generates an accura
 
 > **Before you paste:**
 >
-> 1. **Make sure `.claude/claude-defaults.md` actually exists.** If you didn't copy it across (Step 1 of "Getting started" or Option B in "Install"), the `@` line below resolves to nothing and Claude Code does **not** raise an error — your defaults silently won't load. Verify with `ls .claude/claude-defaults.md` before pasting.
-> 2. **Put `CLAUDE.md` at the repo root**, alongside the `.claude/` directory. The `@` import below uses a path relative to the CLAUDE.md file — if you move CLAUDE.md elsewhere, adjust the path or it will silently fail to load.
-> 3. **Approve the import on first run.** The first time Claude Code encounters a new `@` import, it shows a one-time approval dialog. **Click approve** — if you decline, imports stay disabled for that project and `.claude/claude-defaults.md` won't load (silent failure: Claude will just ignore the defaults without error).
+> 1. **Confirm the symlink.** The imports below use `@~/.claude/...`, which assumes you set up the user-wide symlink (recommended in [Getting started](#getting-started)). Verify with `readlink ~/.claude` — it should point at this repo's `.claude/`. If you're on a per-project install instead, swap both `@~/.claude/...` paths for `@.claude/...` and make sure those files exist in this project's `.claude/`.
+> 2. **Put `CLAUDE.md` at the repo root.** Bare-path imports (`@.claude/...`) resolve relative to the `CLAUDE.md` file's location; if you move it, adjust the paths.
+> 3. **Approve the import on first run.** The first time Claude Code encounters a new `@` import in a project, it shows a one-time approval dialog. **Click approve** — if you decline, imports stay disabled for that project and the defaults silently won't load.
 
 ```markdown
 ## Working with Claude here
 
-@.claude/claude-defaults.md
-@.claude/MEMORY.md
+@~/.claude/claude-defaults.md
+@~/.claude/MEMORY.md
 
-<!-- `claude-defaults.md` carries behavioural defaults (planning, adaptive thinking, subagent spawning, compounding engineering). `MEMORY.md` carries project conventions (slash-command natural-language triggers, etc.). Both are auto-loaded every session. Edit either file to change defaults project-wide. The MEMORY.md import is optional — drop the second `@` line if you don't ship a `.claude/MEMORY.md`. -->
+<!-- Loads behavioural defaults (claude-defaults.md) and the slash-command
+trigger table (MEMORY.md) from the user-wide ~/.claude/ symlink every
+session. For per-project installs (no symlink), swap to `@.claude/...`
+and ensure both files exist in this project's .claude/. -->
 
 ## Things Claude has learned here
 
@@ -138,10 +150,10 @@ Run `/init` in your project — it analyzes the codebase and generates an accura
 
 > **How the `@` import works (and what to watch):**
 >
-> - Claude Code resolves `@<path>` lines inside `CLAUDE.md` and inlines the referenced file into every session's context. Paths are relative to the CLAUDE.md file's location, not your working directory. Supports tilde (`@~/.claude/shared.md`) and up to 5 levels of recursion.
-> - Keep your CLAUDE.md + all imports around **200 lines total**. Every line is re-sent on every turn; bloat shows up directly in token costs and in Claude's attention budget. Our `.claude/claude-defaults.md` is intentionally ~20 lines — resist the urge to expand it with guidance that already lives in Claude Code's built-in system prompt (e.g. "don't add defensive error handling," "don't create unrequested docs" — those are already defaults).
-> - **Why imports instead of inlining the bullets?** You edit the rules once in `.claude/claude-defaults.md` and every project using this setup picks up the change — no per-project copy-paste drift. If you adopt this repo user-wide (Option A above), the same defaults apply everywhere.
-> - **User-wide variant:** put `@~/.claude/claude-defaults.md` in `~/.claude/CLAUDE.md` to get the defaults in every project, not just ones that copy this template.
+> - Claude Code resolves `@<path>` lines inside `CLAUDE.md` and inlines the referenced file into every session's context. Tilde paths (`@~/.claude/...`) resolve against your home directory; bare paths (`@.claude/...`) resolve relative to the `CLAUDE.md` file. Supports up to 5 levels of recursion.
+> - Keep your `CLAUDE.md` + all imports around **200 lines total**. Every line is re-sent on every turn; bloat shows up directly in token costs and in Claude's attention budget. Our `claude-defaults.md` is intentionally ~20 lines — resist the urge to expand it with guidance that already lives in Claude Code's built-in system prompt (e.g. "don't add defensive error handling," "don't create unrequested docs" — those are already defaults).
+> - **Why imports instead of inlining the bullets?** You edit the rules once in `~/.claude/claude-defaults.md` (the file in this repo, surfaced via the symlink) and every project picks up the change automatically — no per-project copy-paste drift.
+> - **Per-project alternative:** if you don't want a user-wide symlink, swap the imports for `@.claude/claude-defaults.md` and `@.claude/MEMORY.md` and use [`bin/sync-to-project.sh`](#option-b--per-project) to keep the project-local copies updated.
 
 ---
 
@@ -229,11 +241,10 @@ Key behaviour differences vs 4.6 (worth internalizing):
 
 ## Conventions in this repo
 
-- `.claude/settings.json` — checked in, team-shared
-- `.claude/settings.local.json` — gitignored, per-machine
+- `.claude/settings.json` — checked in, team-shared permissions baseline
+- `.claude/settings.local.json` — gitignored, per-machine overrides
 - `.claude/settings.mempalace.example.json` — reference only, copy blocks out to opt in
-- `.claude/potential-bugs.md` — append-only output sink for `deep-bug-scan`
-- `.claude/techdebt.md` — rolling backlog for `/techdebt` (deferred items only, created on first run)
+- `.claude/potential-bugs.md`, `.claude/techdebt.md`, `.claude/plans/` — gitignored, auto-created by `/scan`, `/techdebt`, `/plan` on first run; never seeded in this repo
 - `CLAUDE.md` (this repo's root) — guidance for Claude when editing **this config repo itself**, not a template
 
 ---

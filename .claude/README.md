@@ -9,15 +9,17 @@ Defaults shipped by this repo. See the [top-level README](../README.md) for inst
   README.md                           # this file (inventory + conventions)
   claude-defaults.md                  # @-imported from CLAUDE.md → loaded every session
   MEMORY.md                           # project conventions (slash-command triggers); optional @-import
-  potential-bugs.md                   # append-only sink for deep-bug-scan
-  techdebt.md                         # rolling backlog for /techdebt (deferred items only)
   settings.json                       # team-shared permissions (checked in)
-  settings.local.json                 # per-machine overrides (gitignored)
+  settings.local.json                 # per-machine overrides (gitignored, auto-created by Claude Code)
   settings.mempalace.example.json     # opt-in mempalace MCP + hooks
   agents/                             # subagents (one .md per agent, YAML frontmatter)
   commands/                           # slash commands (one .md per command, no frontmatter)
   skills/                             # auto-invocable capabilities; see skills/README.md
-  plans/                              # /plan output; checked in, rides with stacked PRs, deleted post-merge
+
+# Auto-created on first run by their respective commands (gitignored, never committed):
+  potential-bugs.md                   # /scan output (append-only sink)
+  techdebt.md                         # /techdebt output (rolling deferred backlog)
+  plans/                              # /plan output; rides with the related PR(s), deleted once work merges
 ```
 
 > Don't put a `README.md` inside `commands/` — Claude Code registers every `.md` there as a slash command, so a README becomes `/README`.
@@ -57,11 +59,11 @@ How the tools fit together — useful for picking the right one and combining th
 
 - **Pre-PR verification:** `/verify` → fix anything red → `/grill` (which dispatches `code-architect` in parallel) → `/acp`.
 - **Two complementary review lenses, run together:** `/grill` covers correctness, edge cases, concurrency, observability — questions about _the diff_. `code-architect` covers architecture, layering, naming, dependency choices — questions about _the design_. `/grill` fans out both in parallel and merges results.
-- **Plan-first work:** `/plan` drafts a plan, dispatches `plan-architect` for critique, then saves the refined plan to `.claude/plans/<slug>.md` — slug is the Jira key when detected on branch / recent commits, else a kebab-case verb-prefixed summary (`feat-…`, `fix-…`, `chore-…`). The file is checked in, rides along with the related PR(s) as a checkbox progress tracker, and is deleted by the user once the work merges to main (`/stack merge` will prompt for cleanup when the stack drains). **Caveat for stacked PRs:** every PR that ticks a checkbox modifies the same file, so frequent updates create rebase friction during `gh stack sync` — update at PR boundaries, not after every commit. For changes already in progress, `code-architect` reviews staged + unstaged diffs.
+- **Plan-first work:** `/plan` drafts a plan, dispatches `plan-architect` for critique, then saves the refined plan to `.claude/plans/<slug>.md` (auto-created on first run) — slug is the Jira key when detected on branch / recent commits, else a kebab-case verb-prefixed summary (`feat-…`, `fix-…`, `chore-…`). The file is checked in, rides along with the related PR(s) as a checkbox progress tracker, and is deleted by the user once the work merges to main (`/stack merge` will prompt for cleanup when the stack drains). **Caveat for stacked PRs:** every PR that ticks a checkbox modifies the same file, so frequent updates create rebase friction during `gh stack sync` — update at PR boundaries, not after every commit. For changes already in progress, `code-architect` reviews staged + unstaged diffs.
 - **Review lenses by scope and durability:** three commands, picked by what you're judging and whether you want a backlog.
   - `/grill` — **diff-scoped, ephemeral.** Devil's-advocate critique of the current diff pre-PR (correctness, edge cases, concurrency) plus a parallel `code-architect` pass on design. Output is in-conversation only — act on it now or lose it.
-  - `/scan [dir]` — **folder-scoped, durable.** `deep-bug-scan` hunts _existing_ code for real bugs (wrong logic, null risks, race conditions, SQL issues, weak assertions). Findings append to `.claude/potential-bugs.md`, kept current (fixed entries pruned).
-  - `/techdebt` — **repo-scoped, durable.** Finds _structural_ issues (duplication, dead code, low-value abstractions). Deferred items go to `.claude/techdebt.md`, a deferred-only backlog (fixed/rejected items pruned).
+  - `/scan [dir]` — **folder-scoped, durable.** `deep-bug-scan` hunts _existing_ code for real bugs (wrong logic, null risks, race conditions, SQL issues, weak assertions). Findings append to `.claude/potential-bugs.md` (auto-created on first run), kept current (fixed entries pruned).
+  - `/techdebt` — **repo-scoped, durable.** Finds _structural_ issues (duplication, dead code, low-value abstractions). Deferred items go to `.claude/techdebt.md` (auto-created on first run), a deferred-only backlog (fixed/rejected items pruned).
   - Small overlap on dead code / near-duplicates between `/scan` and `/techdebt` — run `/scan` for correctness problems, `/techdebt` for cleanup.
 - **CI failure triage:** `/verify` fails → it dispatches `oncall-guide` for diagnosis. You can also dispatch `oncall-guide` directly with a failing test name or CI job URL.
 

@@ -21,9 +21,7 @@ Public, opinionated Claude Code defaults for Node.js / TypeScript projects. It s
 - `.claude/settings.json` — checked-in, team-shared permissions baseline.
 - `.claude/settings.local.json` — per-machine overrides, gitignored.
 - `.claude/settings.mempalace.example.json` — opt-in mempalace MCP + hooks, for users to copy from.
-- `.claude/potential-bugs.md` — append-only output sink for `deep-bug-scan`.
-- `.claude/techdebt.md` — rolling backlog for `/techdebt` (deferred items only, not a log). Created on first run.
-- `.claude/plans/` — `/plan` output. Slug = Jira key when detected on branch / recent commits, else a kebab-case verb-prefixed summary (`feat-…`, `fix-…`, `chore-…`). Checked in, rides with the related PR(s) as a checkbox progress tracker, deleted by the user once the work merges to main.
+- `.claude/potential-bugs.md`, `.claude/techdebt.md`, `.claude/plans/` — runtime output of `/scan`, `/techdebt`, `/plan`. Auto-created in target projects on first run, gitignored, never seeded in this repo. The `/plan` slug is the Jira key when detected on branch / recent commits, else a kebab-case verb-prefixed summary (`feat-…`, `fix-…`, `chore-…`); plan files ride with the related PR(s) and are deleted by the user once the work merges to main.
 - `.claude/README.md` — human inventory + commands-vs-skills note. Must stay in sync with the top-level `README.md` when agents/commands change.
 - `README.md` (root) — public-facing setup guide.
 - `entities.json`, `mempalace.yaml` (root) — gitignored local mempalace state. Not source, don't edit or commit.
