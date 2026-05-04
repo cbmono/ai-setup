@@ -194,21 +194,7 @@ Use the `stack-navigator` agent when you want a summary plus the recommended nex
 
 ## Memory (mempalace, optional)
 
-[mempalace](https://github.com/mempalace/mempalace) is a local-first memory system that stores conversation history verbatim and indexes it for semantic + keyword search. Works offline, 96–98% retrieval recall, no API calls.
-
-**Install:**
-
-```bash
-pip install mempalace
-cd /path/to/your-project
-mempalace init .
-```
-
-**Wire into Claude Code:** copy the MCP + hooks block from `.claude/settings.mempalace.example.json` into your `.claude/settings.json` (or `~/.claude/settings.json` for user-wide). The example uses `PreCompact` and `Stop` hooks to mine the session before context compaction and at turn end.
-
-Run `mempalace mine` directly when you want to index a session, or rely on the `PreCompact` / `Stop` hooks above to mine automatically.
-
-See [mempalaceofficial.com/guide/hooks](https://mempalaceofficial.com/guide/hooks) for the canonical hook commands — the example file uses reasonable defaults but check upstream for the current syntax.
+If you want local-first session memory, [mempalace](https://github.com/mempalace/mempalace) indexes Claude Code transcripts for semantic + keyword search (offline, no API calls). `.claude/settings.mempalace.example.json` ships the MCP + hooks shape — copy the blocks into your own `settings.json` after `pip install mempalace && mempalace init .`. Check [mempalaceofficial.com](https://mempalaceofficial.com) for the current install + hook syntax; the example file may drift.
 
 ---
 

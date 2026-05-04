@@ -1,35 +1,16 @@
 {
-  "_comment": "Opt-in mempalace integration. Copy the mcpServers and hooks blocks into .claude/settings.json (or ~/.claude/settings.json for user-wide) AFTER installing mempalace: `pip install mempalace && mempalace init .`. See https://mempalaceofficial.com/guide/hooks and https://mempalaceofficial.com/reference/mcp-tools for the current, canonical command strings — replace the PLACEHOLDER values below.",
+  "_comment": "Reference shape for opting into mempalace (https://mempalaceofficial.com). Install with `pip install mempalace && mempalace init .`, then copy the mcpServers + hooks blocks into .claude/settings.json (or ~/.claude/settings.json). Check https://mempalaceofficial.com/guide/hooks and /reference/mcp-tools for the current commands — the values below may drift.",
 
   "mcpServers": {
-    "mempalace": {
-      "command": "mempalace",
-      "args": ["mcp"]
-    }
+    "mempalace": { "command": "mempalace", "args": ["mcp"] }
   },
 
   "hooks": {
     "PreCompact": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "mempalace mine --mode convos --source-path \"$CLAUDE_PROJECT_DIR\" || true"
-          }
-        ]
-      }
+      { "matcher": "", "hooks": [{ "type": "command", "command": "mempalace mine --mode convos --source-path \"$CLAUDE_PROJECT_DIR\" || true" }] }
     ],
     "Stop": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "mempalace mine --mode convos --source-path \"$CLAUDE_PROJECT_DIR\" || true"
-          }
-        ]
-      }
+      { "matcher": "", "hooks": [{ "type": "command", "command": "mempalace mine --mode convos --source-path \"$CLAUDE_PROJECT_DIR\" || true" }] }
     ]
   }
 }
