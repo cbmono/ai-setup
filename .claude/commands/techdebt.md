@@ -1,4 +1,4 @@
-Find and remove duplicated logic, dead code, and low-value abstractions in the current repo. Run this at the end of a session to keep tech debt from accumulating.
+Find and remove duplicated logic, dead code, and low-value abstractions across the **whole repo** (use the built-in `/simplify` skill instead if you only want to clean up the current diff). Run this at the end of a session to keep tech debt from accumulating.
 
 ## Steps
 
@@ -22,5 +22,3 @@ Find and remove duplicated logic, dead code, and low-value abstractions in the c
    - Create the file if it doesn't exist. Single top heading, nothing else — it's a rolling backlog, not a report.
 
 The backlog holds accepted tech debt only. Don't log resolved items; don't let it grow indefinitely.
-
-For cleaning up only the **most recent diff** (not a whole-repo scan), use the built-in `/simplify` skill instead — it's scoped to changed files.

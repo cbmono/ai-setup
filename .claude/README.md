@@ -65,6 +65,7 @@ How the tools fit together — useful for picking the right one and combining th
   - `/scan [dir]` — **folder-scoped, durable.** `deep-bug-scan` hunts _existing_ code for real bugs (wrong logic, null risks, race conditions, SQL issues, weak assertions). Findings append to `.claude/potential-bugs.md` (auto-created on first run), kept current (fixed entries pruned).
   - `/techdebt` — **repo-scoped, durable.** Finds _structural_ issues (duplication, dead code, low-value abstractions). Deferred items go to `.claude/techdebt.md` (auto-created on first run), a deferred-only backlog (fixed/rejected items pruned).
   - Small overlap on dead code / near-duplicates between `/scan` and `/techdebt` — run `/scan` for correctness problems, `/techdebt` for cleanup.
+  - The built-in `/simplify` skill covers the same _kind_ of cleanup as `/techdebt` but scoped to the current diff — reach for `/simplify` after a feature lands, `/techdebt` for periodic repo-wide sweeps.
 - **CI failure triage:** `/verify` fails → it dispatches `oncall-guide` for diagnosis. You can also dispatch `oncall-guide` directly with a failing test name or CI job URL.
 
 ## Commands vs skills
