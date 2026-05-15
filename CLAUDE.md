@@ -21,7 +21,7 @@ Public, opinionated Claude Code defaults for Node.js / TypeScript projects. It s
 - `.claude/settings.json` — checked-in, team-shared permissions baseline.
 - `.claude/settings.local.json` — per-machine overrides, gitignored.
 - `.claude/settings.mempalace.example.json` — opt-in mempalace MCP + hooks, for users to copy from.
-- `.claude/potential-bugs.md`, `.claude/techdebt.md`, `.claude/plans/` — runtime output of `/scan`, `/techdebt`, `/plan`. Auto-created in target projects on first run, gitignored, never seeded in this repo. The `/plan` slug is the Jira key when detected on branch / recent commits, else a kebab-case verb-prefixed summary (`feat-…`, `fix-…`, `chore-…`); plan files ride with the related PR(s) and are deleted by the user once the work merges to main.
+- `.claude/potential-bugs.md`, `.claude/techdebt.md`, `.claude/plans/`, `.claude/handoffs/` — runtime output of `/scan`, `/techdebt`, `/plan`, `/handoff`. Auto-created in target projects on first run, gitignored, never seeded in this repo. The `/plan` and `/handoff` slug is the Jira key when detected on branch / recent commits, else a kebab-case verb-prefixed summary (`feat-…`, `fix-…`, `chore-…`); plan files ride with the related PR(s) and are deleted once the work merges to main. Handoff files are resume-state snapshots written before `/clear`, deleted once the resuming session no longer needs them.
 - `.claude/README.md` — human inventory + commands-vs-skills note. Must stay in sync with the top-level `README.md` when agents/commands change.
 - `README.md` (root) — public-facing setup guide.
 - `entities.json`, `mempalace.yaml` (root) — gitignored local mempalace state. Not source, don't edit or commit.

@@ -20,6 +20,7 @@ Defaults shipped by this repo. See the [top-level README](../README.md) for inst
   potential-bugs.md                   # /scan output (append-only sink)
   techdebt.md                         # /techdebt output (rolling deferred backlog)
   plans/                              # /plan output; rides with the related PR(s), deleted once work merges
+  handoffs/                           # /handoff output; resume-state snapshots, deleted once the next session no longer needs them
 ```
 
 > Don't put a `README.md` inside `commands/` — Claude Code registers every `.md` there as a slash command, so a README becomes `/README`.
@@ -46,6 +47,7 @@ One `.md` per command in `.claude/commands/`. Filename (minus `.md`) is the comm
 | `/acp`         | Stage, commit with a generated message, push (stack-aware)                                                                                                              | —                             |
 | `/dave`        | Critique current diff/plan via Dave AI (Alteos-internal — requires `dave` CLI)                                                                                          | —                             |
 | `/grill`       | Grill your own diff — correctness, concurrency, edge cases                                                                                                              | —                             |
+| `/handoff`     | Snapshot the current session's state to `.claude/handoffs/<slug>.md` so a fresh session can resume after `/clear`                                                       | —                             |
 | `/plan`        | Draft → review → save plan to `.claude/plans/<slug>.md` (rides with the stack)                                                                                          | plan-architect                |
 | `/rabbit`      | CodeRabbit review on the current branch against `main`                                                                                                                  | —                             |
 | `/scan [dir]`  | Deep bug scan; appends findings to `potential-bugs.md`                                                                                                                  | deep-bug-scan                 |

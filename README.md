@@ -48,6 +48,7 @@ One `.md` per command; filename becomes `/<name>`. No frontmatter required; `$AR
 | `/acp`         | Stage, commit with a generated message, and push (stack-aware)                                | —                             |
 | `/dave`        | Critique current diff/plan via Dave AI (Alteos-internal — requires `dave` CLI)                | —                             |
 | `/grill`       | Devil's advocate on your own diff — find what's wrong before a reviewer does                  | —                             |
+| `/handoff`     | Snapshot session state to `.claude/handoffs/<slug>.md` so a fresh session can resume after `/clear` | —                       |
 | `/plan`        | Draft → review → save plan to `.claude/plans/<slug>.md` (rides with the stack)                | plan-architect                |
 | `/rabbit`      | Run CodeRabbit review on the current branch against `main`                                    | —                             |
 | `/scan [dir]`  | Deep bug scan of a folder; appends findings to `.claude/potential-bugs.md`                    | deep-bug-scan                 |
@@ -230,7 +231,7 @@ Key behaviour differences vs 4.6 (worth internalizing):
 - `.claude/settings.json` — checked in, team-shared permissions baseline
 - `.claude/settings.local.json` — gitignored, per-machine overrides
 - `.claude/settings.mempalace.example.json` — reference only, copy blocks out to opt in
-- `.claude/potential-bugs.md`, `.claude/techdebt.md`, `.claude/plans/` — gitignored, auto-created by `/scan`, `/techdebt`, `/plan` on first run; never seeded in this repo
+- `.claude/potential-bugs.md`, `.claude/techdebt.md`, `.claude/plans/`, `.claude/handoffs/` — gitignored, auto-created by `/scan`, `/techdebt`, `/plan`, `/handoff` on first run; never seeded in this repo
 - `CLAUDE.md` (this repo's root) — guidance for Claude when editing **this config repo itself**, not a template
 
 ---
