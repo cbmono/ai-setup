@@ -9,9 +9,11 @@ Defaults shipped by this repo. See the [top-level README](../README.md) for inst
   README.md                           # this file (inventory + conventions)
   claude-defaults.md                  # @-imported from CLAUDE.md → loaded every session
   MEMORY.md                           # project conventions (slash-command triggers); optional @-import
-  settings.json                       # team-shared permissions (checked in)
+  settings.json                       # team-shared permissions + universally-safe hooks (checked in)
   settings.local.json                 # per-machine overrides (gitignored, auto-created by Claude Code)
   settings.mempalace.example.json     # opt-in mempalace MCP + hooks
+  hooks/                              # executable hook scripts referenced from settings.json
+    format-on-write.sh                # PostToolUse Write|Edit: prettier/biome if declared in package.json
   agents/                             # subagents (one .md per agent, YAML frontmatter)
   commands/                           # slash commands (one .md per command, no frontmatter)
   skills/                             # auto-invocable capabilities; see skills/README.md
@@ -67,6 +69,14 @@ How the tools fit together — useful for picking the right one and combining th
   - Small overlap on dead code / near-duplicates between `/scan` and `/techdebt` — run `/scan` for correctness problems, `/techdebt` for cleanup.
   - The built-in `/simplify` skill covers the same _kind_ of cleanup as `/techdebt` but scoped to the current diff — reach for `/simplify` after a feature lands, `/techdebt` for periodic repo-wide sweeps.
 - **CI failure triage:** `/verify` fails → it dispatches `oncall-guide` for diagnosis. You can also dispatch `oncall-guide` directly with a failing test name or CI job URL.
+
+## Hooks
+
+Ship hooks here only when they're **universally safe** — must no-op cleanly on projects that don't match. Scripts live in `.claude/hooks/`, referenced from `settings.json`. Anything narrower than that goes in an opt-in `settings.<name>.example.json` consumers copy from.
+
+| Hook                  | Event                  | What it does                                                                                                                                                            |
+| --------------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `format-on-write.sh`  | `PostToolUse` (Write\|Edit) | After Claude writes/edits a file, format it if the nearest `package.json` declares `@biomejs/biome` (preferred) or `prettier`. Uses `npx --no-install` so a missing or uninstalled formatter is a silent no-op. Skips unsupported extensions. |
 
 ## Commands vs skills
 

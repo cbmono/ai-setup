@@ -100,5 +100,19 @@
       "Edit(**/.aws/credentials)",
       "Write(**/.aws/credentials)"
     ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/format-on-write.sh",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
   }
 }

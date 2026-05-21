@@ -73,6 +73,16 @@ And denies dangerous defaults: `git push --force …` and `git push -f …` (fla
 
 Per-machine overrides go in `.claude/settings.local.json` (gitignored).
 
+### Hooks shipped in the baseline
+
+`settings.json` wires up one hook by default — anything narrower stays in opt-in `.example.json` files.
+
+| Hook                 | Event                       | Behavior                                                                                                                                                                                                                  |
+| -------------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `format-on-write.sh` | `PostToolUse` (Write\|Edit) | Formats the file Claude just wrote, if the nearest `package.json` declares `@biomejs/biome` (preferred) or `prettier`. Uses `npx --no-install`, so a missing or uninstalled formatter is a silent no-op. Never blocks the tool. |
+
+The script (`.claude/hooks/format-on-write.sh`) self-detects — projects without a declared formatter, files outside the project, and unsupported extensions all no-op cleanly. To disable, remove the `hooks` block from your `settings.json` or shadow it in `settings.local.json`.
+
 ---
 
 ## Install
