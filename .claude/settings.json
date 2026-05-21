@@ -13,7 +13,6 @@
       "Bash(git config --get:*)",
       "Bash(git rev-parse:*)",
       "Bash(git ls-files:*)",
-
       "Bash(gh auth status)",
       "Bash(gh extension list)",
       "Bash(gh pr view:*)",
@@ -24,14 +23,12 @@
       "Bash(gh issue list:*)",
       "Bash(gh run view:*)",
       "Bash(gh run list:*)",
-
       "Bash(gh stack view:*)",
       "Bash(gh stack up:*)",
       "Bash(gh stack down:*)",
       "Bash(gh stack top:*)",
       "Bash(gh stack bottom:*)",
       "Bash(gh stack checkout:*)",
-
       "Bash(npm run:*)",
       "Bash(npm test:*)",
       "Bash(npm ci:*)",
@@ -41,12 +38,10 @@
       "Bash(npx prettier:*)",
       "Bash(npx vitest:*)",
       "Bash(npx jest:*)",
-
       "Bash(pnpm run:*)",
       "Bash(pnpm test:*)",
       "Bash(pnpm install:*)",
       "Bash(pnpm exec:*)",
-
       "Bash(yarn install:*)",
       "Bash(yarn run:*)",
       "Bash(yarn test:*)",
@@ -55,7 +50,6 @@
       "Bash(yarn prettier:*)",
       "Bash(yarn vitest:*)",
       "Bash(yarn jest:*)",
-
       "Bash(bun run:*)",
       "Bash(bun test:*)",
       "Bash(bun install:*)",
@@ -64,14 +58,12 @@
       "Bash(bunx prettier:*)",
       "Bash(bunx vitest:*)",
       "Bash(bunx jest:*)",
-
       "Bash(node --version)",
       "Bash(which:*)",
       "Bash(ls:*)",
       "Bash(cat:*)",
       "Bash(pwd)",
       "Bash(echo:*)",
-
       "Read(./**)",
       "Edit(./**)",
       "Write(./**)"
