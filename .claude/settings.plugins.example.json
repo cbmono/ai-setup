@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+
+  "//": "Opt-in plugins that wire up external services via MCP. Reference only — do NOT @-import this file. Copy the entries you want into your own settings.json (or settings.local.json) and merge them with the enabledPlugins block already there. All three live in the official marketplace's external_plugins/, so no extraKnownMarketplaces is required; they enable on next launch after you trust the folder.",
+
+  "//services": "github → GitHub PRs/issues/Actions; linear → Linear issues/projects; context7 → live, version-accurate library docs lookup. These are kept OUT of the checked-in baseline on purpose: like MCP servers (see settings.mempalace.example.json), consumers should choose to wire them up rather than have them forced on.",
+
+  "enabledPlugins": {
+    "github@claude-plugins-official": true,
+    "linear@claude-plugins-official": true,
+    "context7@claude-plugins-official": true
+  }
+}

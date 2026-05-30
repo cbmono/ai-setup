@@ -73,6 +73,22 @@ And denies dangerous defaults: `git push --force …` and `git push -f …` (fla
 
 Per-machine overrides go in `.claude/settings.local.json` (gitignored).
 
+### Plugins enabled by default
+
+`settings.json` enables two plugins from the official marketplace (`claude-plugins-official`) for everyone who adopts these defaults — no `extraKnownMarketplaces` needed, since the official marketplace is registered automatically:
+
+| Plugin           | Why it's a default                                                                                            |
+| ---------------- | ------------------------------------------------------------------------------------------------------------- |
+| `superpowers`       | Skills framework — brainstorming, subagent-driven development, systematic debugging, red/green TDD          |
+| `typescript-lsp`    | Language-server-backed navigation, diagnostics, and find-references for the Node/TS stack this repo targets |
+| `security-guidance` | Surfaces secure-coding guidance during development; additive, no overlap with shipped commands              |
+
+The set is intentionally small. Most other official plugins (`code-review`, `pr-review-toolkit`, `code-simplifier`, `commit-commands`, `feature-dev`) **duplicate commands this repo already ships** (`/grill` + `code-architect`, `/rabbit`, `/techdebt`, `/acp`, `/plan`) — enabling them would just create overlap.
+
+> **Trust gate, not silent install.** On a fresh clone Claude Code first shows the "trust this folder?" prompt; only after you trust it do the plugins auto-enable. To disable one without forking, set it `false` in your own `settings.local.json` (e.g. `"superpowers@claude-plugins-official": false`).
+
+**Opt-in, MCP-backed plugins** — `github`, `linear`, and `context7` match Alteos's connected services but are **not** in the baseline, following the same rule as MCP servers (kept out so consumers choose to wire them up). Copy the entries you want from [`.claude/settings.plugins.example.json`](./.claude/settings.plugins.example.json) into your own `settings.json`.
+
 ### Hooks shipped in the baseline
 
 `settings.json` wires up one hook by default — anything narrower stays in opt-in `.example.json` files.
@@ -240,6 +256,7 @@ Key behaviour differences vs 4.6 (worth internalizing):
 - `.claude/settings.json` — checked in, team-shared permissions baseline
 - `.claude/settings.local.json` — gitignored, per-machine overrides
 - `.claude/settings.mempalace.example.json` — reference only, copy blocks out to opt in
+- `.claude/settings.plugins.example.json` — reference only, opt-in MCP-backed plugins (github, linear, context7)
 - `.claude/potential-bugs.md`, `.claude/techdebt.md`, `.claude/plans/` — gitignored, auto-created by `/scan`, `/techdebt`, `/plan` on first run; never seeded in this repo
 - `CLAUDE.md` (this repo's root) — guidance for Claude when editing **this config repo itself**, not a template
 

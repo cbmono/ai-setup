@@ -12,6 +12,7 @@ Defaults shipped by this repo. See the [top-level README](../README.md) for inst
   settings.json                       # team-shared permissions + universally-safe hooks (checked in)
   settings.local.json                 # per-machine overrides (gitignored, auto-created by Claude Code)
   settings.mempalace.example.json     # opt-in mempalace MCP + hooks
+  settings.plugins.example.json       # opt-in MCP-backed plugins (github, linear, context7)
   hooks/                              # executable hook scripts referenced from settings.json
     format-on-write.sh                # PostToolUse Write|Edit: prettier/biome if declared in package.json
   agents/                             # subagents (one .md per agent, YAML frontmatter)
@@ -77,6 +78,20 @@ Ship hooks here only when they're **universally safe** — must no-op cleanly on
 | Hook                  | Event                  | What it does                                                                                                                                                            |
 | --------------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `format-on-write.sh`  | `PostToolUse` (Write\|Edit) | After Claude writes/edits a file, format it if the nearest `package.json` declares `@biomejs/biome` (preferred) or `prettier`. Uses `npx --no-install` so a missing or uninstalled formatter is a silent no-op. Skips unsupported extensions. |
+
+## Plugins
+
+`settings.json` enables a small, deliberate set from the official marketplace (`claude-plugins-official`) via `enabledPlugins`. Official-marketplace plugins need no `extraKnownMarketplaces` — that key is only for third-party marketplaces.
+
+| Plugin           | Marketplace               | Why it's in the baseline                                                                        |
+| ---------------- | ------------------------- | ----------------------------------------------------------------------------------------------- |
+| `superpowers`       | `claude-plugins-official` | Skills framework: brainstorming, subagent-driven dev, systematic debugging, red/green TDD  |
+| `typescript-lsp`    | `claude-plugins-official` | LSP-backed navigation/diagnostics for the Node/TS stack; no overlap with shipped commands  |
+| `security-guidance` | `claude-plugins-official` | Secure-coding guidance during development; additive, no overlap with shipped commands      |
+
+**Kept out of the baseline on purpose:** plugins that duplicate this repo's command surface (`code-review`/`pr-review-toolkit` ≈ `/grill` + `code-architect`, `code-simplifier` ≈ `/techdebt`, `commit-commands` ≈ `/acp`, `feature-dev` ≈ `/plan`), and MCP-backed plugins (`github`, `linear`, `context7`) which follow the same opt-in rule as MCP servers — see `settings.plugins.example.json`.
+
+Plugins enable behind the folder-trust gate on first launch, not silently. Consumers disable any default in their own `settings.local.json` (`"superpowers@claude-plugins-official": false`). When changing the default set, keep this table and the top-level `README.md` Plugins section in sync.
 
 ## Commands vs skills
 
