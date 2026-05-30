@@ -86,7 +86,7 @@ Ship hooks here only when they're **universally safe** — must no-op cleanly on
 | Plugin           | Marketplace               | Why it's in the baseline                                                                        |
 | ---------------- | ------------------------- | ----------------------------------------------------------------------------------------------- |
 | `superpowers`       | `claude-plugins-official` | Skills framework: brainstorming, subagent-driven dev, systematic debugging, red/green TDD  |
-| `typescript-lsp`    | `claude-plugins-official` | LSP-backed navigation/diagnostics for the Node/TS stack; no overlap with shipped commands  |
+| `typescript-lsp`    | `claude-plugins-official` | Adds the `LSP` tool (go-to-def, find-refs, hover, workspace-symbol) for the Node/TS stack; no overlap with shipped commands |
 | `security-guidance` | `claude-plugins-official` | Secure-coding guidance during development; additive, no overlap with shipped commands      |
 
 **Kept out of the baseline on purpose:** plugins that duplicate this repo's command surface (`code-review`/`pr-review-toolkit` ≈ `/grill` + `code-architect`, `code-simplifier` ≈ `/techdebt`, `commit-commands` ≈ `/acp`, `feature-dev` ≈ `/plan`), and MCP-backed plugins (`github`, `linear`, `context7`) which follow the same opt-in rule as MCP servers — see `settings.plugins.example.json`.

@@ -80,7 +80,7 @@ Per-machine overrides go in `.claude/settings.local.json` (gitignored).
 | Plugin           | Why it's a default                                                                                            |
 | ---------------- | ------------------------------------------------------------------------------------------------------------- |
 | `superpowers`       | Skills framework — brainstorming, subagent-driven development, systematic debugging, red/green TDD          |
-| `typescript-lsp`    | Language-server-backed navigation, diagnostics, and find-references for the Node/TS stack this repo targets |
+| `typescript-lsp`    | Adds the `LSP` tool (go-to-definition, find-references, hover, workspace-symbol) backed by a TS language server, for the Node/TS stack this repo targets |
 | `security-guidance` | Surfaces secure-coding guidance during development; additive, no overlap with shipped commands              |
 
 The set is intentionally small. Most other official plugins (`code-review`, `pr-review-toolkit`, `code-simplifier`, `commit-commands`, `feature-dev`) **duplicate commands this repo already ships** (`/grill` + `code-architect`, `/rabbit`, `/techdebt`, `/acp`, `/plan`) — enabling them would just create overlap.
