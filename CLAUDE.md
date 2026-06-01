@@ -26,6 +26,7 @@ Public, opinionated Claude Code defaults for Node.js / TypeScript projects. It s
 - `.claude/potential-bugs.md`, `.claude/techdebt.md`, `.claude/plans/` — runtime output of `/scan`, `/techdebt`, `/plan`. Auto-created in target projects on first run, gitignored, never seeded in this repo. The `/plan` slug is the Jira key when detected on branch / recent commits, else a kebab-case verb-prefixed summary (`feat-…`, `fix-…`, `chore-…`); plan files ride with the related PR(s) and are deleted once the work merges to main.
 - `.claude/README.md` — human inventory + commands-vs-skills note. Must stay in sync with the top-level `README.md` when agents/commands change.
 - `README.md` (root) — public-facing setup guide.
+- `install.sh` (root) — user-wide installer. Per-entry symlinks the tracked `.claude/` defaults **into** the real `~/.claude` (never a whole-dir symlink, so runtime state stays out of the repo and an existing `~/.claude` isn't clobbered). Auto-discovers what to link via `git ls-files .claude`, minus a small `EXCLUDE` denylist (repo docs, templates, `settings.json`). Idempotent; backs up anything it would overwrite. `--uninstall` removes only the symlinks it created (leaves runtime state, real files, and backups). When you add a tracked default that should NOT land in `~/.claude`, add it to `EXCLUDE`.
 - `entities.json`, `mempalace.yaml` (root) — gitignored local mempalace state. Not source, don't edit or commit.
 
 ## Commands vs skills

@@ -8,15 +8,15 @@ Built for Opus 4.7 with stacked-PR workflows in mind.
 
 ## Getting started
 
-The recommended setup is **user-wide**: symlink this repo's `.claude/` into `~/.claude/` once, and every project picks up the agents, commands, skills, and defaults automatically.
+The recommended setup is **user-wide**: run `install.sh` once, and every project picks up the agents, commands, skills, and defaults automatically.
 
 ```bash
 git clone https://github.com/<your-fork>/ai-setup.git ~/path/to/ai-setup
-mv ~/.claude ~/.claude.bak.$(date +%s) 2>/dev/null || true
-ln -s ~/path/to/ai-setup/.claude ~/.claude
+cd ~/path/to/ai-setup
+./install.sh
 ```
 
-Replace `~/path/to/ai-setup` with wherever you actually cloned, in both lines — the `ln -s` source must be an absolute path matching the clone destination, or the symlink dangles and the defaults silently won't load.
+`install.sh` symlinks this repo's tracked defaults **into** your existing `~/.claude` one entry at a time (not a whole-directory symlink), so your plugins, sessions, and `settings.local.json` stay put and Claude Code's runtime state never leaks into the repo. It's idempotent and auto-discovers what to link from what git tracks — re-run it after a `git pull` that adds a new top-level entry. See [Install](#install) for what it does and the per-project alternative.
 
 Then in any project: `claude`, then `/init` to bootstrap the project's `CLAUDE.md`. Project-state files (`/scan`, `/techdebt`, `/plan` outputs) land in the project's local `.claude/`, created lazily on first write.
 
@@ -107,24 +107,26 @@ The script (`.claude/hooks/format-on-write.sh`) self-detects — projects withou
 
 ### Option A — Adopt as user-wide defaults
 
-Back up any existing `~/.claude`, then symlink or copy this repo into it:
+Clone the repo and run `install.sh`:
 
 ```bash
-# Back up first
-mv ~/.claude ~/.claude.bak.$(date +%s) 2>/dev/null || true
-
-# Symlink (lets you pull updates with `git pull`)
 git clone https://github.com/<your-fork>/ai-setup.git ~/path/to/ai-setup
-ln -s ~/path/to/ai-setup/.claude ~/.claude
+cd ~/path/to/ai-setup
+./install.sh
 ```
 
-Replace `~/path/to/ai-setup` with wherever you actually cloned, in both lines — the `ln -s` source must be an absolute path matching the clone destination, or the symlink dangles and the defaults silently won't load.
+The script symlinks each tracked default (`agents/`, `commands/`, `skills/`, `hooks/`, `MEMORY.md`, `claude-defaults.md`) **into** your real `~/.claude`, rather than replacing `~/.claude` with one big symlink. Two reasons this matters:
 
-Agents and commands apply to every project. `settings.json` becomes your user-wide allow/deny list.
+- **Your `~/.claude` keeps owning its runtime state** — `plugins/`, `sessions/`, `projects/`, `history.jsonl`, `settings.local.json`. A whole-directory symlink would either nest inside an existing `~/.claude` (a silent no-op) or relocate all that state into the repo, where it'd clutter the working tree.
+- **It auto-discovers what to link from `git ls-files`**, so a new top-level default added to the repo is picked up on the next run — there's no list to maintain. Re-running is idempotent; anything it would overwrite is backed up to `*.bak.<timestamp>`. Entries are linked whole, so if `~/.claude` already has a real `commands/`/`agents/`/`skills/` of your own, that directory is moved aside to `*.bak.<timestamp>` (recoverable) and replaced by the symlink — keep personal global commands per-project (`<project>/.claude/commands/`) instead, since `~/.claude/commands/` now points into this repo.
+
+`settings.json` is handled deliberately: if you don't already have one it's linked (so the repo's permission + plugin baseline applies user-wide); if you do, it's left untouched and the script prints how to adopt the baseline while keeping machine-specific plugins in `settings.local.json`.
+
+Pull updates anytime with `git pull` — because the links are live, content changes and new files inside linked dirs apply immediately, no re-sync. To back out, `./install.sh --uninstall` removes only the symlinks it created, leaving your runtime state, real files, and backups untouched.
 
 ### Option B — Per-project
 
-Use this when you want stability per project (frozen defaults), or for project-specific tweaks.
+Use this when you want stability per project (**frozen** defaults that *don't* track the repo), or for project-specific tweaks. This is a **copy**, not a link — so unlike Option A it won't pick up later repo changes; re-run it to refresh. (To keep `~/.claude` continuously in sync with the repo, use Option A's symlinks, not this.)
 
 For a fresh project (no existing `.claude/`):
 
@@ -146,7 +148,7 @@ Run `/init` in your project — it analyzes the codebase and generates an accura
 
 > **Before you paste:**
 >
-> 1. **Confirm the symlink.** The imports below use `@~/.claude/...`, which assumes you set up the user-wide symlink (recommended in [Getting started](#getting-started)). Verify with `readlink ~/.claude` — it should point at this repo's `.claude/`. If you're on a per-project install instead, swap both `@~/.claude/...` paths for `@.claude/...` and make sure those files exist in this project's `.claude/`.
+> 1. **Confirm the links.** The imports below use `@~/.claude/...`, which assumes you ran `install.sh` (recommended in [Getting started](#getting-started)). Verify with `readlink ~/.claude/claude-defaults.md` — it should point at this repo's `.claude/claude-defaults.md`. (`install.sh` links files *into* a real `~/.claude`, so `~/.claude` itself is a directory, not a symlink.) If you're on a per-project install instead, swap both `@~/.claude/...` paths for `@.claude/...` and make sure those files exist in this project's `.claude/`.
 > 2. **Put `CLAUDE.md` at the repo root.** Bare-path imports (`@.claude/...`) resolve relative to the `CLAUDE.md` file's location; if you move it, adjust the paths.
 > 3. **Approve the import on first run.** The first time Claude Code encounters a new `@` import in a project, it shows a one-time approval dialog. **Click approve** — if you decline, imports stay disabled for that project and the defaults silently won't load.
 
@@ -183,7 +185,7 @@ and ensure both files exist in this project's .claude/. -->
 > - Claude Code resolves `@<path>` lines inside `CLAUDE.md` and inlines the referenced file into every session's context. Tilde paths (`@~/.claude/...`) resolve against your home directory; bare paths (`@.claude/...`) resolve relative to the `CLAUDE.md` file. Supports up to 5 levels of recursion.
 > - Keep your `CLAUDE.md` + all imports around **200 lines total**. Every line is re-sent on every turn; bloat shows up directly in token costs and in Claude's attention budget. Our `claude-defaults.md` is intentionally ~20 lines — resist the urge to expand it with guidance that already lives in Claude Code's built-in system prompt (e.g. "don't add defensive error handling," "don't create unrequested docs" — those are already defaults).
 > - **Why imports instead of inlining the bullets?** You edit the rules once in `~/.claude/claude-defaults.md` (the file in this repo, surfaced via the symlink) and every project picks up the change automatically — no per-project copy-paste drift.
-> - **Per-project alternative:** if you don't want a user-wide symlink, swap the imports for `@.claude/claude-defaults.md` and `@.claude/MEMORY.md` and use [`bin/sync-to-project.sh`](#option-b--per-project) to keep the project-local copies updated.
+> - **Per-project alternative:** if you don't want a user-wide install, swap the imports for `@.claude/claude-defaults.md` and `@.claude/MEMORY.md` and use [Option B](#option-b--per-project)'s `cp`/`rsync` to keep the project-local copies updated.
 
 ---
 
