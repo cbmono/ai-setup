@@ -11,10 +11,12 @@ Built for Opus 4.7 with stacked-PR workflows in mind.
 The recommended setup is **user-wide**: symlink this repo's `.claude/` into `~/.claude/` once, and every project picks up the agents, commands, skills, and defaults automatically.
 
 ```bash
-git clone https://github.com/<your-fork>/ai-setup.git ~/ai-setup
+git clone https://github.com/<your-fork>/ai-setup.git ~/path/to/ai-setup
 mv ~/.claude ~/.claude.bak.$(date +%s) 2>/dev/null || true
-ln -s ~/ai-setup/.claude ~/.claude
+ln -s ~/path/to/ai-setup/.claude ~/.claude
 ```
+
+Replace `~/path/to/ai-setup` with wherever you actually cloned, in both lines — the `ln -s` source must be an absolute path matching the clone destination, or the symlink dangles and the defaults silently won't load.
 
 Then in any project: `claude`, then `/init` to bootstrap the project's `CLAUDE.md`. Project-state files (`/scan`, `/techdebt`, `/plan` outputs) land in the project's local `.claude/`, created lazily on first write.
 
@@ -112,9 +114,11 @@ Back up any existing `~/.claude`, then symlink or copy this repo into it:
 mv ~/.claude ~/.claude.bak.$(date +%s) 2>/dev/null || true
 
 # Symlink (lets you pull updates with `git pull`)
-git clone https://github.com/<your-fork>/ai-setup.git ~/ai-setup
-ln -s ~/ai-setup/.claude ~/.claude
+git clone https://github.com/<your-fork>/ai-setup.git ~/path/to/ai-setup
+ln -s ~/path/to/ai-setup/.claude ~/.claude
 ```
+
+Replace `~/path/to/ai-setup` with wherever you actually cloned, in both lines — the `ln -s` source must be an absolute path matching the clone destination, or the symlink dangles and the defaults silently won't load.
 
 Agents and commands apply to every project. `settings.json` becomes your user-wide allow/deny list.
 
@@ -125,13 +129,13 @@ Use this when you want stability per project (frozen defaults), or for project-s
 For a fresh project (no existing `.claude/`):
 
 ```bash
-cp -r ~/path/to/ai-setup/.claude ./.claude
+cp -r ~/path/to/ai-setup/.claude ~/path/to/your-project/.claude
 ```
 
 For a project that already has a `.claude/`:
 
 ```bash
-rsync -a --exclude='settings.local.json' ~/path/to/ai-setup/.claude/ ./.claude/
+rsync -a --exclude='settings.local.json' ~/path/to/ai-setup/.claude/ ~/path/to/your-project/.claude/
 ```
 
 That single exclusion is enough — this repo's `.claude/` no longer carries `potential-bugs.md`, `techdebt.md`, or `plans/`. Those project-state artifacts are auto-created in the target by their respective commands (`/scan`, `/techdebt`, `/plan`) on first run, and stay gitignored. `CLAUDE.md` at the project root is also never touched. If you've customised `.claude/MEMORY.md`, back it up before syncing — it will be overwritten.

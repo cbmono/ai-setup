@@ -1,22 +1,25 @@
 .DS_Store
 tmp/
 
-# Claude Code per-machine overrides (never commit)
-.claude/settings.local.json
-.claude/.credentials.json
-.claude/projects/
-.claude/shell-snapshots/
-.claude/todos/
-.claude/statsig/
-.claude/ide/
+# .claude/ is symlinked from ~/.claude in the recommended install, so Claude Code
+# writes all its runtime state (backups/, cache/, debug/, plugins/, projects/, …)
+# in here. Ignore everything under .claude/ and explicitly allow only the tracked
+# defaults — so present and future runtime folders never leak into git.
+.claude/*
 
-# Project-state artifacts auto-created by /scan, /techdebt, /plan on first run
-.claude/potential-bugs.md
-.claude/techdebt.md
-.claude/plans/
+# Tracked defaults (directories — git recurses into re-included dirs)
+!.claude/agents/
+!.claude/commands/
+!.claude/hooks/
+!.claude/skills/
 
-# Local worktrees used by parallel Claude sessions
-.claude/worktrees/
+# Tracked defaults (files)
+!.claude/MEMORY.md
+!.claude/README.md
+!.claude/claude-defaults.md
+!.claude/settings.json
+!.claude/settings.mempalace.example.json
+!.claude/settings.plugins.example.json
 
 # Mempalace local index (if user opts in)
 .mempalace/
