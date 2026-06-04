@@ -13,3 +13,5 @@ Pre-PR verification gate. Runs the project's checks and hands off to diagnosis o
 4. End with `git status --short`.
 
 Do not modify files from this command. Fixes are applied by the user (or by a follow-up prompt), not by the verifier.
+
+This command is the concrete tool that satisfies the `superpowers:verification-before-completion` discipline (no "done" claim without fresh evidence) for the pre-PR gate — report only what the check output actually shows, never "should pass".

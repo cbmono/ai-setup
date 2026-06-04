@@ -33,10 +33,10 @@ Generic Node/TS agents — they infer your toolchain from `package.json` instead
 | Agent               | Model  | Purpose                                                                            | Invoked by commands                  |
 | ------------------- | ------ | ---------------------------------------------------------------------------------- | ------------------------------------ |
 | **build-validator** | Sonnet | Typecheck / lint / test / build. `--deep` = clean-install + sequenced unit→int→e2e | `/verify`                            |
-| **code-architect**  | Opus   | Staff-level review of staged + unstaged changes                                    | `/grill` (parallel), direct dispatch |
+| **code-architect**  | Opus   | Staff-level review of staged + unstaged changes                                    | `/grill` (grill fallback, no Workflow), direct dispatch |
 | **deep-bug-scan**   | Opus   | Deep scan for logic bugs, null risks, race conditions, SQL issues, weak tests      | `/scan`                              |
 | **oncall-guide**    | Sonnet | Diagnoses test/CI failures and classifies the cause                                | `/verify` (on failure)               |
-| **plan-architect**  | Opus   | Critiques an implementation plan before code is written                            | `/plan`                              |
+| **plan-architect**  | Opus   | Critiques an implementation plan before code is written                            | `/plan` (grill fallback, no Workflow) |
 | **stack-navigator** | Sonnet | Reads `gh stack view` and proposes the next safe action in a stacked-PR flow       | `/stack` (no args)                   |
 
 For cleaning up recently changed code, use the built-in `/simplify` skill (a Claude Code built-in, not a command this repo ships) — that's what it's for.
@@ -49,15 +49,15 @@ One `.md` per command; filename becomes `/<name>`. No frontmatter required; `$AR
 | -------------- | --------------------------------------------------------------------------------------------- | ----------------------------- |
 | `/acp`         | Stage, commit with a generated message, and push (stack-aware)                                | —                             |
 | `/dave`        | Critique current diff/plan via Dave AI (Alteos-internal — requires `dave` CLI)                | —                             |
-| `/grill`       | Devil's advocate on your own diff — find what's wrong before a reviewer does                  | —                             |
-| `/plan`        | Draft → review → save plan to `.claude/plans/<slug>.md` (rides with the stack)                | plan-architect                |
+| `/grill`       | Adversarial fan-out over your own diff — find what's wrong before a reviewer does             | diff-grill workflow; code-architect (fallback) |
+| `/plan`        | Draft → adversarial workflow grill → save plan to `.claude/plans/<slug>.md` (rides with the stack) | plan-grill workflow; plan-architect (fallback) |
 | `/rabbit`      | Run CodeRabbit review on the current branch against `main`                                    | —                             |
 | `/scan [dir]`  | Deep bug scan of a folder; appends findings to `.claude/potential-bugs.md`                    | deep-bug-scan                 |
 | `/stack`       | gh-stack wrapper (bare = smart recommendation, args = specific actions)                       | stack-navigator (no args)     |
 | `/techdebt`    | Scan for duplication/dead code; defer/apply/reject per item. Backlog in `.claude/techdebt.md` | —                             |
 | `/verify`      | Pre-PR gate: typecheck / lint / test / build. `--deep` = full install + e2e                   | build-validator, oncall-guide |
 
-**Picking among the review commands:** `/grill` reviews the current diff (diff-scoped, ephemeral, pre-PR). `/scan` hunts bugs in existing code (folder-scoped, durable backlog at `.claude/potential-bugs.md`). `/techdebt` finds structural cleanup opportunities across the **whole repo** (deferred backlog at `.claude/techdebt.md`); for the same kind of cleanup scoped to the current diff, use the built-in `/simplify` skill. See [`.claude/README.md`](./.claude/README.md) for the full workflow patterns.
+**Picking among the review commands:** `/plan` and `/grill` are the same adversarial fan-out aimed at opposite ends of the work — `/plan` attacks an _approach_ before code exists, `/grill` attacks the _diff_ after you've written it (often both on the same task: `/plan` to decide how, `/grill` once it's built). `/grill` reviews the current diff (diff-scoped, ephemeral, pre-PR). `/scan` hunts bugs in existing code (folder-scoped, durable backlog at `.claude/potential-bugs.md`). `/techdebt` finds structural cleanup opportunities across the **whole repo** (deferred backlog at `.claude/techdebt.md`); for the same kind of cleanup scoped to the current diff, use the built-in `/simplify` skill. See [`.claude/README.md`](./.claude/README.md) for the full workflow patterns.
 
 ### Settings (`.claude/settings.json`)
 

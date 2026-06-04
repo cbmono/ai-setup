@@ -10,7 +10,7 @@ Session-level rules. Keep this file under ~20 lines — it's re-sent every turn.
 
 ## Parallelism & delegation (4.7 delegates less by default)
 
-- **Spawn subagents explicitly** when the work is genuinely independent: multi-file reads, parallel searches, batched migrations. Don't serialize independent work.
+- **Spawn subagents explicitly** for genuinely independent work — don't serialize it. The `superpowers:dispatching-parallel-agents` skill owns the mechanics.
 - **Use tools proactively.** Grep/Glob the repo thoroughly before answering — don't rely on memory.
 - **Read before you write.** Before adding to a file, scan its exports, immediate callers, and shared utilities — duplicate helpers and silent breakage live there.
 
