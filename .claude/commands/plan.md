@@ -25,6 +25,7 @@ Use this for any non-trivial task where a weak plan would compound into a bad im
    - **Small** (bug fix, refactor, ≤ ~3 files / ≤ ~5 steps) → the core 4 lenses (★) on **Sonnet**.
    - **Large** (greenfield, many files, new abstractions) → all 8 lenses on **Opus**.
    - e.g. *"Small plan → core 4 lenses on Sonnet. Say 'opus' or 'all 8' to widen, otherwise I'll launch."*
+   - **Frontend plans** (the plan adds/changes UI — `.tsx`/`.jsx`/`.vue`/`.svelte`/`.html` or component/page/form files, same signal as `/grill`) → invoke the `test-locators` skill first, then add the `locators` lens below. Skip it for backend-only plans.
 
    The lenses (core 4 marked ★) — each reviewer gets exactly one:
    - ★ **assumptions** — Which single assumption, if wrong, breaks the whole plan? What did the author inherit without confirming?
@@ -35,6 +36,7 @@ Use this for any non-trivial task where a weak plan would compound into a bad im
    - **testing_gaps** — What edge case passes the plan's checks but still breaks prod? What does each acceptance criterion actually prove?
    - **missing_risks** — What risk is suspiciously absent? (rollback path, data migration, observability gap)
    - **business_fit** — Does the approach serve the actual goal, or has it drifted into a neat solution to the wrong problem?
+   - **locators** _(frontend plans only)_ — Apply the `test-locators` skill: does the plan ensure new interactive/asserted elements get stable `data-testid`/`data-test` (business-meaningful, not position/CSS-based)? If the plan adds UI but never mentions test locators, that's the finding.
 
    Build `args` from the gated decisions, then call the Workflow tool with the script below:
    - `args.planContent` — the drafted plan markdown (it isn't on disk yet)

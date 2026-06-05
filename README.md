@@ -59,6 +59,16 @@ One `.md` per command; filename becomes `/<name>`. No frontmatter required; `$AR
 
 **Picking among the review commands:** `/plan` and `/grill` are the same adversarial fan-out aimed at opposite ends of the work — `/plan` attacks an _approach_ before code exists, `/grill` attacks the _diff_ after you've written it (often both on the same task: `/plan` to decide how, `/grill` once it's built). `/grill` reviews the current diff (diff-scoped, ephemeral, pre-PR). `/scan` hunts bugs in existing code (folder-scoped, durable backlog at `.claude/potential-bugs.md`). `/techdebt` finds structural cleanup opportunities across the **whole repo** (deferred backlog at `.claude/techdebt.md`); for the same kind of cleanup scoped to the current diff, use the built-in `/simplify` skill. See [`.claude/README.md`](./.claude/README.md) for the full workflow patterns.
 
+### Skills (`.claude/skills/`)
+
+Auto-invocable capabilities — Claude fires them on intent match (no `/<name>`). One subdirectory per skill with a `SKILL.md`.
+
+| Skill             | Fires when                       | What it does                                                                                                                  |
+| ----------------- | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| **test-locators** | Building or editing frontend UI  | Adds stable test locators (`data-testid`/`data-test`) and a11y handles with business-meaningful kebab-case names, so E2E tests don't go flaky |
+
+The skill is the canonical definition of the convention — `/grill` and `/plan` also pull it in as a `locators` review lens on frontend changes (the lens carries a short, in-sync copy of the rules). `/dave` restates the rules inline in its prompt and CodeRabbit applies them from its **web** review-instruction settings — both run outside Claude Code and can't reach the skill.
+
 ### Settings (`.claude/settings.json`)
 
 Pre-allows common safe operations so you see fewer permission prompts:

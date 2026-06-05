@@ -12,6 +12,7 @@ Grill the current changes before they become a PR. Fan out independent reviewers
    - **Small** (a focused change — one file or one concern) → the core 4 lenses (★) on **Sonnet**.
    - **Large** (cross-cutting, multiple files/subsystems, or security-sensitive) → all 8 lenses on **Opus**.
    - e.g. *"Small diff → core 4 lenses on Sonnet. Say 'opus' or 'all 8' to widen, otherwise I'll launch."*
+   - **Frontend diffs** (changed `.tsx`/`.jsx`/`.vue`/`.svelte`/`.html` or component/page files) → invoke the `test-locators` skill first (it carries the authoritative convention), then add the `locators` lens below to whichever set you chose. Skip it for backend-only diffs.
 
    The lenses (core 4 marked ★) — each reviewer gets exactly one:
    - ★ **correctness** — What input breaks this hunk? What edge case is assumed away (empty, null, boundary, large)?
@@ -22,6 +23,7 @@ Grill the current changes before they become a PR. Fan out independent reviewers
    - **observability** — How would we notice if this silently misbehaved in prod? Are the new failure paths logged/measured?
    - **scope** — What was added that the task didn't require? A premature abstraction, an unrelated refactor bundled in?
    - **security** — Untrusted input reaching a sink (SQL, shell, fs, HTML)? A missing authz check? A secret logged or committed?
+   - **locators** _(frontend diffs only)_ — Apply the `test-locators` skill: every interactive or asserted element (button, link, input, select, checkbox, form, modal, list item) needs a stable `data-testid`/`data-test`; flag missing ones and brittle names (position/index/CSS-class/color, e.g. `country-card-0`). Names should be `<feature>-<element>-<purpose>`, kebab-case, by business meaning.
 
    Build `args` from the gated decisions, then call the Workflow tool with the script below:
    - `args.diff` — the combined `git diff` + `git diff --cached` output (so every reviewer grills the same snapshot)
@@ -103,6 +105,6 @@ Grill the current changes before they become a PR. Fan out independent reviewers
    - **Triage hard** — a finding is a BLOCKER only if a real failure or wrong outcome traces from it. Dismiss reviewers overreaching into ceremony (blanket guards, defensive checks for impossible states) with a stated reason.
    - **List BLOCKERS at the top** — the things that must be fixed before the PR — then Concerns, then what was grilled and held up.
 
-   **Fallback (Workflow unavailable):** revert to the single-context grill — dispatch the `code-architect` agent for the independent architecture lens, and for each remaining lens above generate the toughest devil's-advocate question and answer it honestly inline ("I don't know" or "not handled" IS the finding). Merge `code-architect`'s BLOCKERs with your own.
+   **Fallback (Workflow unavailable):** revert to the single-context grill — dispatch the `code-architect` agent for the independent architecture lens, and for each remaining lens above generate the toughest devil's-advocate question and answer it honestly inline ("I don't know" or "not handled" IS the finding). Merge `code-architect`'s BLOCKERs with your own. For frontend diffs, invoke the `test-locators` skill first, then apply the `locators` lens inline.
 
 Don't be polite. The goal is to find what's wrong before a human reviewer does.
