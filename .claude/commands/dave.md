@@ -23,7 +23,7 @@ Use this when you want an outside read before opening a PR or before implementin
      - **Branch diff:** check the branch is pushed first (`git rev-parse --abbrev-ref --symbolic-full-name @{u} 2>/dev/null` non-empty, or `git ls-remote --heads origin <branch>` returns a hit). If pushed, include the branch name and tell Dave it can fetch the rest from GitHub. If not pushed, treat it like a working diff and inline `git diff $BASE...HEAD`.
      - **Working diff:** Dave can only read pushed commits — don't tell it to fetch; inline `git diff HEAD` so both staged and unstaged changes are captured.
    - Focus hint from `$ARGUMENTS` if present.
-   - Explicit ask: "Critique this. Flag risks, missing edge cases, hidden assumptions, scope creep, and better alternatives. Use Jira/Confluence if relevant. Be terse — bullet points, no preamble."
+   - Explicit ask: "Critique this. Flag risks, missing edge cases, hidden assumptions, scope creep, and better alternatives. If the change touches frontend UI, also flag interactive elements (buttons, links, inputs, forms) that lack a stable test locator (`data-testid`/`data-test`) or use a brittle one (position/index/CSS-class/color-based, e.g. `country-card-0`). Use Jira/Confluence if relevant. Be terse — bullet points, no preamble."
 7. Send via a quoted heredoc. Capture stderr and check the exit code before `jq`, otherwise plain-text errors get swallowed. Dave can be slow on large contexts — set the Bash tool's `timeout` parameter (not a shell `timeout` command) to ~300000 ms. After the exit-code check, validate that the output is parseable JSON with a non-null `.reply` field before extracting it.
 
    ```bash

@@ -56,6 +56,16 @@ One `.md` per command in `.claude/commands/`. Filename (minus `.md`) is the comm
 | `/techdebt`    | Scan for duplication, dead code, low-value abstractions; defer/apply/reject per item. Deferred items go to `techdebt.md` (rolling backlog, dedupes against prior runs). | —                             |
 | `/verify`      | Pre-PR gate. `--deep` = full install + sequenced unit→int→e2e                                                                                                           | build-validator, oncall-guide |
 
+## Skills
+
+Auto-invocable — Claude fires them on intent match, no `/<name>` needed. See [`skills/README.md`](./skills/README.md) for the convention.
+
+| Skill           | Fires when                                                                        | What it does                                                                                                                                  |
+| --------------- | --------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `test-locators` | Building or editing frontend UI (components, pages, forms, interactive elements)  | Adds stable test locators (`data-testid`/`data-test`) + a11y handles, named `<feature>-<element>-<purpose>` by business meaning, so E2E tests don't go flaky |
+
+The skill is the **single source of truth** for the locator convention. `/grill` and `/plan` invoke it and add a `locators` lens when the diff/plan touches frontend, so the same rules apply whether you're building UI or reviewing it. External reviewers can't reach the skill, so they carry the rules inline instead: `/dave` (Dave AI) in its prompt, `/rabbit` (CodeRabbit) via the repo's CodeRabbit review-instruction settings.
+
 ## Workflow patterns
 
 How the tools fit together — useful for picking the right one and combining them.
