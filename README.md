@@ -2,7 +2,7 @@
 
 Opinionated defaults for [Claude Code](https://claude.com/claude-code), tuned for Node.js and TypeScript projects. Agents, slash commands, and settings — ready to drop into `~/.claude` or cherry-pick per project.
 
-Built for Opus 4.7 with stacked-PR workflows in mind.
+Built for Opus 4.8 with stacked-PR workflows in mind.
 
 ---
 
@@ -240,11 +240,11 @@ If you want local-first session memory, [mempalace](https://github.com/mempalace
 
 ---
 
-## Opus 4.7
+## Opus 4.8
 
-This config targets Opus 4.7 for planning and review, Sonnet 4.6 for implementation.
+This config targets Opus 4.8 for planning and review, Sonnet 4.6 for implementation.
 
-Key behaviour differences vs 4.6 (worth internalizing):
+Key behaviours worth internalizing:
 
 - **Default effort is `xhigh`.** Use `/model` to adjust — `high` for concurrent sessions, `max` for gnarly problems only.
 - **Adaptive thinking.** Fixed thinking budgets aren't supported; nudge with "think carefully and step-by-step" or "respond directly."
