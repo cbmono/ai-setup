@@ -64,7 +64,7 @@ Auto-invocable — Claude fires them on intent match, no `/<name>` needed. See [
 | --------------- | --------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | `test-locators` | Building or editing frontend UI (components, pages, forms, interactive elements)  | Adds stable test locators (`data-testid`/`data-test`) + a11y handles, named `<feature>-<element>-<purpose>` by business meaning, so E2E tests don't go flaky |
 
-The skill is the **single source of truth** for the locator convention. `/grill` and `/plan` invoke it and add a `locators` lens when the diff/plan touches frontend, so the same rules apply whether you're building UI or reviewing it. External reviewers can't reach the skill, so they carry the rules inline instead: `/dave` (Dave AI) in its prompt, `/rabbit` (CodeRabbit) via the repo's CodeRabbit review-instruction settings.
+The skill is the **canonical definition** of the locator convention. `/grill` and `/plan` invoke it and add a `locators` lens when the diff/plan touches frontend, so the same rules apply whether you're building UI or reviewing it (the lens prompt carries a short copy of the rules, since fan-out reviewer subagents can't load the skill — keep it in sync with `SKILL.md`). External reviewers can't reach the skill either, so they restate the rules: `/dave` (Dave AI) inline in its prompt, `/rabbit` (CodeRabbit) via CodeRabbit's **web** review-instruction settings (a one-time manual paste, not a repo file).
 
 ## Workflow patterns
 
@@ -105,19 +105,19 @@ Plugins enable behind the folder-trust gate on first launch, not silently. Consu
 
 ## Commands vs skills
 
-Claude Code has two distinct mechanisms. This repo uses **commands**.
+Claude Code has two distinct mechanisms. This repo uses mostly **commands**, plus one **skill** (`test-locators`).
 
 - **Commands** (`.claude/commands/foo.md`) — invoked only when the user types `/foo`. No frontmatter. Best for explicit checkpoints.
 - **Skills** (`.claude/skills/foo/SKILL.md` with `name` + `description` frontmatter) — Claude can auto-invoke via the `Skill` tool when the description matches user intent. Use only if you want proactive invocation.
 
-Everything here is an explicit user action (commit, verify, grill, scan) — don't promote to skills unless auto-triggering is genuinely desired.
+Most things here are explicit user actions (commit, verify, grill, scan) and stay commands; reach for a skill only when proactive, no-typing invocation is genuinely wanted — `test-locators` is the one case so far (it fires while building frontend, not on a typed command).
 
 ## Conventions when editing files here
 
 - **Agents** use YAML frontmatter (`name`, `description`, optional `model`, `isolation`). `description` is what Claude Code matches on — write it as a triggerable purpose, not a title.
 - **Commands** don't use frontmatter. Filename is the command name.
-- When you add or remove an agent/command, update both inventories: this file and the top-level `README.md`.
+- When you add or remove an agent, command, or skill, update both inventories: this file and the top-level `README.md`.
 - Keep files short. Front-loaded, declarative instructions beat verbose prose.
 - `deep-bug-scan` appends findings to `potential-bugs.md` and must dedupe against existing entries.
 - `/techdebt` writes only **deferred** findings to `techdebt.md` — it's a rolling backlog, not a log. Items fixed or rejected in a session must be removed from the file.
-- After adding/moving/renaming commands or agents, restart Claude Code (`/exit`, then `claude`) and verify they register without a `skills:` prefix.
+- After adding/moving/renaming commands, agents, or skills, restart Claude Code (`/exit`, then `claude`) and verify they register without a `skills:` prefix.

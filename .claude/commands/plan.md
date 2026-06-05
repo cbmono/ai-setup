@@ -25,7 +25,7 @@ Use this for any non-trivial task where a weak plan would compound into a bad im
    - **Small** (bug fix, refactor, ≤ ~3 files / ≤ ~5 steps) → the core 4 lenses (★) on **Sonnet**.
    - **Large** (greenfield, many files, new abstractions) → all 8 lenses on **Opus**.
    - e.g. *"Small plan → core 4 lenses on Sonnet. Say 'opus' or 'all 8' to widen, otherwise I'll launch."*
-   - **Frontend plans** (new/changed UI — components, pages, forms, interactive elements) → invoke the `test-locators` skill first, then add the `locators` lens below. Skip it for backend-only plans.
+   - **Frontend plans** (the plan adds/changes UI — `.tsx`/`.jsx`/`.vue`/`.svelte`/`.html` or component/page/form files, same signal as `/grill`) → invoke the `test-locators` skill first, then add the `locators` lens below. Skip it for backend-only plans.
 
    The lenses (core 4 marked ★) — each reviewer gets exactly one:
    - ★ **assumptions** — Which single assumption, if wrong, breaks the whole plan? What did the author inherit without confirming?

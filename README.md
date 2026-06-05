@@ -67,7 +67,7 @@ Auto-invocable capabilities — Claude fires them on intent match (no `/<name>`)
 | ----------------- | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
 | **test-locators** | Building or editing frontend UI  | Adds stable test locators (`data-testid`/`data-test`) and a11y handles with business-meaningful kebab-case names, so E2E tests don't go flaky |
 
-The skill is the single source of truth — `/grill` and `/plan` also pull it in as a `locators` review lens on frontend changes, and `/dave` / CodeRabbit carry the same rules inline (they run outside Claude Code and can't reach the skill).
+The skill is the canonical definition of the convention — `/grill` and `/plan` also pull it in as a `locators` review lens on frontend changes (the lens carries a short, in-sync copy of the rules). `/dave` restates the rules inline in its prompt and CodeRabbit applies them from its **web** review-instruction settings — both run outside Claude Code and can't reach the skill.
 
 ### Settings (`.claude/settings.json`)
 

@@ -105,6 +105,6 @@ Grill the current changes before they become a PR. Fan out independent reviewers
    - **Triage hard** — a finding is a BLOCKER only if a real failure or wrong outcome traces from it. Dismiss reviewers overreaching into ceremony (blanket guards, defensive checks for impossible states) with a stated reason.
    - **List BLOCKERS at the top** — the things that must be fixed before the PR — then Concerns, then what was grilled and held up.
 
-   **Fallback (Workflow unavailable):** revert to the single-context grill — dispatch the `code-architect` agent for the independent architecture lens, and for each remaining lens above generate the toughest devil's-advocate question and answer it honestly inline ("I don't know" or "not handled" IS the finding). Merge `code-architect`'s BLOCKERs with your own. For frontend diffs, also invoke the `test-locators` skill and apply the `locators` lens inline.
+   **Fallback (Workflow unavailable):** revert to the single-context grill — dispatch the `code-architect` agent for the independent architecture lens, and for each remaining lens above generate the toughest devil's-advocate question and answer it honestly inline ("I don't know" or "not handled" IS the finding). Merge `code-architect`'s BLOCKERs with your own. For frontend diffs, invoke the `test-locators` skill first, then apply the `locators` lens inline.
 
 Don't be polite. The goal is to find what's wrong before a human reviewer does.

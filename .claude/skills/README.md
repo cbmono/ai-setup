@@ -24,7 +24,9 @@ The body of `SKILL.md` is the prompt Claude receives when the skill fires.
 
 ## Skills vs. commands
 
-This repo ships [commands](../commands/) by default — they're explicit, deterministic, and require typing `/<name>`. Reach for a skill here only when proactive invocation is genuinely wanted (i.e. you'd rather have Claude auto-trigger on intent than wait for the slash). See [`.claude/README.md`](../README.md) for the full distinction.
+This repo ships mostly [commands](../commands/) — they're explicit, deterministic, and require typing `/<name>`. Reach for a skill here only when proactive invocation is genuinely wanted (i.e. you'd rather have Claude auto-trigger on intent than wait for the slash). See [`.claude/README.md`](../README.md) for the full distinction.
+
+**Shipped here:** `test-locators` — adds stable E2E test attributes (`data-testid`/`data-test`) while building frontend. It's a skill rather than a command precisely because it should fire automatically during UI work, not on a typed `/<name>`.
 
 ## Portability
 
