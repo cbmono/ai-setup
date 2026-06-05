@@ -5,7 +5,7 @@ Grill the current changes before they become a PR. Fan out independent reviewers
 ## Steps
 
 1. Read the diff: `git diff` and `git diff --cached`. If both are empty, say there's nothing to grill and stop.
-2. If the diff is _only_ doc/config changes (no executable code), skip the fan-out — there's nothing to attack. Note it and stop.
+2. If the diff is _only_ prose doc/config changes, skip the fan-out — there's nothing to attack. Note it and stop. **Embedded code counts as executable** — a changed `.md` carrying a fenced ` ```js `/` ```ts `/` ```sh ` block (e.g. a slash-command Workflow script) is in scope, even when every changed file is a `.md`.
 3. **Grill the diff adversarially.** Reviewing your own diff self-anchors — you defend the choices you just made. Instead, fan out independent reviewer subagents, each a fresh context with one lens, none of them attached to the code. Synthesis stays with you (the main loop).
 
    **Size the grill to the diff** — this is the cost dial; don't throw 8 Opus reviewers at a one-file change. Announce the setup in one line and let the user retune before launching. Invoking `/grill` is your opt-in to run the Workflow, so don't ask *whether* — only let them change the model or lens set:
@@ -58,19 +58,23 @@ Grill the current changes before they become a PR. Fan out independent reviewers
      properties: { refuted: { type: 'boolean' }, reasoning: { type: 'string' } },
    }
 
+   // The runtime may hand `args` over as a JSON string — coerce before use.
+   const a = typeof args === 'string' ? JSON.parse(args) : args
+   if (!a.lenses || a.lenses.length === 0) throw new Error('diff-grill: a.lenses is empty — pass the chosen lens array')
+
    const reviews = await pipeline(
-     args.lenses,
+     a.lenses,
      // Stage 1: one independent reviewer per lens
      lens => agent(
        `You are an adversarial code reviewer. You did NOT write this diff and owe it no loyalty.\n` +
        `Read the DIFF below, then open the changed files and their callers ` +
-       `(resolve paths against ${args.projectRoot}) so your critique is grounded, not surface-level.\n\n` +
-       `DIFF:\n${args.diff}\n\n` +
+       `(resolve paths against ${a.projectRoot}) so your critique is grounded, not surface-level.\n\n` +
+       `DIFF:\n${a.diff}\n\n` +
        `Attack the change through EXACTLY ONE lens — ignore everything else:\n${lens.prompt}\n` +
        `Be specific and harsh, but "could be cleaner" is never a blocker; only a traceable failure or ` +
        `wrong outcome is. Cite the exact file and line/hunk. If the lens turns up nothing real, return an ` +
        `empty findings array — do not invent issues.`,
-       { label: `grill:${lens.key}`, phase: 'Grill', schema: FINDINGS, model: args.model },
+       { label: `grill:${lens.key}`, phase: 'Grill', schema: FINDINGS, model: a.model },
      ),
      // Stage 2: try to refute each blocker this lens raised (false-positive filter)
      (review, lens) => parallel(
@@ -80,8 +84,8 @@ Grill the current changes before they become a PR. Fan out independent reviewers
            `Try to REFUTE this blocker raised against the current diff. Read the cited file and its ` +
            `callers before deciding. A blocker is real only if a concrete failure or wrong outcome ` +
            `follows from it; default to refuted=true if you are not confident it is real.\n\n` +
-           `DIFF:\n${args.diff}\n\nFINDING: ${JSON.stringify(f)}`,
-           { label: `verify:${lens.key}`, phase: 'Verify', schema: VERDICT, model: args.model },
+           `DIFF:\n${a.diff}\n\nFINDING: ${JSON.stringify(f)}`,
+           { label: `verify:${lens.key}`, phase: 'Verify', schema: VERDICT, model: a.model },
          ).then(v => ({ ...f, refuted: !!(v && v.refuted), refute_reason: v && v.reasoning }))),
      ).then(checked => ({
        lens: lens.key,

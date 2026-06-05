@@ -71,19 +71,23 @@ Use this for any non-trivial task where a weak plan would compound into a bad im
      properties: { refuted: { type: 'boolean' }, reasoning: { type: 'string' } },
    }
 
+   // The runtime may hand `args` over as a JSON string — coerce before use.
+   const a = typeof args === 'string' ? JSON.parse(args) : args
+   if (!a.lenses || a.lenses.length === 0) throw new Error('plan-grill: a.lenses is empty — pass the chosen lens array')
+
    const reviews = await pipeline(
-     args.lenses,
+     a.lenses,
      // Stage 1: one independent reviewer per lens
      lens => agent(
        `You are an adversarial plan reviewer. You did NOT write this plan and owe it no loyalty.\n` +
        `Read the plan below, then read every file it lists under "Files to touch" ` +
-       `(resolve relative paths against ${args.projectRoot}) so your critique is grounded in the real code.\n\n` +
-       `PLAN:\n${args.planContent}\n\n` +
+       `(resolve relative paths against ${a.projectRoot}) so your critique is grounded in the real code.\n\n` +
+       `PLAN:\n${a.planContent}\n\n` +
        `Attack the plan through EXACTLY ONE lens — ignore everything else:\n${lens.prompt}\n` +
        `Be specific and harsh, but "could be cleaner" is never a blocker; only a traceable failure or ` +
        `wrong outcome is. Cite the exact plan section. If the lens turns up nothing real, return an empty ` +
        `findings array — do not invent issues.`,
-       { label: `grill:${lens.key}`, phase: 'Grill', schema: FINDINGS, model: args.model },
+       { label: `grill:${lens.key}`, phase: 'Grill', schema: FINDINGS, model: a.model },
      ),
      // Stage 2: try to refute each blocker this lens raised (false-positive filter)
      (review, lens) => parallel(
@@ -93,8 +97,8 @@ Use this for any non-trivial task where a weak plan would compound into a bad im
            `Try to REFUTE this blocker raised against a draft plan. Read the cited section and the ` +
            `referenced code before deciding. A plan-level blocker is real only if a concrete failure or ` +
            `wrong outcome follows from it; default to refuted=true if you are not confident it is real.\n\n` +
-           `PLAN:\n${args.planContent}\n\nFINDING: ${JSON.stringify(f)}`,
-           { label: `verify:${lens.key}`, phase: 'Verify', schema: VERDICT, model: args.model },
+           `PLAN:\n${a.planContent}\n\nFINDING: ${JSON.stringify(f)}`,
+           { label: `verify:${lens.key}`, phase: 'Verify', schema: VERDICT, model: a.model },
          ).then(v => ({ ...f, refuted: !!(v && v.refuted), refute_reason: v && v.reasoning }))),
      ).then(checked => ({
        lens: lens.key,
