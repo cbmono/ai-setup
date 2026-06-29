@@ -60,7 +60,19 @@ only the symlinks it created.
 
 ## Run it
 From inside an instance: `/pm-loop 10m` (serial, completion-gated; one tick at a
-time). Two human gates stay yours: promote `draft → ready`, and merge PRs.
+time). Add work with `/new-project <description>`. Two human gates stay yours:
+promote `draft → ready`, and merge the PR (build) / approve the deliverable (research).
+
+## Projects: build & research
+Projects come in two `kind`s (see `symlink/SCHEMA.md`):
+- **`build`** (default) — ships code to a `target_repo` as PRs; role agents execute,
+  you merge. The full `draft → ready → dispatch → PR → merge` loop.
+- **`research`** — produces **deliverables inside the bundle** (docs, marp/pptx decks,
+  assets under `projects/<slug>/deliverables/`); no repo, no PRs, **human-driven**
+  (the PM tracks but never dispatches them). These are the strategic entry points
+  whose conclusions graduate into `knowledge/` and spawn objectives + build projects.
+
+`/new-project` scaffolds either; pass `kind=research` for the latter.
 
 ## Editor view (control panel + repos in one tree)
 The product repos stay **physical peers** of the instance, never nested inside it

@@ -111,6 +111,10 @@ The set is intentionally small. Most other official plugins (`code-review`, `pr-
 
 The script (`.claude/hooks/format-on-write.sh`) self-detects — projects without a declared formatter, files outside the project, and unsupported extensions all no-op cleanly. To disable, remove the `hooks` block from your `settings.json` or shadow it in `settings.local.json`.
 
+### `ai-bridge/` — background-agent control panel (separate subtree)
+
+`ai-bridge/` is a **reusable OKF control-panel template**, independent of the `~/.claude` config layer above — the user-wide installer never touches it. It stamps out one **instance** per group (`_ai-bridge-<group>/`, its own repo) that orchestrates background AI agents against that group's repos: a project-manager loop, role agents, and `/pm-loop`, `/pr-review-request`, `/new-project` commands, with **build** (code → PRs) and **research** (in-bundle docs/decks) projects. It has its own installer and is documented in [`ai-bridge/README.md`](ai-bridge/README.md). The agents/commands it ships are **not** part of the tables above and do **not** install into `~/.claude`.
+
 ---
 
 ## Install
