@@ -10,7 +10,7 @@ ai-setup/ai-bridge/        # this template (lives in the ai-setup repo)
 ├── install.sh                    # stamp out / refresh an instance
 ├── symlink/                      # generic machinery → symlinked into instances (gitignored there)
 │   ├── SCHEMA.md  agents/index.md  scripts/commit-as.sh
-│   └── .claude/{agents/*, commands/{pm-loop,pr-review-request,new-project,todo}.md, hooks/show-todos.sh, settings.json}
+│   └── .claude/{agents/*, commands/{pm-loop,pr-review-request,new-project,todo,fanout}.md, hooks/show-todos.sh, settings.json}
 └── seed/                         # starting content → copied into an instance once (then yours)
     ├── instance.config.json  CLAUDE.md  README.md  index.md  log.md  .gitignore
     ├── bridge.code-workspace     # multi-root editor view: control panel + group repos

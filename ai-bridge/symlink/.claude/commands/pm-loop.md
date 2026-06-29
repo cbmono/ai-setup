@@ -16,6 +16,14 @@ fixed-interval loop shorter than a tick (e.g. a naive `/loop 15m`) makes ticks
 and a sibling's package install corrupts an in-flight worktree. So this loop is
 gated on **completion**, never on a clock.
 
+**This guarantee is per-session only — there is no cross-session lock.** The
+"one tick at a time" serialization lives in *this* session's wakeup chain; a
+second Claude session running `/pm-loop` against the **same instance** reintroduces
+exactly the overlap bug (double-dispatch, shared-store corruption, racing pushes
+to the control panel's `main`). **Run at most one active `/pm-loop` per instance
+at a time** — that's a human responsibility, not something the loop can enforce.
+Before starting, make sure no other session is already looping this instance.
+
 ## Preconditions
 
 1. Must run from a **control-panel instance root**, so the `.claude/agents` role
@@ -66,5 +74,7 @@ ticks, regardless of how long a tick runs.
   count, and what awaits the human (approvals / answers / merges).
 
 ## Notes
-- One serial loop per session. To change the gap: stop, then `/pm-loop <gap>`.
+- One serial loop per session — and **one active loop per instance** (see "Why
+  serial"): don't start a second session looping the same instance. To change the
+  gap: stop, then `/pm-loop <gap>`.
 - A tick with nothing to do is a fast no-op — the gap keeps idle cycles cheap.

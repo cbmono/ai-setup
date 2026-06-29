@@ -13,6 +13,7 @@ You steer; background agents do the work. A few commands run everything:
 | Start a new project | **`/new-project <description>`** — a build project (code → PRs), or add `kind=research` for docs/decks/assets (no repo). |
 | Request grouped PR reviews | **`/pr-review-request <filter>`** |
 | Jot / list / close a quick reminder | **`/todo <text>`** · `/todo` to list · `/todo done <text>` (lightweight notes in `todos.md`, separate from formal `projects/` work) |
+| Fan a batch of independent ad-hoc asks out to parallel background agents | **`/fanout`** — or just give the assistant ≥2 independent asks at once and it acts as coordinator: dispatch each, report results as they land (see _Ad-hoc requests vs. the project loop_) |
 
 Your two gates: promote a task `draft → ready`, then merge the PR (build) or
 approve the deliverable (research). **New here?** Run `/pm-loop` as a DRY RUN to
@@ -46,6 +47,38 @@ When a request matches one of these, **invoke the command** — don't improvise 
   tasks in the target repos and open PRs — never merging.
 - Run the PM loop with `/pm-loop` from a session **in this repo** (so the role
   agents load and the clones + `gh` are available).
+- **One active `/pm-loop` per instance at a time.** The loop's "one tick at a time"
+  guarantee is per-session and there is no cross-session lock — a second session
+  looping this same instance would double-dispatch tasks, corrupt in-flight
+  worktrees, and race pushes to `main`. Before starting a loop, make sure no other
+  session is already running one here.
+
+## Ad-hoc requests vs. the project loop
+Two different modes — don't conflate them:
+- **Tracked work** (anything that becomes a PR or a `projects/` deliverable) flows
+  through the gated loop above: `/new-project` → you promote `draft → ready` →
+  `/pm-loop` dispatches role agents → you merge/approve. Heavyweight on purpose.
+- **Ad-hoc chat requests** (rephrase a doc, rename a folder, "status of X",
+  "challenge this approach") are **not** project tasks and must **not** be funnelled
+  through `/pm-loop` — that's slower, not faster.
+
+**Default for ad-hoc batches:** when the user sends **≥2 independent,
+well-specified asks** in a turn, the main session acts as a **coordinator** —
+dispatch each to a **background `general-purpose` agent** (`run_in_background`) in a
+single message so they run in parallel, then report each result as it lands instead
+of working them serially. `/fanout` forces this explicitly.
+
+**When NOT to fan out (handle in-thread instead):**
+- the ask needs an **interactive decision** (a subagent can't ask the user) —
+  settle it in-thread first, then dispatch the *execution*;
+- it's a **trivial lookup** where an agent round-trip costs more than reading the
+  file yourself;
+- two asks would **write the same files** — serialise them, or give each its own
+  worktree, so they don't clobber.
+
+Subagents run **without this conversation's context** and return only their final
+message, so brief each one completely; they inherit this bundle's rules (no PII,
+metric units, BI-routing) from this `CLAUDE.md`.
 
 ## Git workflow (this repo)
 - **This control-panel repo commits directly to `main` and pushes — no feature
