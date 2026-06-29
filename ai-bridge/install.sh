@@ -112,7 +112,7 @@ grep -qF "$BEGIN_MARK" "$gi" || printf '\n%s\n%s\n' "$BEGIN_MARK" "$END_MARK" >>
 mlist="$(mktemp)"; machinery_paths > "$mlist"
 tmp="$gi.tmp.$$"
 awk -v b="$BEGIN_MARK" -v e="$END_MARK" -v mlist="$mlist" '
-  $0==b { print; while ((getline line < mlist) > 0) print line; close(mlist); inblock=1; next }
+  $0==b { print; while ((getline line < mlist) > 0) print "/" line; close(mlist); inblock=1; next }
   $0==e { print; inblock=0; next }
   !inblock { print }
 ' "$gi" > "$tmp" && mv "$tmp" "$gi"
