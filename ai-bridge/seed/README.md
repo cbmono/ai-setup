@@ -78,6 +78,13 @@ dispatch you would do, without spawning agents."*
 You control the two gates: promote a task `draft → ready` to approve it, and
 merge the PR when satisfied (the PM then marks the task `done`).
 
+## Quick todos
+`/todo <text>` jots a reminder, `/todo` lists them, `/todo done <text>` closes one
+— all in a single `todos/todos.md`. A `SessionStart` hook surfaces open todos when
+you launch Claude here. These are **lightweight notes** for you, separate from the
+formal `projects/` work agents execute — promote a todo to `/new-project` once it's
+real, trackable work.
+
 ## Re-link the machinery
 If the template moves or you add machinery, re-run the template's installer:
 ```
