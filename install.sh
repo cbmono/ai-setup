@@ -149,6 +149,11 @@ EOF
 # enabled locally. Adopt the repo baseline only if you don't already have one.
 if ours settings.json; then
   echo "  ok    settings.json (already linked)"
+elif [ -L "$DEST/settings.json" ] && [ ! -e "$DEST/settings.json" ]; then
+  # Dangling symlink (e.g. this repo was moved) — nothing real to preserve, relink.
+  rm "$DEST/settings.json"
+  ln -s "$REPO_CLAUDE/settings.json" "$DEST/settings.json"
+  echo "  relink settings.json (was dangling)"
 elif [ -e "$DEST/settings.json" ]; then
   echo
   echo "note: ~/.claude/settings.json already exists and was left untouched. To adopt"
