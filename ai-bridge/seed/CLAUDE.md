@@ -12,14 +12,14 @@ You steer; background agents do the work. A few commands run everything:
 | See state & advance work (refine drafts, dispatch `ready` tasks, reflect merges) | **`/pm-loop`** — one safe, idempotent tick. Add `10m` to loop on an interval; say "DRY RUN" to preview without spawning agents. |
 | Start a new project | **`/new-project <description>`** — a build project (code → PRs), or add `kind=research` for docs/decks/assets (no repo). |
 | Request grouped PR reviews | **`/pr-review-request <filter>`** |
-| Jot / list / close a quick reminder | **`/todo <text>`** · `/todo` to list · `/todo done <text>` (lightweight notes in `todos/todos.md`, separate from formal `projects/` work) |
+| Jot / list / close a quick reminder | **`/todo <text>`** · `/todo` to list · `/todo done <text>` (lightweight notes in `todos.md`, separate from formal `projects/` work) |
 
 Your two gates: promote a task `draft → ready`, then merge the PR (build) or
 approve the deliverable (research). **New here?** Run `/pm-loop` as a DRY RUN to
 see what exists and what awaits you, or open [`index.md`](index.md) for the map.
 When a request matches one of these, **invoke the command** — don't improvise its steps.
 
-**At the start of a session, surface any open todos** from `todos/todos.md` (a
+**At the start of a session, surface any open todos** from `todos.md` (a
 `SessionStart` hook injects them) so they're not forgotten — then carry on.
 
 > Loaded only when you launch Claude inside this instance (its `.claude/agents`

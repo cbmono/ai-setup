@@ -14,7 +14,7 @@ ai-setup/ai-bridge/        # this template (lives in the ai-setup repo)
 └── seed/                         # starting content → copied into an instance once (then yours)
     ├── instance.config.json  CLAUDE.md  README.md  index.md  log.md  .gitignore
     ├── bridge.code-workspace     # multi-root editor view: control panel + group repos
-    ├── todos/todos.md            # quick personal reminders (/todo); shown at session start
+    ├── todos.md            # quick personal reminders (/todo); shown at session start
     └── objectives/  projects/  knowledge/{services,findings,runbooks,teams}/
 ```
 

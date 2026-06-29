@@ -80,7 +80,7 @@ merge the PR when satisfied (the PM then marks the task `done`).
 
 ## Quick todos
 `/todo <text>` jots a reminder, `/todo` lists them, `/todo done <text>` closes one
-— all in a single `todos/todos.md`. A `SessionStart` hook surfaces open todos when
+— all in a single `todos.md`. A `SessionStart` hook surfaces open todos when
 you launch Claude here. These are **lightweight notes** for you, separate from the
 formal `projects/` work agents execute — promote a todo to `/new-project` once it's
 real, trackable work.
