@@ -1,0 +1,15 @@
+{
+  "$schema": "Instance config for an ai-bridge control panel. Customize, then commit.",
+  "org": "your-github-org",
+  "reposRoot": "~/workspace/<group>",
+  "authorEmail": "you@example.com",
+  "defaultRepo": null,
+  "prReviewSlackChannel": null,
+  "roles": [
+    "project-manager",
+    "software-engineer",
+    "devops-engineer",
+    "qa-reviewer",
+    "cataloguer"
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  // Multi-root editor view for this ai-bridge instance:
+  //   • "AI Bridge"                    →  this instance's own files (.)
+  //   • "repositories"                 →  the group folder (..) with the product
+  //                                       repos, beside which this bridge lives
+  //
+  // Open it in VSCode, Antigravity, Cursor, or a similar IDE via 
+  // File > Open Workspace from File… to get the unified
+  // tree: the control panel pinned on top, all the group's repos below.
+  //
+  // This ONLY changes how the editor displays things. The control panel and the
+  // product repos stay PHYSICAL PEERS on disk — they are never nested — so a
+  // product-repo session never inherits this instance's control-panel CLAUDE.md.
+  // The files.exclude glob hides the bridge folder from the "group repos" pane so
+  // it isn't shown twice (matches the `_ai-bridge-<group>` naming convention).
+
+  "folders": [
+    { "name": "AI Bridge", "path": "." },
+    { "name": "repositories", "path": ".." }
+  ],
+  "settings": {
+    "files.exclude": {
+      "_ai-bridge-*": true
+    }
+  }
+}

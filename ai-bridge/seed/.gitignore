@@ -1,0 +1,13 @@
+.DS_Store
+*.log
+tmp/
+node_modules/
+.claude/worktrees/
+.claude/*.lock
+.claude/settings.local.json
+
+# Generic machinery is symlinked in from the ai-bridge template by
+# install.sh and must NOT be committed here (it dangles on other machines).
+# install.sh manages the list between the markers below — do not edit by hand.
+# >>> ai-bridge machinery (symlinked) >>>
+# <<< ai-bridge machinery <<<
