@@ -24,7 +24,27 @@ Prefer per-project copy, or have an existing `.claude/` to overlay? See [Install
 
 ---
 
+## ai-bridge — the background-agent control panel
+
+**This is the point of the repo.** [`ai-bridge/`](ai-bridge/README.md) is a reusable [Open Knowledge Format (OKF)](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md) **Knowledge Bundle** that acts as a *control panel* for a fleet of background AI agents working on a group's repos. You stamp out one **instance** per group (`_ai-bridge-<group>/`, its own private repo) and drive it with a few commands: a project-manager loop refines drafts and dispatches work to role agents, while two human gates stay yours — promote `draft → ready`, and merge the PR / approve the deliverable. Everything else in this repo (the agents, commands, skills, and settings below) is the **supporting tooling** a bridge session runs on top of.
+
+It's a deliberately **separate subtree**: the user-wide `install.sh` never touches it, and the agents/commands it ships install into per-group *instances*, **not** into `~/.claude`.
+
+| Part | What's there |
+| --- | --- |
+| **`symlink/`** — machinery, symlinked into every instance | `SCHEMA.md` (OKF types + the task lifecycle); role agents `project-manager`, `software-engineer`, `devops-engineer`, `qa-reviewer`, `cataloguer`; commands `/pm-loop`, `/pr-review-request`, `/new-project`; `commit-as.sh` (per-agent commit authorship) |
+| **`seed/`** — copied once, then yours | `instance.config.json`, the instance `CLAUDE.md`, empty `objectives/` · `projects/` · `knowledge/`, and `bridge.code-workspace` (multi-root editor view) |
+| **`install.sh`** | Stamps out / refreshes an instance: file-granular symlinks + seed copy + a managed `.gitignore` block |
+| **Project kinds** | **`build`** — ships code to a repo as PRs (role agents execute, you merge); **`research`** — produces in-bundle deliverables (docs, marp/pptx decks, assets), human-driven |
+| **Instance** | `_ai-bridge-<group>/` — its own private repo per group, living beside that group's product repos |
+
+→ Full guide and setup: **[`ai-bridge/README.md`](ai-bridge/README.md)**.
+
+---
+
 ## What's inside
+
+The config layer the bridge — and your everyday coding — runs on: agents, commands, skills, and settings that install into `~/.claude`.
 
 ### Agents (`.claude/agents/`)
 
@@ -110,10 +130,6 @@ The set is intentionally small. Most other official plugins (`code-review`, `pr-
 | `format-on-write.sh` | `PostToolUse` (Write\|Edit) | Formats the file Claude just wrote, if the nearest `package.json` declares `@biomejs/biome` (preferred) or `prettier`. Uses `npx --no-install`, so a missing or uninstalled formatter is a silent no-op. Never blocks the tool. |
 
 The script (`.claude/hooks/format-on-write.sh`) self-detects — projects without a declared formatter, files outside the project, and unsupported extensions all no-op cleanly. To disable, remove the `hooks` block from your `settings.json` or shadow it in `settings.local.json`.
-
-### `ai-bridge/` — background-agent control panel (separate subtree)
-
-`ai-bridge/` is a **reusable OKF control-panel template**, independent of the `~/.claude` config layer above — the user-wide installer never touches it. It stamps out one **instance** per group (`_ai-bridge-<group>/`, its own repo) that orchestrates background AI agents against that group's repos: a project-manager loop, role agents, and `/pm-loop`, `/pr-review-request`, `/new-project` commands, with **build** (code → PRs) and **research** (in-bundle docs/decks) projects. It has its own installer and is documented in [`ai-bridge/README.md`](ai-bridge/README.md). The agents/commands it ships are **not** part of the tables above and do **not** install into `~/.claude`.
 
 ---
 
