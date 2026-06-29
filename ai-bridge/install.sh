@@ -33,7 +33,9 @@ for arg in "$@"; do
       sed -n '3,20p' "$0" | sed 's/^# \{0,1\}//'
       exit 0 ;;
     -*) echo "error: unknown flag '$arg'" >&2; exit 2 ;;
-    *) TARGET="$arg" ;;
+    *)
+      [ -z "$TARGET" ] || { echo "error: multiple target directories given" >&2; exit 2; }
+      TARGET="$arg" ;;
   esac
 done
 TARGET="$(cd "${TARGET:-$PWD}" 2>/dev/null && pwd || true)"

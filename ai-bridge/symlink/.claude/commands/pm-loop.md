@@ -20,7 +20,7 @@ gated on **completion**, never on a clock.
 
 1. Must run from a **control-panel instance root**, so the `.claude/agents` role
    agents, the target-repo clones, and `gh` load. **Detect** the instance root by
-   confirming `SCHEMA.md` + `agents/` + `instance.config.json` exist in the cwd; if
+   confirming `SCHEMA.md` + `.claude/agents` + `instance.config.json` exist in the cwd; if
    not, tell the user to `cd` into the instance and stop. (Do not hardcode a path —
    instances live under different group folders.)
 2. Read `instance.config.json` for `reposRoot` (where target repos are cloned) and

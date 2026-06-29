@@ -40,8 +40,9 @@ ai-setup/ai-bridge/install.sh ~/workspace/<group>/_ai-bridge-<group>
 cd ~/workspace/<group>/_ai-bridge-<group>
 $EDITOR instance.config.json          # set org, reposRoot, authorEmail
 git init && git add -A && git commit -m "chore: bootstrap control panel"
-# create a uniquely-named private remote (no leading underscore on the remote):
-gh repo create <user>/ai-bridge-<group> --private --source=. --push
+# create a uniquely-named private remote — keep the leading underscore so a fresh
+# `git clone` lands a `_ai-bridge-<group>/` dir that matches this convention:
+gh repo create <user>/_ai-bridge-<group> --private --source=. --push
 ```
 
 The group folder itself (`~/workspace/<group>/`) is **not** a repo — it's a plain

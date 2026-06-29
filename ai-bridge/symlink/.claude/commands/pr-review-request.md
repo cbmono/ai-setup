@@ -40,12 +40,14 @@ If `$ARGUMENTS` is empty, ask the user which PRs (pattern or numbers) before doi
    name with `org`). The Slack channel is only needed if you'll auto-post (step 6).
 
 2. **Find candidates** with `gh pr list --repo <repo> --state open --limit 100
-   --json number,title,headRefName,url,state` and apply the filter above.
+   --json number,title,headRefName,url,state,isDraft` and apply the filter above.
 
 3. **Filter out anything not postable** — fetch fresh per-PR state with
-   `gh pr view <n> --repo <repo> --json number,state,headRefName,url,statusCheckRollup`:
+   `gh pr view <n> --repo <repo> --json number,state,isDraft,headRefName,url,statusCheckRollup`:
    - **Drop `state != OPEN`** (merged/closed) — merges happen live, so always
      re-check; never trust a list snapshot.
+   - **Drop drafts** (`isDraft: true`) — a draft isn't ready for review even if
+     its checks are green.
    - **Drop "not green"** = any check in `statusCheckRollup` with `conclusion` in
      `FAILURE`, `CANCELLED`, `TIMED_OUT`, or `ACTION_REQUIRED`, **or** any
      `status` still `IN_PROGRESS`/`QUEUED` for a real CI job.
