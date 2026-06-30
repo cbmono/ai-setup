@@ -97,20 +97,37 @@ metric units, BI-routing) from this `CLAUDE.md`.
   this in the target product repos — many forbid AI attribution.
 
 ## Conventions for role agents working in target repos
-- Never work on the target repo's default branch. Create a feature branch (or a
-  git worktree under `<reposRoot>/_wt/`) per task.
-- Conventional commits; no AI attribution / `Co-Authored-By` lines.
-- PR title format: `<type>: <subject> [<task-id>]` (use the OKF task id, e.g.
-  `[ci-hardening/task-001]`).
-- Run the repo's build, lint, and tests green before opening a PR.
+**This is the single source of truth for shared role-agent behaviour.** The
+symlinked role agents (`software-engineer`, `devops-engineer`, `qa-reviewer`)
+reference this section instead of restating it — **keep them in sync**: change a
+rule here, not in each agent.
+
+- Read `instance.config.json` for `reposRoot` (where target repos are cloned).
+  Honor this `CLAUDE.md` for data-handling, units, and commit-attribution.
+- **Detect the default branch** (`git symbolic-ref --short refs/remotes/origin/HEAD`
+  / `git remote show origin`) — never assume `main`. Never work on it.
+- Create a feature branch (or a git worktree under `<reposRoot>/_wt/`) per task.
+- Conventional commits; **no AI attribution / `Co-Authored-By` lines.** Push to
+  `origin` early (don't wait until the end) so an interrupted worktree loses nothing.
+- PR title format: `<type>: <subject> [<task-id>]` (OKF task id, e.g.
+  `[ci-hardening/task-001]`). Target the default branch. **Never merge.**
+- Run the repo's build, lint, and tests green before opening a PR. If you can't
+  get them green, report rather than open the PR.
 - Write the PR URL and a `# Result` summary back into the task document, and set
-  the task `status: in-review`.
+  the task `status: in-review` (or `blocked`, with why, if you can't proceed).
+- **No customer PII** in code, commits, or PR text; **never echo, print, or log
+  secrets or environment variables** (rely on existing env / `.npmrc` for auth).
+- **Capture knowledge:** if you discover something durable and reusable, write or
+  update a `Finding` in `knowledge/findings/` (per `SCHEMA.md`) and link it from
+  the task, so the next agent doesn't re-derive it.
 - **Parallel-safety:** if the product repos share one clone / one package store,
   each agent uses its own worktree under `<reposRoot>/_wt/` and a **private package
   store** (e.g. `pnpm install --store-dir <worktree>/.pnpm-store`), and pushes
-  early. (`settings.json` sets `worktree.bgIsolation: none` so the control panel
-  manages worktrees itself; harness isolation would only isolate this repo, not
-  the product repos.)
+  early. Create the worktree explicitly with `git worktree add <path> -b <branch>
+  origin/<default-branch>` — don't rely on the `EnterWorktree` tool, which may be
+  unavailable to you as a subagent. (`settings.json` sets `worktree.bgIsolation:
+  none` so the control panel manages worktrees itself; harness isolation would
+  only isolate this repo, not the product repos.)
 
 ## Knowledge base
 - `knowledge/` is an OKF knowledge base in this bundle — a `Service` catalog,
