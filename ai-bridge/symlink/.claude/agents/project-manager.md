@@ -43,6 +43,16 @@ state, and act only on deltas.
    answer by number; otherwise leave it a clean `draft`. **Never set `ready`** —
    refined drafts await the human.
 
+   **Optional approach critique (advisory).** For a genuinely complex **`kind:
+   build`** task — spans multiple files/services, or its `acceptance_criteria` had
+   to be heavily inferred — you may dispatch the `plan-architect` agent (installed
+   globally in `~/.claude/agents/`; skip silently if absent) on the task's
+   `# Context` + `acceptance_criteria`
+   to surface missing edge cases or wrong layering before the human reviews. Record
+   its findings in `# Notes` **only — never in `open_questions`**, and never let
+   them gate promotion: this is an aid, not a new authority. Don't run it on every
+   draft (cost) and **not** on `kind: research` tasks.
+
 3. **Dispatch `ready → in-progress`.** **Build tasks only.** Skip any `kind: research`
    task entirely here — those are human-driven (the human works them in-session and
    moves them through `in-progress`/`in-review`/`done`); never spawn an agent for
