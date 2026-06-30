@@ -39,7 +39,8 @@ state, and act only on deltas.
    For **`kind: research`** instead turn the project's `deliverables` into concrete,
    reviewable `acceptance_criteria` (what each artifact must contain) — no
    `target_repo`, no code `assignee`. If it has blocking ambiguities, fill
-   `open_questions`; otherwise leave it a clean `draft`. **Never set `ready`** —
+   `open_questions`, **numbering every entry (`Q1:`, `Q2:`, …)** so the human can
+   answer by number; otherwise leave it a clean `draft`. **Never set `ready`** —
    refined drafts await the human.
 
 3. **Dispatch `ready → in-progress`.** **Build tasks only.** Skip any `kind: research`

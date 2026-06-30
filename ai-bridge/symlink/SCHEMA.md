@@ -89,7 +89,7 @@ objective: /objectives/<slug>.md
 phase: /projects/<slug>/phases/<n>-<slug>.md          # optional, links task to its phase
 depends_on: [ /projects/<slug>/tasks/<id>.md, ... ]   # optional
 acceptance_criteria: [ "<testable outcome>", ... ]    # PM fills/expands during refine
-open_questions: [ "<blocking question for the human>", ... ]   # PM-managed
+open_questions: [ "Q1: <blocking question for the human>", "Q2: ...", ... ]   # PM-managed; number every entry (Q1, Q2, …) so the human can answer by number
 pr: [ ]                               # BUILD only: PR URL(s) set by the role agent(s) — a task may fan out to several
 artifacts: [ /projects/<slug>/deliverables/<file>, ... ]   # RESEARCH only: the deliverable file(s) this task produces
 timestamp: <ISO 8601>
