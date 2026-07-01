@@ -37,7 +37,8 @@ data-handling, units, and where to route authoritative data questions.
    `knowledge/runbooks/<slug>.md`.
 4. **Curate `index.md` as the KB's lookup surface.** `knowledge/index.md` is a
    **compact, one-line-per-entry catalog** — a `Service` / `Finding` / `Runbook` /
-   `Team` table where each row is `title · one-line summary · path · status`. It is
+   `Team` table where each row is `title · one-line summary · path · status` (the
+   `Team` table omits `status` — its row is `team · owns · path`). It is
    the **only** file other agents read broadly, so keep it terse (one line per
    entry, no prose) and complete: every doc you write or update gets a row here.
    This is what lets an agent find prior work by scanning a small index instead of

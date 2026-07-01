@@ -138,7 +138,7 @@ rule here, not in each agent.
 - **Use it index-first, to avoid re-deriving what's already known.** Before
   researching or implementing, scan `knowledge/index.md` (a compact one-line-per-
   entry catalog) for the service/area you're touching, then open only the 1–3
-  specific `Finding`s / `Service` / `Runbook` docs that match — **never bulk-read
+  specific `Finding`s / `Service` / `Runbook` / `Team` docs that match — **never bulk-read
   `knowledge/`**. If a relevant `Finding` already answers a question, cite it and
   move on. The KB is **pull-based** (read on demand); it is deliberately *not*
   auto-loaded into context, so it never bloats a session.

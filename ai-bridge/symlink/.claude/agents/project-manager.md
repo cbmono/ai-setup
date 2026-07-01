@@ -100,8 +100,9 @@ state, and act only on deltas.
    task reached `done`) whose work produced durable, reusable knowledge, dispatch
    the `cataloguer` (subagent) to capture `Finding`s / update the `Service` catalog
    / add or update a `Runbook` for that work, and link the `Finding`s from the
-   relevant task doc. **Skip** if nothing merged this tick or the merged work is
-   trivial (docs-only, tiny fixes). **Throttle: at most one `cataloguer` dispatch
+   relevant task doc. **Skip** if neither a merge nor a `done` task happened this
+   tick, or if the completed work is trivial (docs-only, tiny fixes). **Throttle:
+   at most one `cataloguer` dispatch
    per tick.** It is read-only on the product repos and writes only to `knowledge/`,
    so it never blocks role agents (though it counts toward the concurrency cap).
    This adds no promote/merge behaviour — the two human gates are untouched.
