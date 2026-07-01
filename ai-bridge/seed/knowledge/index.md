@@ -1,12 +1,30 @@
-# Knowledge Base
+# Knowledge Base — index
 
-An OKF knowledge base for this control panel: a `Service` catalog, `Finding`s
-(decisions/learnings/gotchas), `Runbook`s, and `Team`s. Types are defined in
-`/SCHEMA.md`. *(Seeded from the template — populate via the `cataloguer` agent and
-as a byproduct of task work.)*
+Compact catalog of this control panel's OKF knowledge base (`Service`s, `Finding`s,
+`Runbook`s, `Team`s — types in `/SCHEMA.md`). **This index is the KB's lookup
+surface:** scan it to find prior work, then open only the specific doc(s) you need —
+**don't bulk-read `knowledge/`**. The `cataloguer` keeps one terse row per doc here
+(populated via the agent and as a byproduct of task work).
 
-* [Services](/knowledge/services/) - the service catalog
-* [Findings](/knowledge/findings/) - durable decisions and learnings
-* [Runbooks](/knowledge/runbooks/) - repeatable procedures
-* [Teams](/knowledge/teams/) - who owns what / routing
-* [KB log](/knowledge/log.md) - what changed and when
+## Services
+| Service | What it is | Path | Status |
+|---|---|---|---|
+| _(none yet)_ | | | |
+
+## Findings — decisions, learnings, gotchas
+| Finding | Summary | Path | Status |
+|---|---|---|---|
+| _(none yet)_ | | | |
+
+## Runbooks
+| Runbook | When to use | Path | Status |
+|---|---|---|---|
+| _(none yet)_ | | | |
+
+## Teams — who owns what / routing
+| Team | Owns | Path |
+|---|---|---|
+| _(none yet)_ | | |
+
+---
+[KB log](/knowledge/log.md) — what changed and when.

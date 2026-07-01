@@ -35,9 +35,15 @@ data-handling, units, and where to route authoritative data questions.
    `status: superseded` rather than deleting.
 3. **Runbooks.** Write/refresh repeatable procedures as
    `knowledge/runbooks/<slug>.md`.
-4. **Curate.** Keep `knowledge/index.md` current and append a dated entry to
-   `knowledge/log.md`. Cross-link liberally (bundle-relative `/knowledge/...` and
-   `/projects/...` links).
+4. **Curate `index.md` as the KB's lookup surface.** `knowledge/index.md` is a
+   **compact, one-line-per-entry catalog** — a `Service` / `Finding` / `Runbook` /
+   `Team` table where each row is `title · one-line summary · path · status`. It is
+   the **only** file other agents read broadly, so keep it terse (one line per
+   entry, no prose) and complete: every doc you write or update gets a row here.
+   This is what lets an agent find prior work by scanning a small index instead of
+   bulk-reading `knowledge/`. Append a dated entry to `knowledge/log.md`, and
+   cross-link liberally (bundle-relative `/knowledge/...` and `/projects/...` links)
+   so a Service doc points at its Findings and vice-versa.
 
 ## Verifying facts
 

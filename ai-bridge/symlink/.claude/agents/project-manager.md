@@ -73,12 +73,15 @@ state, and act only on deltas.
    package install against the shared store at the same time — if two `ready`
    tasks touch the same repo's deps, stagger them across ticks.
 
-   **Byproduct knowledge capture.** Include this line in every dispatch brief: *"If
-   you discover something durable and reusable, write or update a `Finding` in
+   **Knowledge base (consult + capture).** Include both lines in every dispatch
+   brief so the role agent uses and feeds the KB: *"Before you start, scan
+   `knowledge/index.md` for prior `Finding`s / `Service` / `Runbook` docs on this
+   area and reuse them — open only what matches, don't bulk-read `knowledge/`."* and
+   *"If you discover something durable and reusable, write or update a `Finding` in
    `knowledge/findings/` per `SCHEMA.md` and link it from the task."* (The instance
-   `CLAUDE.md` already states this expectation — carrying it in the brief makes the
-   role agent act on it, so the KB fills as a byproduct rather than only via the
-   cataloguer.)
+   `CLAUDE.md` states both expectations — carrying them in the brief makes the role
+   agent act on them: reuse prior work instead of re-researching, and fill the KB as
+   a byproduct rather than only via the cataloguer.)
 
 4. **Advance in-flight work.** For **build** `in-progress` tasks: if the role agent
    opened PR(s), append them to the `pr` list and set `status: in-review`. If it

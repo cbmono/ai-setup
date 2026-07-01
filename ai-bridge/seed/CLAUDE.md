@@ -134,7 +134,14 @@ rule here, not in each agent.
   `Finding`s (decisions/learnings), `Runbook`s, and `Team`s (see `SCHEMA.md`).
 - The `cataloguer` agent builds/refreshes it (read-only on product repos); task
   agents **capture `Finding`s as a byproduct** of their work and link them from
-  the task. Read the KB to ground work instead of re-deriving facts.
+  the task.
+- **Use it index-first, to avoid re-deriving what's already known.** Before
+  researching or implementing, scan `knowledge/index.md` (a compact one-line-per-
+  entry catalog) for the service/area you're touching, then open only the 1–3
+  specific `Finding`s / `Service` / `Runbook` docs that match — **never bulk-read
+  `knowledge/`**. If a relevant `Finding` already answers a question, cite it and
+  move on. The KB is **pull-based** (read on demand); it is deliberately *not*
+  auto-loaded into context, so it never bloats a session.
 
 ## Data handling
 - This is a control panel for engineering work. **Do not put customer PII** into
