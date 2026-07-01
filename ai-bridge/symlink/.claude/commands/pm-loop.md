@@ -43,7 +43,10 @@ Parse `$ARGUMENTS` as the inter-tick **gap** (default **10m**). Then:
 
 1. **Run one tick now.** Spawn the `project-manager` agent
    (`subagent_type: project-manager`) for ONE LIVE tick (background), with the
-   standing guardrails below.
+   standing guardrails below. A LIVE tick refines drafts, dispatches `ready` tasks,
+   advances/reflects PRs, and — **after reflecting merges** — may dispatch the
+   `cataloguer` to refresh `knowledge/` from the merged work (throttled to one per
+   tick; skipped on idle/trivial ticks).
 2. **Wait for it to finish.** Do **not** start another tick while one is in
    flight. The agent's completion arrives as a `<task-notification>`.
 3. **On completion**, schedule the next tick after the gap: call `ScheduleWakeup`
@@ -67,6 +70,10 @@ ticks, regardless of how long a tick runs.
   worktree under `<reposRoot>/_wt/` + a **private package store** (e.g.
   `pnpm install --store-dir <worktree>/.pnpm-store`) and **push early** — never two
   installs against the shared store at once (see `.claude/agents/project-manager.md`).
+- A LIVE tick may also dispatch the **`cataloguer`** to refresh the KB after
+  reflecting merges — read-only on product repos, writes only to `knowledge/`. It
+  **counts toward the ≤3 cap**, is **throttled to one per tick**, and (like every
+  tick action) **never promotes or merges**. Skipped on idle/docs-only/trivial ticks.
 - Commit hygiene in this repo: stage only your own changed files by explicit path
   (never `git add -A`); commit via `scripts/commit-as.sh project-manager "<msg>"`;
   never `--no-verify` in target repos.

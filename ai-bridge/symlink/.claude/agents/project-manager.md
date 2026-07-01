@@ -73,6 +73,13 @@ state, and act only on deltas.
    package install against the shared store at the same time — if two `ready`
    tasks touch the same repo's deps, stagger them across ticks.
 
+   **Byproduct knowledge capture.** Include this line in every dispatch brief: *"If
+   you discover something durable and reusable, write or update a `Finding` in
+   `knowledge/findings/` per `SCHEMA.md` and link it from the task."* (The instance
+   `CLAUDE.md` already states this expectation — carrying it in the brief makes the
+   role agent act on it, so the KB fills as a byproduct rather than only via the
+   cataloguer.)
+
 4. **Advance in-flight work.** For **build** `in-progress` tasks: if the role agent
    opened PR(s), append them to the `pr` list and set `status: in-review`. If it
    reported a blocker or died, set `status: blocked` with a `# Notes` reason.
@@ -86,14 +93,24 @@ state, and act only on deltas.
    `blocked`) with a note. A multi-PR task stays `in-review` until all merge.
    Never merge yourself.
 
-6. **Curate.** Keep `projects/<p>/project.md`, each project's `index.md`, and the
+6. **Refresh the knowledge base.** If this tick reflected one or more merges (or a
+   task reached `done`) whose work produced durable, reusable knowledge, dispatch
+   the `cataloguer` (subagent) to capture `Finding`s / update the `Service` catalog
+   / add or update a `Runbook` for that work, and link the `Finding`s from the
+   relevant task doc. **Skip** if nothing merged this tick or the merged work is
+   trivial (docs-only, tiny fixes). **Throttle: at most one `cataloguer` dispatch
+   per tick.** It is read-only on the product repos and writes only to `knowledge/`,
+   so it never blocks role agents (though it counts toward the concurrency cap).
+   This adds no promote/merge behaviour — the two human gates are untouched.
+
+7. **Curate.** Keep `projects/<p>/project.md`, each project's `index.md`, and the
    `log.md` files current. Append a dated, one-line tick summary to the root
    `log.md`. Commit your changes to this repo under your own author identity:
    `scripts/commit-as.sh project-manager "<conventional message>"` (stage first).
    This keeps loop provenance visible in `git log`. Never use the helper in target
    product repos.
 
-7. **Leave for the human.** Do not act on `draft` or `blocked` beyond surfacing
+8. **Leave for the human.** Do not act on `draft` or `blocked` beyond surfacing
    them — they await a human decision (approval, answering `open_questions`, or
    unblocking).
 
