@@ -32,7 +32,7 @@ It's a deliberately **separate subtree**: the user-wide `install.sh` never touch
 
 | Part | What's there |
 | --- | --- |
-| **`symlink/`** — machinery, symlinked into every instance | `SCHEMA.md` (OKF types + the task lifecycle); role agents `project-manager`, `software-engineer`, `devops-engineer`, `qa-reviewer`, `cataloguer`; commands `/pm-loop`, `/pr-review-request`, `/new-project`, `/todo`; `commit-as.sh` (per-agent commit authorship); a `SessionStart` hook that surfaces open todos |
+| **`symlink/`** — machinery, symlinked into every instance | `SCHEMA.md` (OKF types + the task lifecycle); role agents `project-manager`, `software-engineer`, `devops-engineer`, `qa-reviewer`, `cataloguer`; commands `/status` (status board → `DASHBOARD.md`), `/pm-loop`, `/new-project`, `/pr-review-request`, `/todo`, `/fanout`; `commit-as.sh` (per-agent commit authorship); `SessionStart` hooks that surface the tasks awaiting you and open todos |
 | **`seed/`** — copied once, then yours | `instance.config.json`, the instance `CLAUDE.md`, empty `objectives/` · `projects/` · `knowledge/`, `todos.md` (quick reminders), and `bridge.code-workspace` (multi-root editor view) |
 | **`install.sh`** | Stamps out / refreshes an instance: file-granular symlinks + seed copy + a managed `.gitignore` block |
 | **Project kinds** | **`build`** — ships code to a repo as PRs (role agents execute, you merge); **`research`** — produces in-bundle deliverables (docs, marp/pptx decks, assets), human-driven |

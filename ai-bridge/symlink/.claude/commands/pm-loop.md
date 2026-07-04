@@ -85,3 +85,6 @@ ticks, regardless of how long a tick runs.
   serial"): don't start a second session looping the same instance. To change the
   gap: stop, then `/pm-loop <gap>`.
 - A tick with nothing to do is a fast no-op — the gap keeps idle cycles cheap.
+- Each tick refreshes `DASHBOARD.md` (the board `/status` renders); a `SessionStart`
+  hook surfaces its "🔴 Awaiting you" items. To just *look* without advancing work,
+  run `/status` — it's read-only and safe alongside a running loop.

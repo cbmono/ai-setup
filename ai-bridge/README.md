@@ -10,7 +10,7 @@ ai-setup/ai-bridge/        # this template (lives in the ai-setup repo)
 ├── install.sh                    # stamp out / refresh an instance
 ├── symlink/                      # generic machinery → symlinked into instances (gitignored there)
 │   ├── SCHEMA.md  agents/index.md  scripts/commit-as.sh
-│   └── .claude/{agents/*, commands/{pm-loop,pr-review-request,new-project,todo,fanout}.md, hooks/show-todos.sh, settings.json}
+│   └── .claude/{agents/*, commands/{status,pm-loop,new-project,pr-review-request,todo,fanout}.md, hooks/{show-awaiting,show-todos}.sh, settings.json}
 └── seed/                         # starting content → copied into an instance once (then yours)
     ├── instance.config.json  CLAUDE.md  README.md  index.md  log.md  .gitignore
     ├── bridge.code-workspace     # multi-root editor view: control panel + group repos
@@ -60,9 +60,22 @@ instance's `.gitignore`. It is idempotent; `install.sh --uninstall <dir>` remove
 only the symlinks it created.
 
 ## Run it
-From inside an instance: `/pm-loop 10m` (serial, completion-gated; one tick at a
-time). Add work with `/new-project <description>`. Two human gates stay yours:
-promote `draft → ready`, and merge the PR (build) / approve the deliverable (research).
+The spine, from inside an instance:
+
+> **`/new-project <description>` → you approve `draft → ready` → `/pm-loop 10m` → you merge the PR**
+
+`/pm-loop` is a serial, completion-gated loop (one tick at a time). Two human gates
+stay yours: promote `draft → ready`, and merge the PR (build) / approve the
+deliverable (research). The idea is to **steer, not watch** — role agents run in the
+background and bubble up results and questions, not every step.
+
+**Monitor without driving:** `/status` renders a board of every task grouped by what
+it needs — 🔴 awaiting you (approve · answer · merge · unblock) · 🟡 in flight ·
+🟢 next · ⛔ blocked — and writes it to a **derived, gitignored `DASHBOARD.md`**.
+It's read-only (never dispatches/promotes/merges), safe to run even mid-loop; each
+`/pm-loop` tick refreshes the board too, and a `SessionStart` hook surfaces its
+"awaiting you" items when you launch Claude in the instance. Run **one `/pm-loop`
+per instance** at a time (the serial guarantee is per-session; see `pm-loop.md`).
 
 ## Projects: build & research
 Projects come in two `kind`s (see `symlink/SCHEMA.md`):

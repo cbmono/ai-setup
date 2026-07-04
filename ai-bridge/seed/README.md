@@ -5,10 +5,11 @@ An [Open Knowledge Format](https://github.com/GoogleCloudPlatform/knowledge-cata
 background AI agents working on this group's product repositories.
 
 This is an **instance** of the `ai-bridge` template. The generic machinery
-(`SCHEMA.md`, `agents/`, `scripts/`, the role agents, and the `/pm-loop`,
-`/pr-review-request`, and `/new-project` commands) is **symlinked in** from the template and
-gitignored; this repo tracks only its own **content**: `objectives/`,
-`projects/`, `knowledge/`, `log.md`, and `instance.config.json`.
+(`SCHEMA.md`, `agents/`, `scripts/`, the role agents, the `/status`, `/pm-loop`,
+`/new-project`, `/pr-review-request`, `/todo`, and `/fanout` commands, and the
+`SessionStart` hooks) is **symlinked in** from the template and gitignored; this
+repo tracks only its own **content**: `objectives/`, `projects/`, `knowledge/`,
+`log.md`, and `instance.config.json`.
 
 For a unified tree (this control panel pinned on top, the group's product repos
 below):
@@ -43,6 +44,11 @@ across all instances.
 ```
 Objective ──► Project ──► Task ──► (PM refines) ──► (human approves) ──► (PM dispatches) ──► role agent ──► PR ──► you merge
 ```
+The spine you drive is **`/new-project` → approve `draft → ready` → `/pm-loop` → merge**.
+You set direction and approve at two gates; the PM and role agents do the rest in
+the background. **Steer, don't watch** — track state with the dashboard, not by
+reading each agent's steps.
+
 See `SCHEMA.md` for the types and lifecycle, and `CLAUDE.md` for the operational
 rules (two human gates, per-agent authorship, parallel-safety).
 
@@ -77,6 +83,21 @@ dispatch you would do, without spawning agents."*
 
 You control the two gates: promote a task `draft → ready` to approve it, and
 merge the PR when satisfied (the PM then marks the task `done`).
+
+## Monitor progress
+```
+/status            # full board
+/status mine       # only what's awaiting you
+/status <slug>     # one project
+```
+`/status` renders a board of every task grouped by what it needs — **🔴 awaiting
+you** (approve · answer · merge · unblock) · **🟡 in flight** · **🟢 next** ·
+**⛔ blocked** — and writes it to `DASHBOARD.md`. It's **read-only** (never
+dispatches, promotes, or merges), so it's safe to run anytime, even while a
+`/pm-loop` is running. Each PM tick refreshes `DASHBOARD.md` too, and a
+`SessionStart` hook surfaces its "awaiting you" items when you launch Claude here —
+so you see what needs a decision without reading the loop. `DASHBOARD.md` is a
+**derived view** (regenerated from the task docs, gitignored) — never hand-edit it.
 
 ## Quick todos
 `/todo <text>` jots a reminder, `/todo` lists them, `/todo done <text>` closes one

@@ -114,6 +114,14 @@ state, and act only on deltas.
    This keeps loop provenance visible in `git log`. Never use the helper in target
    product repos.
 
+   **Refresh the dashboard.** Regenerate `DASHBOARD.md` at the bundle root — the
+   same status board `/status` renders: bucket every task by **🔴 awaiting you**
+   (approve / answer / merge / unblock), **🟡 in flight**, **🟢 next**, **⛔ blocked**
+   (see the `/status` command for the exact layout). `DASHBOARD.md` is **derived and
+   gitignored**, so rewrite it every tick but **do not stage or commit it** — it's a
+   view, not tracked state. A `SessionStart` hook surfaces its "awaiting you" items,
+   so keeping it fresh is what lets the human see what needs them without reading the loop.
+
 8. **Leave for the human.** Do not act on `draft` or `blocked` beyond surfacing
    them — they await a human decision (approval, answering `open_questions`, or
    unblocking).

@@ -5,10 +5,21 @@ contains no product code. Work is executed against the product repositories
 configured in `instance.config.json`.
 
 ## Start here
-You steer; background agents do the work. A few commands run everything:
+You steer; background agents do the work. **The core loop — memorise this:**
+
+> ### `/new-project` → you approve `draft → ready` → `/pm-loop` → you merge the PR
+>
+> You create work and set direction; the PM refines it; you approve at the first
+> gate; role agents build **in the background** and open PRs; you merge at the
+> second gate. Everything else is support. **Steer, don't watch** — you should
+> mostly see **results and questions**, not each intermediate step. Check
+> `DASHBOARD.md` (or run `/status`) to see where things stand, not the agents' work.
+
+A few commands run everything:
 
 | To… | Run |
 |---|---|
+| **See what needs you & where everything stands** | **`/status`** — renders the board (🔴 awaiting you · 🟡 in flight · 🟢 next · ⛔ blocked) and refreshes `DASHBOARD.md`. Read-only; safe anytime, even mid-loop. `/status mine` = just your queue. |
 | See state & advance work (refine drafts, dispatch `ready` tasks, reflect merges) | **`/pm-loop`** — one safe, idempotent tick. Add `10m` to loop on an interval; say "DRY RUN" to preview without spawning agents. |
 | Start a new project | **`/new-project <description>`** — a build project (code → PRs), or add `kind=research` for docs/decks/assets (no repo). |
 | Request grouped PR reviews | **`/pr-review-request <filter>`** |
@@ -20,8 +31,9 @@ approve the deliverable (research). **New here?** Run `/pm-loop` as a DRY RUN to
 see what exists and what awaits you, or open [`index.md`](index.md) for the map.
 When a request matches one of these, **invoke the command** — don't improvise its steps.
 
-**At the start of a session, surface any open todos** from `todos.md` (a
-`SessionStart` hook injects them) so they're not forgotten — then carry on.
+**At the start of a session, surface what needs the human first:** the 🔴 *Awaiting
+you* items from `DASHBOARD.md` and any open todos from `todos.md` — two `SessionStart`
+hooks inject them. Lead with those, then carry on.
 
 > Loaded only when you launch Claude inside this instance (its `.claude/agents`
 > and `/pm-loop` load here). Group-wide *coding* rules belong one level up, in
