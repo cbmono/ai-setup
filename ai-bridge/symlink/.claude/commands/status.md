@@ -93,9 +93,10 @@ Keep a section even when empty — render it with `_None._` so the board's shape
 stable (and the SessionStart hook reliably finds "Awaiting you").
 
 ## Notes
-- **Link PRs, never bare URLs.** Render every PR as `[<repo>#<n>](<pr-url>)` — bare
-  repo name as text (`<org>` from `instance.config.json`) — per the instance
-  `CLAUDE.md` "Reporting progress" rule. Same for any other artifact you cite.
+- **Link PRs, never bare URLs.** Render every PR as `[<repo>#<n>](<pr-url>)` — the
+  **bare repo name** (not `<org>/<repo>`) as the link text, the PR URL as the target
+  — per the instance `CLAUDE.md` "Reporting progress" rule. Same for any other
+  artifact you cite.
 - **Report-only.** Never promote `draft → ready`, never merge, never dispatch agents
   — those are `/pm-loop`'s job and the human's gates.
 - **One instance.** A cross-instance ("all my groups") view is out of scope — run
