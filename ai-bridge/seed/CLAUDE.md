@@ -65,6 +65,17 @@ hooks inject them. Lead with those, then carry on.
   worktrees, and race pushes to `main`. Before starting a loop, make sure no other
   session is already running one here.
 
+## Reporting progress
+When you report progress — a `/pm-loop` tick summary, `/status`, `DASHBOARD.md`, or
+any step-by-step explanation — **link to the real artifacts; don't just name them.**
+- **PRs:** always render as a Markdown link with `<repo>#<number>` text and the PR
+  URL as target — e.g. `[monorepo#2725](https://github.com/<org>/monorepo/pull/2725)`.
+  Use the **bare repo name** (not `<org>/<repo>`) as the text; `<org>` comes from
+  `instance.config.json`. Never cite a PR as a bare number or bare URL.
+- **Everything else you reference in a step-by-step** (commits, CI runs, issues,
+  branches, files) — include its URL or path so the human can click through, rather
+  than describing it in prose.
+
 ## Ad-hoc requests vs. the project loop
 Two different modes — don't conflate them:
 - **Tracked work** (anything that becomes a PR or a `projects/` deliverable) flows

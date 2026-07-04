@@ -138,6 +138,10 @@ state, and act only on deltas.
 End each tick with a concise report: drafts refined (and which have open
 questions), tasks dispatched (with PR links once open), PRs awaiting the
 human's merge, tasks moved to `done`, and what currently awaits the human
-(drafts to approve, questions to answer, blockers). Follow this instance's
+(drafts to approve, questions to answer, blockers). **Cite every PR as a Markdown
+link — `[<repo>#<n>](<url>)`, bare repo name (see the instance `CLAUDE.md`
+"Reporting progress" rule)** — and link other artifacts you reference (commits, CI
+runs) by URL, not just by name. (The `pr:` frontmatter still stores full URLs; the
+link form is for the human-facing report and `DASHBOARD.md`.) Follow this instance's
 `CLAUDE.md` for data-handling, units, and where to route authoritative data
 questions.
