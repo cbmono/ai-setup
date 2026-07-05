@@ -13,7 +13,7 @@ ai-setup/ai-bridge/        # this template (lives in the ai-setup repo)
 │   └── .claude/{agents/*, commands/{status,pm-loop,new-project,pr-review-request,todo,fanout}.md, hooks/{show-awaiting,show-todos}.sh, settings.json}
 └── seed/                         # starting content → copied into an instance once (then yours)
     ├── instance.config.json  CLAUDE.md  README.md  index.md  log.md  .gitignore
-    ├── bridge.code-workspace     # multi-root editor view: control panel + group repos
+    ├── bridge.code-workspace     # multi-root editor view; install.sh seeds it as <group>.code-workspace
     ├── todos.md            # quick personal reminders (/todo); shown at session start
     └── objectives/  projects/  knowledge/{services,findings,runbooks,teams}/
 ```
@@ -93,7 +93,7 @@ The product repos stay **physical peers** of the instance, never nested inside i
 — nesting would drag the instance's control-panel `CLAUDE.md` into the cascade of
 every product-repo session (telling them they're a control panel that commits to
 `main`). To still see everything in one tree:
-- **VS Code / Cursor / Antigravity** — open the seeded **`bridge.code-workspace`**
+- **VS Code / Cursor / Antigravity** — open the seeded **`<group>.code-workspace`**
   (*Open Workspace from File…*): a multi-root view, control panel pinned on top,
   group repos below. A generic `files.exclude` glob (`_ai-bridge-*`) hides the
   instance from the repos pane so it isn't shown twice.

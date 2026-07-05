@@ -13,7 +13,7 @@ repo tracks only its own **content**: `objectives/`, `projects/`, `knowledge/`,
 
 For a unified tree (this control panel pinned on top, the group's product repos
 below):
-- **VS Code / Cursor / Antigravity** — open **`bridge.code-workspace`**
+- **VS Code / Cursor / Antigravity** — open **`<group>.code-workspace`**
   (*Open Workspace from File…*).
 - **Zed** (no workspace-file support) — just open the **group folder**; the
   instance's `_`-prefix already sorts it to the top.

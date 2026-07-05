@@ -42,6 +42,12 @@ TARGET="$(cd "${TARGET:-$PWD}" 2>/dev/null && pwd || true)"
 [ -n "$TARGET" ] || { echo "error: target directory does not exist" >&2; exit 2; }
 [ -d "$SYMLINK_SRC" ] || { echo "error: template missing $SYMLINK_SRC" >&2; exit 2; }
 
+# Name the seeded workspace file after the group so an open editor window is
+# identifiable (VS Code shows the .code-workspace *filename* — there's no top-level
+# name field). Group = instance dir name minus the _ai-bridge- prefix.
+WS_GROUP="$(basename "$TARGET")"; WS_GROUP="${WS_GROUP#_ai-bridge-}"
+WS_NAME="${WS_GROUP}.code-workspace"
+
 # Relative paths of every machinery file to symlink.
 machinery_paths() {
   ( cd "$SYMLINK_SRC" && find . -type f | sed 's#^\./##' | sort )
@@ -71,6 +77,16 @@ echo "Installing ai-bridge instance at $TARGET"
 if [ -d "$SEED_SRC" ]; then
   while IFS= read -r rel; do
     [ -n "$rel" ] || continue
+    # The workspace file is seeded under a group-specific name (see WS_NAME above).
+    if [ "$rel" = "bridge.code-workspace" ]; then
+      existing="$(find "$TARGET" -maxdepth 1 -name '*.code-workspace' 2>/dev/null | head -1)"
+      if [ -n "$existing" ]; then
+        echo "  keep  $(basename "$existing") (workspace exists)"
+      else
+        cp "$SEED_SRC/$rel" "$TARGET/$WS_NAME"; echo "  seed  $WS_NAME"
+      fi
+      continue
+    fi
     src="$SEED_SRC/$rel"; dst="$TARGET/$rel"
     dstdir="$(dirname "$dst")"
     if [ -e "$dst" ]; then
