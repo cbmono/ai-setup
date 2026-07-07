@@ -43,6 +43,13 @@ state, and act only on deltas.
    answer by number; otherwise leave it a clean `draft`. **Never set `ready`** —
    refined drafts await the human.
 
+   **Fold in answered questions.** When the human has answered one or more
+   `open_questions` (in the doc or in-session), bake each answer into the task
+   itself — `# Context`, a tightened `acceptance_criteria`, or `# Notes` as fits —
+   and **delete that entry from `open_questions`**. Keep no answered-question
+   history: `open_questions` holds only questions still awaiting an answer, so a
+   `draft` becomes clean (and promotable by the human) once the list empties.
+
    **Optional approach critique (advisory).** For a genuinely complex **`kind:
    build`** task — spans multiple files/services, or its `acceptance_criteria` had
    to be heavily inferred — you may dispatch the `plan-architect` agent (installed

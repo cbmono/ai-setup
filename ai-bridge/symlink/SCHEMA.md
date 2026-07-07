@@ -89,7 +89,7 @@ objective: /objectives/<slug>.md
 phase: /projects/<slug>/phases/<n>-<slug>.md          # optional, links task to its phase
 depends_on: [ /projects/<slug>/tasks/<id>.md, ... ]   # optional
 acceptance_criteria: [ "<testable outcome>", ... ]    # PM fills/expands during refine
-open_questions: [ "Q1: <blocking question for the human>", "Q2: ...", ... ]   # PM-managed; number every entry (Q1, Q2, …) so the human can answer by number
+open_questions: [ "Q1: <blocking question for the human>", "Q2: ...", ... ]   # PM-managed; ONLY still-unanswered questions. Number every entry (Q1, Q2, …) so the human can answer by number. Once answered, fold the answer into the task (Context / acceptance_criteria / Notes) and DELETE that entry — no answered-question history is kept here.
 pr: [ ]                               # BUILD only: PR URL(s) set by the role agent(s) — a task may fan out to several
 artifacts: [ /projects/<slug>/deliverables/<file>, ... ]   # RESEARCH only: the deliverable file(s) this task produces
 timestamp: <ISO 8601>
