@@ -105,7 +105,7 @@ EOF
 fi
 
 # 2. Machinery — symlink each file (absolute target), backing up real conflicts.
-chmod +x "$SYMLINK_SRC/scripts/commit-as.sh" 2>/dev/null || true
+chmod +x "$SYMLINK_SRC"/scripts/*.sh 2>/dev/null || true
 while IFS= read -r rel; do
   [ -n "$rel" ] || continue
   src="$SYMLINK_SRC/$rel"; dst="$TARGET/$rel"

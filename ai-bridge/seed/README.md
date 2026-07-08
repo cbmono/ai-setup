@@ -6,7 +6,8 @@ background AI agents working on this group's product repositories.
 
 This is an **instance** of the `ai-bridge` template. The generic machinery
 (`SCHEMA.md`, `agents/`, `scripts/`, the role agents, the `/status`, `/pm-loop`,
-`/new-project`, `/pr-review-request`, `/todo`, and `/fanout` commands, and the
+`/new-project`, `/close-project`, `/pr-review-request`, `/todo`, and `/fanout`
+commands, and the
 `SessionStart` hooks) is **symlinked in** from the template and gitignored; this
 repo tracks only its own **content**: `objectives/`, `projects/`, `knowledge/`,
 `log.md`, and `instance.config.json`.
@@ -70,6 +71,21 @@ Two kinds (see `SCHEMA.md`):
 
 Other tokens: `objective=<slug>`, `--no-commit`. Everything lands `draft` — you
 then promote `draft → ready`. (To hand-roll one instead, copy the shape in `SCHEMA.md`.)
+
+## Finish a project
+When a project's tasks are all `done`/`cancelled`, the PM flags it on the board as
+**ready to close** — it never closes one on its own. Close it with:
+```
+/close-project <slug>
+```
+Closeout does a final `knowledge/` consolidation (durable learnings live on in the
+KB), records a **Project closed** entry in `log.md` (with the merged PRs and the
+removing commit), rolls the project to `status: done`, and then **removes the
+project folder**. There is **no `archive/`** — git history + the KB are the record,
+and a done folder left live would only cost context on every PM tick. Recover the
+full trail anytime with `git log -- projects/<slug>/`. Finished build worktrees
+under `<reposRoot>/_wt/` are reclaimed automatically (also each PM tick, via
+`scripts/prune-worktrees.sh`).
 
 ## Run the Project Manager
 From a fresh session **in this instance directory** (so the role agents, the

@@ -22,6 +22,7 @@ A few commands run everything:
 | **See what needs you & where everything stands** | **`/status`** — renders the board (🔴 awaiting you · 🟡 in flight · 🟢 next · ⛔ blocked) and refreshes `DASHBOARD.md`. Read-only; safe anytime, even mid-loop. `/status mine` = just your queue. |
 | See state & advance work (refine drafts, dispatch `ready` tasks, reflect merges) | **`/pm-loop`** — one safe, idempotent tick. Add `10m` to loop on an interval; say "DRY RUN" to preview without spawning agents. |
 | Start a new project | **`/new-project <description>`** — a build project (code → PRs), or add `kind=research` for docs/decks/assets (no repo). |
+| Close a finished project | **`/close-project <slug>`** — when its tasks are all done/cancelled: final KB consolidation, log the closeout, then **remove the folder** (git history + KB are the record; no archive). The PM flags candidates on the board; you run it. |
 | Request grouped PR reviews | **`/pr-review-request <filter>`** |
 | Jot / list / close a quick reminder | **`/todo <text>`** · `/todo` to list · `/todo done <text>` (lightweight notes in `todos.md`, separate from formal `projects/` work) |
 | Fan a batch of independent ad-hoc asks out to parallel background agents | **`/fanout`** — or just give the assistant ≥2 independent asks at once and it acts as coordinator: dispatch each, report results as they land (see _Ad-hoc requests vs. the project loop_) |
@@ -51,7 +52,14 @@ hooks inject them. Lead with those, then carry on.
 - Tasks are created `draft`. The `project-manager` runs as an **idempotent loop**:
   it refines drafts (fills `acceptance_criteria`; records `open_questions` when
   blocked on a human answer), dispatches human-approved `ready` tasks to role
-  agents, monitors their PRs, and reflects merges as `done`.
+  agents, monitors their PRs, and reflects merges as `done`. It also reclaims
+  finished build worktrees under `_wt/` (`scripts/prune-worktrees.sh`) and, when a
+  project's tasks are **all** terminal, flags it as **ready to close** — but
+  **never closes it autonomously**.
+- **Closing a project** (`/close-project <slug>`, or on your OK to the PM's
+  proposal) consolidates its durable knowledge into `knowledge/`, logs a **Project
+  closed** entry, sets `status: done`, and **removes the project folder**. Git
+  history + the KB are the record — there is **no `archive/`** (see `SCHEMA.md`).
 - **Two human authorities** (see `SCHEMA.md`): only the human promotes
   `draft → ready`, and only the human merges PRs. The PM must **never** set
   `ready` and **never** merges.

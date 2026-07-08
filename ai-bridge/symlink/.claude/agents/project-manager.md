@@ -103,7 +103,34 @@ state, and act only on deltas.
    `blocked`) with a note. A multi-PR task stays `in-review` until all merge.
    Never merge yourself.
 
-6. **Refresh the knowledge base.** If this tick reflected one or more merges (or a
+   **Reclaim the worktree.** When you move a build task to `done` (all PRs merged)
+   or `cancelled`, its worktree under `<reposRoot>/_wt/` is no longer needed — run
+   `scripts/prune-worktrees.sh` to reclaim it (and any other finished worktrees) so
+   `_wt` doesn't grow without bound. The script removes **only** worktrees whose PR
+   is merged/closed (or whose branch is merged into the default branch) **and**
+   whose tree is clean; it never touches a dirty one, and removing a clean worktree
+   keeps the branch + commits (only the working dir goes). Run it at most once per
+   tick; report anything it kept as still-active.
+
+6. **Close completed projects (propose only — human-gated).** For each project
+   whose tasks are **all** terminal (`done`/`cancelled`), do **not** close it
+   yourself — surface it as a 🔴 *Awaiting you* item (e.g. "project `<slug>`: all N
+   tasks complete — close it?"). Only on the human's OK (in-session or via
+   `/close-project <slug>`) run closeout, in order (see `SCHEMA.md` "Project &
+   objective completion"): (a) dispatch the `cataloguer` for a final consolidation
+   pass — capture/link any remaining `Finding`s; for a research project, graduate
+   the chosen `deliverables` into `knowledge/` (counts toward the ≤3 cap); (b)
+   prepend a dated **Project closed** entry to the root `log.md` naming the project,
+   its merged PR(s) as `[<repo>#<n>](url)`, the `Finding`(s) produced (KB links),
+   and the removing commit SHA; (c) set `project.md` `status: done`, drop it from
+   the active `## Projects` list in `index.md`, and update its objective — when
+   **all** of an objective's projects are terminal, likewise **propose**
+   `objective status: achieved`; (d) `git rm -r projects/<slug>/` and commit via
+   `scripts/commit-as.sh project-manager "chore: close <slug> project"`. There is
+   **no `archive/`** — git history + the KB are the record. Closing is never
+   autonomous; like the two gates it waits for the human.
+
+7. **Refresh the knowledge base.** If this tick reflected one or more merges (or a
    task reached `done`) whose work produced durable, reusable knowledge, dispatch
    the `cataloguer` (subagent) to capture `Finding`s / update the `Service` catalog
    / add or update a `Runbook` for that work, and link the `Finding`s from the
@@ -114,7 +141,7 @@ state, and act only on deltas.
    so it never blocks role agents (though it counts toward the concurrency cap).
    This adds no promote/merge behaviour — the two human gates are untouched.
 
-7. **Curate.** Keep `projects/<p>/project.md`, each project's `index.md`, and the
+8. **Curate.** Keep `projects/<p>/project.md`, each project's `index.md`, and the
    `log.md` files current. Append a dated, one-line tick summary to the root
    `log.md`. Commit your changes to this repo under your own author identity:
    `scripts/commit-as.sh project-manager "<conventional message>"` (stage first).
@@ -123,13 +150,14 @@ state, and act only on deltas.
 
    **Refresh the dashboard.** Regenerate `DASHBOARD.md` at the bundle root — the
    same status board `/status` renders: bucket every task by **🔴 awaiting you**
-   (approve / answer / merge / unblock), **🟡 in flight**, **🟢 next**, **⛔ blocked**
-   (see the `/status` command for the exact layout). `DASHBOARD.md` is **derived and
+   (approve / answer / merge / unblock / close a completed project), **🟡 in
+   flight**, **🟢 next**, **⛔ blocked** (see the `/status` command for the exact
+   layout). List any project whose tasks are all terminal as a 🔴 *close* item. `DASHBOARD.md` is **derived and
    gitignored**, so rewrite it every tick but **do not stage or commit it** — it's a
    view, not tracked state. A `SessionStart` hook surfaces its "awaiting you" items,
    so keeping it fresh is what lets the human see what needs them without reading the loop.
 
-8. **Leave for the human.** Do not act on `draft` or `blocked` beyond surfacing
+9. **Leave for the human.** Do not act on `draft` or `blocked` beyond surfacing
    them — they await a human decision (approval, answering `open_questions`, or
    unblocking).
 
