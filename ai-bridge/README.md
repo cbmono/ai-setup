@@ -69,6 +69,13 @@ stay yours: promote `draft → ready`, and merge the PR (build) / approve the
 deliverable (research). The idea is to **steer, not watch** — role agents run in the
 background and bubble up results and questions, not every step.
 
+**Answering the PM's questions:** when a `draft` is blocked it lists numbered
+`open_questions` (`Q1:`, `Q2:`, …). Answer one **in the task doc** by appending
+` --- <answer>` to that line — e.g. `Q1: which region should we default to? --- eu-central-1`.
+The next tick treats anything after the ` --- ` as your answer, folds it into the task,
+and clears the question; the `draft` becomes promotable once the list empties. (Answering
+in chat during a session works too.)
+
 **Monitor without driving:** `/status` renders a board of every task grouped by what
 it needs — 🔴 awaiting you (approve · answer · merge · unblock) · 🟡 in flight ·
 🟢 next · ⛔ blocked — and writes it to a **derived, gitignored `DASHBOARD.md`**.
