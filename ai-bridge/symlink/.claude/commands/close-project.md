@@ -26,6 +26,11 @@ candidates) and ask which to close.
 
 ## Steps
 
+> **`--dry-run` short-circuits every mutation.** Do step 1 (read-only checks),
+> then for steps 2–6 *report exactly what you would do* — do **not** dispatch the
+> cataloguer, edit `log.md`/`index.md`/`project.md`/objective, prune worktrees, or
+> commit/remove anything. Only a run without the flag actually changes state.
+
 1. **Resolve & check.** Confirm `projects/<slug>/` exists (else stop and report).
    Read its `project.md` and every `tasks/*.md`. Unless `--force`, verify **all**
    tasks are terminal (`done` or `cancelled`); if any are still open, **stop** and

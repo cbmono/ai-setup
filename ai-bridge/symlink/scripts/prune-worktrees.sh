@@ -41,6 +41,10 @@ if [[ -z "$REPOS_ROOT" || ! -d "$REPOS_ROOT" ]]; then
   echo "prune-worktrees: reposRoot ('$REPOS_ROOT') not found — check $CONFIG." >&2
   exit 1
 fi
+# Canonicalize (resolve symlinks) so path matching lines up with the resolved
+# paths `git worktree list --porcelain` emits — otherwise a symlinked reposRoot
+# makes the "$WT_ROOT"/* match miss every worktree and the prune becomes a no-op.
+REPOS_ROOT=$(cd "$REPOS_ROOT" && pwd -P)
 
 WT_ROOT="$REPOS_ROOT/_wt"
 if [[ ! -d "$WT_ROOT" ]]; then
@@ -88,6 +92,11 @@ for repo in "$REPOS_ROOT"/*/; do
   def=$(default_branch "$repo")
   [[ -n "$def" ]] || { echo "SKIP repo (no default branch): $repo" >&2; continue; }
 
+  # The git-only fallback (below) tests against origin/$def; refresh it so a stale
+  # local ref doesn't misreport merged branches as unmerged. Only when there's no
+  # gh (the only time that fallback runs) — offline, this just no-ops.
+  [[ $HAVE_GH -eq 0 ]] && git -C "$repo" fetch --prune origin "$def" 2>/dev/null || true
+
   while IFS= read -r line; do
     [[ "$line" == "worktree "* ]] || continue
     wt=${line#worktree }
@@ -120,13 +129,14 @@ for repo in "$REPOS_ROOT"/*/; do
 
     if [[ "$decision" == remove ]]; then
       if [[ $DRY_RUN -eq 1 ]]; then
-        echo "WOULD REMOVE      $wt  [$br]  ($why)"
+        echo "WOULD REMOVE      $wt  [$br]  ($why)"; removed=$((removed+1))
+      # --force is safe: the tree is verified clean above, so this only lets git
+      # clear ignored build artifacts (node_modules/, dist/) it would else refuse.
+      elif git -C "$repo" worktree remove --force "$wt"; then
+        echo "REMOVED           $wt  [$br]  ($why)"; removed=$((removed+1))
       else
-        # --force is safe: the tree is verified clean above, so this only lets git
-        # clear ignored build artifacts (node_modules/, dist/) it would else refuse.
-        git -C "$repo" worktree remove --force "$wt" && echo "REMOVED           $wt  [$br]  ($why)"
+        echo "FAILED to remove  $wt  [$br]  ($why)" >&2; kept=$((kept+1))
       fi
-      removed=$((removed+1))
     else
       echo "KEEP ($why)       $wt  [$br]"; kept=$((kept+1))
     fi
