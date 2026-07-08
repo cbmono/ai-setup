@@ -74,6 +74,10 @@ If `$ARGUMENTS` has no description, **ask** for a one-line goal before doing any
      instead. **Never invent `acceptance_criteria`** — leave them for the PM's refine.
    - For **research**, also create the `deliverables/` directory with a stub file per
      task (a title + a one-line "TODO: …" so the path exists and is committable).
+   - `sources/` — always create it, with a short `sources/README.md` explaining that
+     the user can drop any raw context here (images, transcripts, spreadsheets, PDFs,
+     etc.) that serves as background or raw data for the project. The README makes the
+     otherwise-empty folder committable.
 
 6. **Register the project** (keep the bundle navigable):
    - Add a bullet under `## Projects` in the root `index.md`. For build:
