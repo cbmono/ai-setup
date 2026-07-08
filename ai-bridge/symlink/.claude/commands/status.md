@@ -38,7 +38,9 @@ reads task docs (+ light `gh` reconciliation) and rewrites the derived board.
      - `draft`, refined & clean (empty `open_questions`) → **approve** (`draft → ready`);
      - `draft` with non-empty `open_questions` → **answer** (list them by number);
      - `in-review` → **merge** the PR(s);
-     - `blocked` → **unblock**.
+     - `blocked` → **unblock**;
+     - a **project** whose tasks are **all** terminal (`done`/`cancelled`) →
+       **close** (`/close-project <slug>`) — a project-level item, not a task.
      Tag each item with its verb.
    - **🟡 In flight** — `in-progress` (show `@assignee` + `target_repo`) and
      `in-review` (show PR link). *(`in-review` also appears under Awaiting you as a
@@ -72,6 +74,7 @@ _A human decision is the only thing unblocking these._
 * **answer** — [<task title>](/projects/<slug>/tasks/<id>.md) · Q1: <question>; Q2: <question>
 * **merge** — [<task title>](/projects/<slug>/tasks/<id>.md) · [<repo>#<n>](<pr-url>)
 * **unblock** — [<task title>](/projects/<slug>/tasks/<id>.md) · <blocker reason>
+* **close** — [<project title>](/projects/<slug>/project.md) · all tasks complete → `/close-project <slug>`
 
 ## 🟡 In flight (<n>)
 * [<task title>](/projects/<slug>/tasks/<id>.md) · in-progress · @<assignee> · `<org>/<repo>`
@@ -86,7 +89,7 @@ _Dispatchable on the next tick, or awaiting the PM's refine._
 * [<task title>](/projects/<slug>/tasks/<id>.md) · <why> · depends_on <unmet paths>
 
 ---
-Projects: <active count> · Open tasks: <count> · Done: <count> · Cancelled: <count>
+Projects: <active count> · Ready to close: <count> · Open tasks: <count> · Done: <count> · Cancelled: <count>
 ```
 
 Keep a section even when empty — render it with `_None._` so the board's shape is

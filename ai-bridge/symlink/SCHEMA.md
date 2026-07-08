@@ -216,3 +216,42 @@ review; `done` = the deliverable is **approved** (record paths in `artifacts:` a
 point to them from `# Result`). Approval of the deliverable replaces the merge gate.
 
 Everything between `ready` and `done` is the PM's to drive autonomously.
+
+# Project & objective completion
+
+A **project** has no lifecycle step of its own until its tasks finish. When
+**every** task in a project is terminal (`done` or `cancelled`), the project
+becomes a **close candidate**: the PM surfaces it under 🔴 *Awaiting you* and
+**proposes** closing it — it **never** closes a project autonomously. Closing
+removes work from the board and deletes the folder, so it is a human call, like
+the two task gates.
+
+On the human's OK (in-session, or via `/close-project <slug>`), **closeout** runs
+in this order:
+
+1. **Consolidate knowledge.** A final `cataloguer` pass ensures every durable,
+   reusable learning from the project is captured in `knowledge/` (Finding /
+   Service / Runbook) and cross-linked. For a **research** project, decide which
+   `deliverables` graduate into `knowledge/`. The KB is the distilled record that
+   outlives the project.
+2. **Record the closeout.** Prepend a dated **Project closed** entry to the root
+   `log.md` naming the project, its merged PR(s) as `[<repo>#<n>](url)`, the
+   `Finding`(s) it produced (KB links), and — after step 4 — the removing commit
+   SHA. This one line is the durable, greppable pointer back into
+   `git log -- projects/<slug>/` if the full record is ever needed again.
+3. **Roll up.** Set `project.md` `status: done`; drop the project from the active
+   `## Projects` list in `index.md`; update its objective's project list. When
+   **all** projects serving an objective are `done`/`cancelled`, likewise
+   **propose** the objective `status: achieved` (human-confirmed).
+4. **Remove the folder.** `git rm -r projects/<slug>/`. **Git history + the KB are
+   the record — there is no `archive/`.** The full task→PR→Finding trail stays
+   recoverable via `git`, and a done folder left live would only cost context on
+   every PM tick. Removal is reversible with `git revert`, but is treated as final.
+
+**Worktrees.** Build tasks run in git worktrees under `<reposRoot>/_wt/`. These are
+reclaimed automatically — the PM removes a task's worktree once it is `done`/
+`cancelled`, and a per-tick sweep (`scripts/prune-worktrees.sh`) removes any
+worktree whose PR is merged/closed (or whose branch is merged into the default
+branch) and whose tree is clean, leaving dirty ones untouched. Removing a clean
+worktree deletes only its working directory; the branch ref and committed objects
+survive in the repo.

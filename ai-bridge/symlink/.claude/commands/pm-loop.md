@@ -44,9 +44,10 @@ Parse `$ARGUMENTS` as the inter-tick **gap** (default **10m**). Then:
 1. **Run one tick now.** Spawn the `project-manager` agent
    (`subagent_type: project-manager`) for ONE LIVE tick (background), with the
    standing guardrails below. A LIVE tick refines drafts, dispatches `ready` tasks,
-   advances/reflects PRs, and — **after reflecting merges** — may dispatch the
-   `cataloguer` to refresh `knowledge/` from the merged work (throttled to one per
-   tick; skipped on idle/trivial ticks).
+   advances/reflects PRs, reclaims finished worktrees, proposes closing completed
+   projects (all tasks terminal), and — **after reflecting merges** — may dispatch
+   the `cataloguer` to refresh `knowledge/` from the merged work (throttled to one
+   per tick; skipped on idle/trivial ticks).
 2. **Wait for it to finish.** Do **not** start another tick while one is in
    flight. The agent's completion arrives as a `<task-notification>`.
 3. **On completion**, schedule the next tick after the gap: call `ScheduleWakeup`
@@ -77,6 +78,14 @@ ticks, regardless of how long a tick runs.
 - Commit hygiene in this repo: stage only your own changed files by explicit path
   (never `git add -A`); commit via `scripts/commit-as.sh project-manager "<msg>"`;
   never `--no-verify` in target repos.
+- **Worktree hygiene.** Reclaim finished worktrees with `scripts/prune-worktrees.sh`
+  (≤ once per tick) — it removes only worktrees whose PR is merged/closed (or whose
+  branch is merged into the default branch) **and** whose tree is clean, and reports
+  (never deletes) dirty ones. `_wt` must not grow unbounded.
+- **Project close is human-gated.** The PM only *proposes* closing a project (all
+  tasks terminal) via the 🔴 board; the human confirms (or runs `/close-project`).
+  Closeout removes the folder (`git rm -r`) — git history + KB are the record, there
+  is no archive. Never close autonomously.
 - Return a tight summary: live-vs-docs deltas, dispatched/reflected, in-flight
   count, and what awaits the human (approvals / answers / merges).
 
