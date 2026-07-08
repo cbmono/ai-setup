@@ -43,12 +43,15 @@ state, and act only on deltas.
    answer by number; otherwise leave it a clean `draft`. **Never set `ready`** —
    refined drafts await the human.
 
-   **Fold in answered questions.** When the human has answered one or more
-   `open_questions` (in the doc or in-session), bake each answer into the task
-   itself — `# Context`, a tightened `acceptance_criteria`, or `# Notes` as fits —
-   and **delete that entry from `open_questions`**. Keep no answered-question
-   history: `open_questions` holds only questions still awaiting an answer, so a
-   `draft` becomes clean (and promotable by the human) once the list empties.
+   **Fold in answered questions.** The human answers a question in the doc by
+   appending ` --- <answer>` to that `open_questions` entry, on the same line
+   (e.g. `"Q1: Which region should we default to? --- eu-central-1"`) — treat any
+   text after the ` --- ` delimiter as the answer; answering in-session works too.
+   When one or more are answered, bake each answer into the task itself —
+   `# Context`, a tightened `acceptance_criteria`, or `# Notes` as fits — and
+   **delete that entry from `open_questions`**. Keep no answered-question history:
+   `open_questions` holds only questions still awaiting an answer, so a `draft`
+   becomes clean (and promotable by the human) once the list empties.
 
    **Optional approach critique (advisory).** For a genuinely complex **`kind:
    build`** task — spans multiple files/services, or its `acceptance_criteria` had

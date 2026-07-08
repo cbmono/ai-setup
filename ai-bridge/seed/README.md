@@ -100,6 +100,13 @@ dispatch you would do, without spawning agents."*
 You control the two gates: promote a task `draft → ready` to approve it, and
 merge the PR when satisfied (the PM then marks the task `done`).
 
+**Answering the PM's questions.** A blocked `draft` lists numbered
+`open_questions` (`Q1:`, `Q2:`, …). Answer one in the task doc by appending
+` --- <answer>` to that line — e.g. `Q1: which region should we default to? --- eu-central-1`.
+The next tick treats anything after the ` --- ` as your answer, folds it into the
+task, and clears the question; the `draft` becomes promotable once the list empties.
+(Answering in chat during a session works too.)
+
 ## Monitor progress
 ```
 /status            # full board

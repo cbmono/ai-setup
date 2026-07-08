@@ -51,7 +51,9 @@ hooks inject them. Lead with those, then carry on.
 ## How work flows
 - Tasks are created `draft`. The `project-manager` runs as an **idempotent loop**:
   it refines drafts (fills `acceptance_criteria`; records `open_questions` when
-  blocked on a human answer), dispatches human-approved `ready` tasks to role
+  blocked on a human answer — you answer by appending ` --- <answer>` to a question
+  in the task doc, e.g. `Q1: which region? --- eu-central-1`, and the next tick folds
+  it in and clears the entry), dispatches human-approved `ready` tasks to role
   agents, monitors their PRs, and reflects merges as `done`. It also reclaims
   finished build worktrees under `_wt/` (`scripts/prune-worktrees.sh`) and, when a
   project's tasks are **all** terminal, flags it as **ready to close** — but
