@@ -67,7 +67,7 @@ ticks, regardless of how long a tick runs.
 
 - Honor both human gates: **never** promote `draft → ready`, **never** merge PRs.
 - Reconcile doc `status:` against live `gh`/`git` before acting; act only on deltas.
-- Concurrency cap: **≤3 role agents in flight**, and each must use its own
+- Concurrency cap: **≤5 role agents in flight**, and each must use its own
   worktree under `<reposRoot>/_wt/` + a **private package store** (e.g.
   `pnpm install --store-dir <worktree>/.pnpm-store`) and **push early** — never two
   installs against the shared store at once (see `.claude/agents/project-manager.md`).
