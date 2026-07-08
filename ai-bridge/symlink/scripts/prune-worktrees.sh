@@ -7,9 +7,13 @@
 #   · PR closed (unmerged) → remove   (task abandoned/superseded)
 #   · PR open              → keep     (in flight)
 #   · no PR / gh offline   → remove only if the branch is already merged into the
-#                            repo's default branch (or its upstream is gone with
-#                            nothing unpushed); otherwise keep.
-# Dirty worktrees are always kept — only they risk losing uncommitted work.
+#                            repo's default branch; otherwise keep.
+# Dirty worktrees are always kept — only they risk losing uncommitted work. The
+# clean check uses `git status --porcelain` (no --ignored), so it flags tracked
+# modifications and untracked NON-ignored files, but not ignored build artifacts
+# (node_modules/, dist/, .pnpm-store). Removal therefore uses `--force`: at that
+# point the tree is verified clean of real changes, and --force only lets git
+# clear those ignored artifacts (some git versions refuse otherwise).
 # Removing a clean worktree deletes just its working directory + build artifacts;
 # the branch ref and every committed object survive in the repo (re-checkout with
 # `git worktree add` if ever needed), so this can never lose committed work.
@@ -37,6 +41,10 @@ if [[ -z "$REPOS_ROOT" || ! -d "$REPOS_ROOT" ]]; then
   echo "prune-worktrees: reposRoot ('$REPOS_ROOT') not found — check $CONFIG." >&2
   exit 1
 fi
+# Canonicalize (resolve symlinks) so path matching lines up with the resolved
+# paths `git worktree list --porcelain` emits — otherwise a symlinked reposRoot
+# makes the "$WT_ROOT"/* match miss every worktree and the prune becomes a no-op.
+REPOS_ROOT=$(cd "$REPOS_ROOT" && pwd -P)
 
 WT_ROOT="$REPOS_ROOT/_wt"
 if [[ ! -d "$WT_ROOT" ]]; then
@@ -84,6 +92,11 @@ for repo in "$REPOS_ROOT"/*/; do
   def=$(default_branch "$repo")
   [[ -n "$def" ]] || { echo "SKIP repo (no default branch): $repo" >&2; continue; }
 
+  # The git-only fallback (below) tests against origin/$def; refresh it so a stale
+  # local ref doesn't misreport merged branches as unmerged. Only when there's no
+  # gh (the only time that fallback runs) — offline, this just no-ops.
+  [[ $HAVE_GH -eq 0 ]] && git -C "$repo" fetch --prune origin "$def" 2>/dev/null || true
+
   while IFS= read -r line; do
     [[ "$line" == "worktree "* ]] || continue
     wt=${line#worktree }
@@ -103,27 +116,27 @@ for repo in "$REPOS_ROOT"/*/; do
       merged) decision=remove; why="pr merged" ;;
       closed) decision=remove; why="pr closed" ;;
       none|unknown)
-        # git-only fallback: merged into default, or upstream deleted & not ahead.
+        # git-only fallback (gh absent/offline): remove only if HEAD is already
+        # merged into the repo's default branch. Anything else is kept — we do no
+        # upstream-gone/unpushed guessing here: once remote-tracking refs are
+        # pruned, `@{u}` no longer resolves, so that heuristic is unreliable.
         sha=$(git -C "$wt" rev-parse HEAD 2>/dev/null || echo '')
         if [[ -n "$sha" ]] && git -C "$repo" merge-base --is-ancestor "$sha" "origin/$def" 2>/dev/null; then
           decision=remove; why="merged into $def"
-        else
-          up=$(git -C "$wt" rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null || echo '')
-          if [[ -n "$up" ]] && ! git -C "$repo" show-ref --verify --quiet "refs/remotes/$up"; then
-            ahead=$(git -C "$wt" rev-list --count '@{u}..HEAD' 2>/dev/null || echo 1)
-            [[ "$ahead" == "0" ]] && { decision=remove; why="upstream gone"; }
-          fi
         fi
         ;;
     esac
 
     if [[ "$decision" == remove ]]; then
       if [[ $DRY_RUN -eq 1 ]]; then
-        echo "WOULD REMOVE      $wt  [$br]  ($why)"
+        echo "WOULD REMOVE      $wt  [$br]  ($why)"; removed=$((removed+1))
+      # --force is safe: the tree is verified clean above, so this only lets git
+      # clear ignored build artifacts (node_modules/, dist/) it would else refuse.
+      elif git -C "$repo" worktree remove --force "$wt"; then
+        echo "REMOVED           $wt  [$br]  ($why)"; removed=$((removed+1))
       else
-        git -C "$repo" worktree remove "$wt" && echo "REMOVED           $wt  [$br]  ($why)"
+        echo "FAILED to remove  $wt  [$br]  ($why)" >&2; kept=$((kept+1))
       fi
-      removed=$((removed+1))
     else
       echo "KEEP ($why)       $wt  [$br]"; kept=$((kept+1))
     fi
