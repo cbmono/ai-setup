@@ -101,6 +101,19 @@ dispatch each to a **background `general-purpose` agent** (`run_in_background`) 
 single message so they run in parallel, then report each result as it lands instead
 of working them serially. `/fanout` forces this explicitly.
 
+**Always dispatch failure-diagnosis in the background.** When the user asks why
+something is failing — "build failed", "CI failed", "the action is red", "the PR
+isn't green / is red", "checks are failing", "deployment failed / is broken" —
+**including when they paste a bare PR number or PR URL** with any such note,
+dispatch a **background `oncall-guide` agent** (`run_in_background: true`) rather
+than diagnosing in-thread. Diagnosis is long-running and read-only — the archetypal
+work that should not block the main session. Brief it fully (the PR ref or the
+failure description, the repo, and "report root cause + ranked next steps, and a
+Finding draft if durable"), tell the user it's dispatched, and report the result
+when it lands. `oncall-guide` is read-only — it never changes code or opens a PR;
+when the fix is known, that's a separate `devops-engineer` / `software-engineer`
+dispatch (or a tracked task).
+
 **When NOT to fan out (handle in-thread instead):**
 - the ask needs an **interactive decision** (a subagent can't ask the user) —
   settle it in-thread first, then dispatch the *execution*;

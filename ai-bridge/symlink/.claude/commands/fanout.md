@@ -31,7 +31,8 @@ of independent asks the user has already given in this turn.
    units, BI-routing) from `CLAUDE.md`.
 4. **Dispatch in one message.** Spawn all units as **`general-purpose` agents with
    `run_in_background: true`** in a single turn so they run concurrently. Use a more
-   specific agent type when one fits (e.g. `deep-bug-scan`, `cataloguer`, `Explore`).
+   specific agent type when one fits (e.g. `deep-bug-scan`, `cataloguer`, `Explore`,
+   or `oncall-guide` for a failing build / red CI / failed deploy — read-only diagnosis).
 5. **Coordinate.** Tell the user what was dispatched — and what you kept in-thread
    and why. As each agent finishes, **report its result**; don't block the session
    waiting on all of them.
