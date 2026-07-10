@@ -73,7 +73,7 @@ ticks, regardless of how long a tick runs.
   installs against the shared store at once (see `.claude/agents/project-manager.md`).
 - A LIVE tick may also dispatch the **`cataloguer`** to refresh the KB after
   reflecting merges — read-only on product repos, writes only to `knowledge/`. It
-  **counts toward the ≤3 cap**, is **throttled to one per tick**, and (like every
+  **counts toward the ≤5 cap**, is **throttled to one per tick**, and (like every
   tick action) **never promotes or merges**. Skipped on idle/docs-only/trivial ticks.
 - Commit hygiene in this repo: stage only your own changed files by explicit path
   (never `git add -A`); commit via `scripts/commit-as.sh project-manager "<msg>"`;
