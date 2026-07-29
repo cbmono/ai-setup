@@ -171,8 +171,12 @@ state, and act only on deltas.
    merge). Immediately before merging, confirm all three from `gh`/the API and **abort if
    any fails**: (a) every **required** check passes —
    `gh pr checks <pr> --required --json bucket --jq 'all(.bucket=="pass")'` returns `true`;
-   (b) **zero** unresolved review threads (read the API's `reviewThreads.isResolved`, don't
-   judge comment text); (c) the head is still the verified SHA. Then merge that exact
+   (b) the **independent reviewer has cleared the current head** — a review from the
+   reviewer (CodeRabbit, or the `qa-reviewer`) tied to the verified SHA with **no
+   reviewer-authored thread still unresolved**. `reviewThreads.isResolved` alone is **not**
+   sufficient: a thread the PR author/executor resolved on its own does not count as
+   cleared unless the reviewer re-acknowledged it (re-reviewed the current head without
+   re-raising). Ignore author-resolved threads. (c) the head is still the verified SHA. Then merge that exact
    commit: `gh pr merge --squash --match-head-commit <verified-sha> <pr>` — which **aborts**
    on head drift. Re-checking here matters — comments or checks can change after step 4
    without the head moving. **Only after confirming the merge actually succeeded** (the
