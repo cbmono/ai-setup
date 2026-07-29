@@ -166,12 +166,12 @@ Role dispatches are routed to a cost-appropriate model. Two knobs in
 - `models` — maps tiers to model aliases: `{ "light": "haiku", "standard": "sonnet",
   "deep": "opus", "apex": "fable" }`. Aliases track the latest model in each tier, so
   you retune per instance without editing agents.
-- `roleTiers` — each role's default tier (e.g. `qa-reviewer` → `deep`, `cataloguer` →
-  `light`, engineers → `standard`). The **orchestrator** (`project-manager`) itself
-  defaults to the top **`apex`** tier (`fable`) — the strongest model for the loop's
-  routing/judgment, while workers run cheaper. Fable is the priciest tier and the PM
-  ticks often (idle ticks are cheap no-ops); to cut cost, lower `apex` — or the PM's
-  `roleTiers` entry — to `deep`/opus.
+- `roleTiers` — each role's default tier (e.g. `project-manager` → `deep`, `qa-reviewer`
+  → `deep`, `cataloguer` → `light`, engineers → `standard`). The top **`apex`** tier
+  (`fable`) is reserved for the **deepest, rarest reasoning** — the `plan-architect`
+  critique the PM dispatches on genuinely complex tasks — where a frontier model earns
+  its cost. The orchestrator itself runs on `deep` (opus): plenty for routing, and it
+  ticks often. Retune per instance as cost dictates.
 
 Per tick the PM starts from the role's default tier, **bumps a complex build task
 up** (multi-file/service, or heavily-inferred `acceptance_criteria`) and **drops a
@@ -228,15 +228,19 @@ instance up to date:
 3. **Merge new seed keys by hand.** Seed content (`instance.config.json`, the instance
    `CLAUDE.md`) is copied **once** and never overwritten, so new keys don't auto-arrive.
    In particular, if `instance.config.json` lacks the model-routing block, add it —
-   otherwise routing / the Fable orchestrator stay off and everything runs on the session
-   model:
+   otherwise model routing stays off and everything runs on the session model:
    ```json
    "models":    { "light": "haiku", "standard": "sonnet", "deep": "opus", "apex": "fable" },
-   "roleTiers": { "project-manager": "apex", "software-engineer": "standard",
+   "roleTiers": { "project-manager": "deep", "software-engineer": "standard",
                   "devops-engineer": "standard", "qa-reviewer": "deep",
-                  "cataloguer": "light", "auditor": "deep", "plan-architect": "deep" }
+                  "cataloguer": "light", "auditor": "deep", "plan-architect": "apex" }
    ```
    Optionally fold any new conventions from the template's `seed/CLAUDE.md` into your
    instance's `CLAUDE.md`.
 4. **Restart Claude Code** in the instance (`/exit`, then `claude`) so new agents and
    commands register.
+5. **Verify.** Invoke a changed command or agent (e.g. `/audit`, or a `/pm-loop` dry
+   run) and confirm it registers (no `skills:` prefix) **and** that model routing
+   resolves as configured — the deepest `plan-architect` critique routes to the `apex`
+   tier (Fable), workers to their lower tiers. If a command reports "Unknown command",
+   re-check step 2 and the restart.

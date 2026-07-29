@@ -116,8 +116,9 @@ state, and act only on deltas.
    **Model routing.** Route each dispatch to a cost-appropriate model. Read the
    `models` map (tier → model alias) and `roleTiers` (role → default tier) from
    `instance.config.json`. (You — the orchestrator — run at your own `roleTiers` entry,
-   `project-manager` → `apex`/`fable` by default, set by `/pm-loop` when it spawned you;
-   you route workers *down* from there.) For each dispatch: start from the assignee's default tier
+   `project-manager` → `deep`/`opus` by default, set by `/pm-loop` when it spawned you.
+   The top `apex`/`fable` tier is reserved for the deepest, rarest reasoning — the
+   `plan-architect` critique you route *up* to; workers route *down*.) For each dispatch: start from the assignee's default tier
    in `roleTiers`; **bump one tier up** (toward `deep`) for a genuinely complex build
    task — spans multiple files/services, or its `acceptance_criteria` had to be
    heavily inferred (the same signal that triggers the optional `plan-architect`

@@ -21,12 +21,12 @@
     "apex": "fable"
   },
   "roleTiers": {
-    "project-manager": "apex",
+    "project-manager": "deep",
     "software-engineer": "standard",
     "devops-engineer": "standard",
     "qa-reviewer": "deep",
     "cataloguer": "light",
-    "plan-architect": "deep",
+    "plan-architect": "apex",
     "auditor": "deep"
   }
 }
