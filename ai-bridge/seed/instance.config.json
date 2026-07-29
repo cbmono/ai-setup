@@ -4,6 +4,7 @@
   "reposRoot": "~/workspace/<group>",
   "authorEmail": "you@example.com",
   "defaultRepo": null,
+  "maxAgentsInFlight": 10,
   "codegraphSkip": "",
   "prReviewSlackChannel": null,
   "roles": [

@@ -176,7 +176,7 @@ rule here, not in each agent.
   `Workflow` fan-out instead of grinding serially (find the real edges → fan out → verify →
   synthesize). **Read-only** fan-out (review, audit, research, code-navigation) needs **no
   worktree isolation** (nothing writes) but still obeys the instance's concurrency/resource
-  limits (e.g. the ≤5-in-flight cap) — it does **not** license unlimited dispatches;
+  limits (the `maxAgentsInFlight` cap) — it does **not** license unlimited dispatches;
   **write** fan-out must *also* give each subagent its own worktree (`isolation:
   'worktree'`) — never parallel writes to a shared clone/worktree (the same collision the
   per-task isolation rule prevents). Skip it for small/sequential work (pure
