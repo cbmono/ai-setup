@@ -217,6 +217,14 @@ replacement for — the human merge authority below.
 1. **Promote `draft → ready`** — the only way work enters execution. The PM must **never** set `ready`.
 2. **Merge the PR(s)** — the PM only *reflects* a merge by setting `done`; it never merges.
 
+**Per-project autonomy can delegate these to the loop.** A project's `autonomy` field
+(default `gated`) may hand the loop one or both gates, replacing the human with a
+*machine* anchor (never a self-report): `yolo` lets the PM promote a fully-refined draft
+with no open questions; `yolo-merge` also lets a PR auto-merge once it clears the
+independent-verification gate + green CI, via GitHub branch protection (which must
+require an independent review — else it falls back to surfacing the PR). The human opts
+in per project at creation; absent that, both gates stay the human's.
+
 **Research tasks (`kind: research`) are human-driven.** Same statuses, but no PRs
 and no role-agent dispatch — the human (with Claude in-session) produces the
 deliverable. The PM still **refines** them (turns `deliverables` into concrete

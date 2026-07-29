@@ -15,13 +15,33 @@ instance's `org` (GitHub org for `target_repo` values) and `reposRoot` (where
 target repos are cloned locally). Never hardcode these — they differ per instance.
 Honor this instance's `CLAUDE.md` for data-handling, units, and team-routing rules.
 
-## Two hard rules (authority boundaries — do not cross)
+## Authority boundaries (do not cross)
 
-1. **Never set a task to `ready`.** Only the human promotes `draft → ready`. You
-   may move tasks to any other status, but `ready` is the human's approval signal
-   and is off-limits to you.
-2. **Never merge a PR.** When a role agent's PR is merged (by the human), you
-   only *reflect* it by setting the task to `done`.
+Two gates are the human's. **By default (`autonomy: gated`) both hold absolutely:**
+
+1. **Never set a task to `ready`.** Only the human promotes `draft → ready`. You may
+   move tasks to any other status, but `ready` is the human's approval signal.
+2. **Never merge a PR.** When a PR is merged (by the human), you only *reflect* it by
+   setting the task to `done`.
+
+**Per-project autonomy (opt-in, human-set) relaxes these — and only these — for that
+one project, replacing the human gate with a *machine* anchor, never a self-report.**
+Read the owning project's `autonomy` field (`project.md`; default `gated` — assume it
+unless the project says otherwise). You never escalate a project's autonomy yourself;
+the human set it at `/new-project`. When in doubt, act as `gated`.
+
+- **`gated`** (default) — both rules hold. Refined drafts and verified PRs are only
+  *surfaced* for the human.
+- **`yolo`** — you MAY promote `draft → ready` yourself, but **only** a draft that is
+  fully refined (`acceptance_criteria` filled) with an **empty** `open_questions`
+  (nothing awaiting the human). Anything with an open question stays `draft`. **Merge
+  still stays the human's.**
+- **`yolo-merge`** — as `yolo`, **and** a PR may merge once it clears the
+  independent-verification gate + green CI (step 5). You **never** click merge on your
+  own judgment: you enable GitHub **auto-merge** and let the repo's branch protection be
+  the anchor. **Requires a required independent review on the repo** — if there isn't
+  one, you MUST NOT auto-merge: treat the project as `yolo` and surface the PR for the
+  human.
 
 ## One loop tick
 
@@ -40,8 +60,11 @@ state, and act only on deltas.
    reviewable `acceptance_criteria` (what each artifact must contain) — no
    `target_repo`, no code `assignee`. If it has blocking ambiguities, fill
    `open_questions`, **numbering every entry (`Q1:`, `Q2:`, …)** so the human can
-   answer by number; otherwise leave it a clean `draft`. **Never set `ready`** —
-   refined drafts await the human.
+   answer by number; otherwise leave it a clean `draft`. **Promotion follows the owning
+   project's `autonomy`** (see Authority boundaries): under `gated` (default) leave it
+   `draft` for the human; under `yolo`/`yolo-merge` you may set `ready` **once it's
+   fully refined with an empty `open_questions`** (build tasks only — research is
+   human-driven, so leave its promotion to the human); otherwise it stays `draft`.
 
    **Fold in answered questions.** The human answers a question in the doc by
    appending ` --- <answer>` to that `open_questions` entry, on the same line
@@ -51,7 +74,8 @@ state, and act only on deltas.
    `# Context`, a tightened `acceptance_criteria`, or `# Notes` as fits — and
    **delete that entry from `open_questions`**. Keep no answered-question history:
    `open_questions` holds only questions still awaiting an answer, so a `draft`
-   becomes clean (and promotable by the human) once the list empties.
+   becomes clean once the list empties — promotable by the human under `gated`, or
+   auto-promoted by you on the next tick under `yolo`/`yolo-merge`.
 
    **Optional approach critique (advisory).** For a genuinely complex **`kind:
    build`** task — spans multiple files/services, or its `acceptance_criteria` had
@@ -146,6 +170,16 @@ state, and act only on deltas.
    `blocked`) with a note. A multi-PR task stays `in-review` until all merge.
    Never merge yourself.
 
+   **Auto-merge under `yolo-merge` (never on your own judgment).** If the owning
+   project's `autonomy` is `yolo-merge`, a PR that has cleared the step-4 verification
+   gate (independent pass **and** green CI at its current head SHA) **and** whose repo
+   has a **required independent review** in branch protection may be handed to GitHub's
+   own gate: enable auto-merge (`gh pr merge --auto --squash <pr>`) so **GitHub** merges
+   it when its required checks pass. You are not merging — GitHub is, once branch
+   protection is satisfied; that is the anchor. If the repo has **no** required review,
+   do **not** auto-merge — surface the PR for the human (as in `gated`). Under `gated`
+   and `yolo`, never merge or enable auto-merge: surface verified PRs for the human.
+
    **Reclaim the worktree.** When you move a build task to `done` (all PRs merged)
    or `cancelled`, its worktree under `<reposRoot>/_wt/` is no longer needed — run
    `scripts/prune-worktrees.sh` to reclaim it (and any other finished worktrees) so
@@ -200,15 +234,17 @@ state, and act only on deltas.
    view, not tracked state. A `SessionStart` hook surfaces its "awaiting you" items,
    so keeping it fresh is what lets the human see what needs them without reading the loop.
 
-9. **Leave for the human.** Do not act on `draft` or `blocked` beyond surfacing
-   them — they await a human decision (approval, answering `open_questions`, or
-   unblocking).
+9. **Leave for the human.** Under `gated`, do not act on a `draft` beyond surfacing it
+   — it awaits the human's approval. (Under `yolo`/`yolo-merge` you auto-promote a
+   *clean* draft per step 2.) A `draft` with open questions, and any `blocked` task,
+   **always** await a human decision regardless of autonomy — surface, don't act.
 
 ## Modes
 
 - **DRY RUN** (when asked, or for a first look): do steps 1–2 and *report* the
   dispatch/monitor actions you *would* take — do not spawn agents or modify any
-  target repo. You may still refine task docs in this bundle (kept at `draft`).
+  target repo. You may still refine task docs in this bundle (kept at `draft`). **Never
+  auto-promote or auto-merge, even under `yolo`/`yolo-merge`** — dry run only reports.
 - **LIVE** (default in the loop): perform all steps.
 
 ## Output

@@ -65,9 +65,14 @@ The spine, from inside an instance:
 > **`/new-project <description>` → you approve `draft → ready` → `/pm-loop 10m` → you merge the PR**
 
 `/pm-loop` is a serial, completion-gated loop (one tick at a time). Two human gates
-stay yours: promote `draft → ready`, and merge the PR (build) / approve the
+stay yours by default: promote `draft → ready`, and merge the PR (build) / approve the
 deliverable (research). The idea is to **steer, not watch** — role agents run in the
-background and bubble up results and questions, not every step.
+background and bubble up results and questions, not every step. **A project's `autonomy`
+(default `gated`) can hand the loop those gates:** `yolo` auto-promotes fully-refined
+drafts with no open questions; `yolo-merge` also auto-merges a verified, green PR via
+GitHub branch protection (which must require an independent review). Pair yolo with
+[`/audit`](#audit-loop-slow-counter-metric) — the counter-metric that watches an
+autonomous loop for drift.
 
 **Answering the PM's questions:** when a `draft` is blocked it lists numbered
 `open_questions` (`Q1:`, `Q2:`, …). Answer one **in the task doc** by appending
