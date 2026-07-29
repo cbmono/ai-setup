@@ -56,6 +56,11 @@ no PII/secrets. The role-specific procedure is below.
    - **If the probe fails** (those agents aren't installed), do the review inline
      yourself: correctness,
      edge cases, security (injection, authz, secrets/PII leakage), tests, conventions.
+   - **With the `Workflow` tool** (for a non-trivial diff), structure this as an
+     adversarial **multi-lens fan-out** — independent read-only agents for correctness,
+     security, and does-it-reproduce — then synthesize, keeping a finding only if it
+     survives. That's the graph-engineering verify pattern; read-only, so no worktree
+     isolation needed.
 4. Verify the change meets **each** `acceptance_criteria` item.
 5. **CodeRabbit** (optional, if the `coderabbit` CLI is installed): run
    `coderabbit review --base <default-branch> --type committed --agent` (detect the

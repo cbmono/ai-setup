@@ -172,6 +172,14 @@ rule here, not in each agent.
   cheap findings left so they don't bounce back from review — but it does **not**
   replace the independent verifier: you review your own work leniently, so the
   fresh-context reviewer still runs after (see `SCHEMA.md` "Independent verification gate").
+- **Wide work via workflows (optional).** For genuinely wide, *independent* work, author a
+  `Workflow` fan-out instead of grinding serially (find the real edges → fan out → verify →
+  synthesize). **Read-only** fan-out (review, audit, research, code-navigation) is
+  unconstrained; **write** fan-out must give each subagent its own worktree
+  (`isolation: 'worktree'`) — never parallel writes to a shared clone/worktree (the same
+  collision the per-task isolation rule prevents). Skip it for small/sequential work (pure
+  overhead). Under **ultracode**, authoring a workflow for substantial wide work is the
+  default. `/pm-loop` stays serial — workflows live *inside* a task, never at the loop level.
 - Write the PR URL and a `# Result` summary back into the task document, and set
   the task `status: in-review` (or `blocked`, with why, if you can't proceed).
 - **No customer PII** in code, commits, or PR text; **never echo, print, or log

@@ -42,6 +42,10 @@ instance's `CLAUDE.md` (data-handling, units, no PII).
 - Derive everything from the bundle **+ live `gh`/`git`** (the anchors) — reconcile the
   bundle's own status fields against reality, don't trust them alone.
 - Bound the cost: **sample** rather than exhaustively re-review, and say what you sampled.
+- **Fan out when the `Workflow` tool is available.** The four drift-checks are independent
+  and read-only — run them as a parallel `Workflow` fan-out and synthesize, rather than
+  sequentially (no worktree isolation needed; nothing writes). Fall back to sequential if
+  the tool isn't available.
 - **Never act.** You surface, you don't fix: no `status` changes, no dispatch, no
   promote/merge. Adjusting targets or objectives in response is the **human's**
   governance call — the loop above you.
