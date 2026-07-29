@@ -195,7 +195,7 @@ draft ──│ HUMAN promotes │──► ready ──► in-progress ⇄ in-r
 | Status | Meaning | Who sets it |
 |---|---|---|
 | `draft` | **Initial state.** Refined once `acceptance_criteria` are filled; **awaiting human approval**. Non-empty `open_questions` = blocked on a human answer (don't promote). | Human or PM |
-| `ready` | **Human-approved for execution — ONLY the human sets this.** | Human only |
+| `ready` | **Approved for execution.** The human sets this — or the PM under the project's `yolo`/`yolo-merge` autonomy (build tasks only). | Human — or PM under `yolo`/`yolo-merge` |
 | `in-progress` | Dispatched to a role; agent is working (no PR yet, or changes requested). | PM (on dispatch) / role agent |
 | `in-review` | PR(s) open, awaiting review/merge. Returns to `in-progress` if review requests changes. | Role agent |
 | `blocked` | External / dependency blocker; returns to its prior status when cleared. | Anyone |
@@ -214,13 +214,14 @@ configures it, else the `qa-reviewer` agent. This is **in addition to** — not 
 replacement for — the human merge authority below.
 
 **Two human authorities** keep this semi-autonomous:
-1. **Promote `draft → ready`** — the only way work enters execution. The PM must **never** set `ready`.
-2. **Merge the PR(s)** — the PM only *reflects* a merge by setting `done`; it never merges.
+1. **Promote `draft → ready`** — the only way work enters execution. **By default** the PM never sets `ready`; a project's `yolo`/`yolo-merge` autonomy delegates this to the loop for **build tasks** (below).
+2. **Merge the PR(s)** — **by default** the PM never merges (it only *reflects* a merge by setting `done`); `yolo-merge` delegates the merge trigger to GitHub auto-merge (below).
 
 **Per-project autonomy can delegate these to the loop.** A project's `autonomy` field
 (default `gated`) may hand the loop one or both gates, replacing the human with a
-*machine* anchor (never a self-report): `yolo` lets the PM promote a fully-refined draft
-with no open questions; `yolo-merge` also lets a PR auto-merge once it clears the
+*machine* anchor (never a self-report): `yolo` lets the PM promote a fully-refined
+**build-task** draft with no open questions (research stays human-driven — see below);
+`yolo-merge` also lets a PR auto-merge once it clears the
 independent-verification gate + green CI, via GitHub branch protection (which must
 require an independent review — else it falls back to surfacing the PR). The human opts
 in per project at creation; absent that, both gates stay the human's.

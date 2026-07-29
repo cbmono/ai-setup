@@ -69,8 +69,9 @@ stay yours by default: promote `draft → ready`, and merge the PR (build) / app
 deliverable (research). The idea is to **steer, not watch** — role agents run in the
 background and bubble up results and questions, not every step. **A project's `autonomy`
 (default `gated`) can hand the loop those gates:** `yolo` auto-promotes fully-refined
-drafts with no open questions; `yolo-merge` also auto-merges a verified, green PR via
-GitHub branch protection (which must require an independent review). Pair yolo with
+drafts with no open questions (**build tasks only** — research stays human-driven);
+`yolo-merge` also auto-merges a verified, green PR via GitHub branch protection (which
+must require an independent review + dismiss stale approvals). Pair yolo with
 [`/audit`](#audit-loop-slow-counter-metric) — the counter-metric that watches an
 autonomous loop for drift.
 

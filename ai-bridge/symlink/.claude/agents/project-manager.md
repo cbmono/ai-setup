@@ -174,9 +174,13 @@ state, and act only on deltas.
    project's `autonomy` is `yolo-merge`, a PR that has cleared the step-4 verification
    gate (independent pass **and** green CI at its current head SHA) **and** whose repo
    has a **required independent review** in branch protection may be handed to GitHub's
-   own gate: enable auto-merge (`gh pr merge --auto --squash <pr>`) so **GitHub** merges
-   it when its required checks pass. You are not merging — GitHub is, once branch
-   protection is satisfied; that is the anchor. If the repo has **no** required review,
+   own gate: enable auto-merge **bound to the verified commit** — `gh pr merge --auto
+   --squash --match-head-commit <verified-sha> <pr>` — so GitHub merges **only that exact
+   head** when its checks pass. A push after verification changes the head, so the armed
+   merge won't fire on unverified code; also rely on branch protection's **dismiss stale
+   approvals / require approval of the most recent push** so a new push invalidates the
+   review gate instead of riding an old approval. You are not merging — GitHub is, once
+   branch protection is satisfied; that is the anchor. If the repo has **no** required review,
    do **not** auto-merge — surface the PR for the human (as in `gated`). Under `gated`
    and `yolo`, never merge or enable auto-merge: surface verified PRs for the human.
 

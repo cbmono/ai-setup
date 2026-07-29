@@ -30,6 +30,6 @@ and stop.
 ## Notes
 - **Foreground/interactive only** — a background `/pm-loop` tick can't prompt you; it
   parks questions on the 🔴 board, and you clear them here (or by editing the task docs).
-- Commit is optional: the next `/pm-loop` tick commits doc changes under the PM identity,
-  or commit yourself (`scripts/commit-as.sh human "docs: answer open questions"`).
+- Commit is optional: the next `/pm-loop` tick commits the doc changes under the PM
+  identity, or commit them yourself using this bundle's usual process.
 - No customer PII in answers written to task docs.
