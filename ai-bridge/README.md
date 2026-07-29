@@ -93,7 +93,12 @@ Projects come in two `kind`s (see `symlink/SCHEMA.md`):
   (the PM tracks but never dispatches them). These are the strategic entry points
   whose conclusions graduate into `knowledge/` and spawn objectives + build projects.
 
-`/new-project` scaffolds either; pass `kind=research` for the latter.
+`/new-project` scaffolds either; pass `kind=research` for the latter. It also takes
+optional capability flags — `autonomy=gated|yolo|yolo-merge` (`/yolo`, `/yolo-merge`),
+`clis="…"` (`/cli …`), and `browser=claude-for-chrome` (`/claudeforchrome`) — and
+**interactively asks for any you don't pass** (pre-filling detected CLIs/MCPs). They're
+recorded on `project.md` and honored by later machinery (yolo by the PM loop, browser by
+the claude-in-chrome integration); creating a project never itself promotes or merges.
 
 ## Editor view (control panel + repos in one tree)
 The product repos stay **physical peers** of the instance, never nested inside it
