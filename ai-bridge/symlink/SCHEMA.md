@@ -223,8 +223,11 @@ replacement for — the human merge authority below.
 **build-task** draft with no open questions (research stays human-driven — see below);
 `yolo-merge` also lets a PR auto-merge once it clears the
 independent-verification gate + green CI, via GitHub branch protection (which must
-require an independent review — else it falls back to surfacing the PR). The human opts
-in per project at creation; absent that, both gates stay the human's.
+require an independent review — else it falls back to surfacing the PR). **Auto-merge is
+bound to the exact commit that passed verification + CI** (a later push can't ride the
+armed merge on unverified code), and the repo's branch protection must **dismiss stale
+approvals** so an approval from before that commit can't be reused. The human opts in per
+project at creation; absent that, both gates stay the human's.
 
 **Research tasks (`kind: research`) are human-driven.** Same statuses, but no PRs
 and no role-agent dispatch — the human (with Claude in-session) produces the
