@@ -77,7 +77,7 @@ ticks, regardless of how long a tick runs.
   is unset, act as `gated`.
 - Reconcile doc `status:` against live `gh`/`git` before acting; act only on deltas.
 - Concurrency cap: **at most `maxAgentsInFlight` role agents in flight** (from
-  `instance.config.json`, default 10; treat a missing value as 5), and each must use its own
+  `instance.config.json`; fall back to 5 if the key is absent), and each must use its own
   worktree under `<reposRoot>/_wt/` + a **private package store** (e.g.
   `pnpm install --store-dir <worktree>/.pnpm-store`) and **push early** — never two
   installs against the shared store at once (see `.claude/agents/project-manager.md`).
