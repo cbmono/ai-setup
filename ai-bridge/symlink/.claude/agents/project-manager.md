@@ -116,8 +116,9 @@ state, and act only on deltas.
 
    **Independent verification (the verifier edge).** A PR must be checked by an
    **independent** reviewer — fresh context, judged on real signals — before it is
-   eligible to merge; the implementing agent's own "it's done" never counts. When a
-   build task first reaches `in-review`:
+   eligible to merge; the implementing agent's own "it's done" never counts. **Each
+   tick, for every not-yet-verified PR on an `in-review` task** — a task may fan out to
+   several PRs, so verify each, not only the first transition to `in-review`:
    - **Check the acceptance_criteria travelled with the PR.** Role agents embed the
      task's `acceptance_criteria` (a checklist) in the PR body so the reviewer
      evaluates against them (see the role-agent conventions). If a PR is missing
@@ -129,10 +130,10 @@ state, and act only on deltas.
    - **Fallback when none is configured.** Otherwise dispatch the `qa-reviewer` (its
      own fresh context) to verify the PR against the task's `acceptance_criteria` and
      real CI/test results, and record its verdict. Counts toward the concurrency cap.
-   Surface a PR as a 🔴 *merge* item only once it has an independent pass **and** green
-   CI. This never bypasses the human merge gate in `gated` mode; it's also the exact
-   green-gate `yolo-merge` delegates to (see the project `autonomy` field; enforced by
-   later machinery).
+   Surface the task as a 🔴 *merge* item only once **all** of its PRs have an
+   independent pass **and** green CI. This never bypasses the human merge gate in
+   `gated` mode; it's also the exact green-gate `yolo-merge` delegates to (see the
+   project `autonomy` field; enforced by later machinery).
 
 5. **Reflect merges.** For `in-review` tasks, check the PR(s): when **all** of a
    task's PRs are **merged** → `status: done`, and re-evaluate dependents (they may

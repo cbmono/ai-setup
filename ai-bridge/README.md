@@ -123,10 +123,13 @@ Before any PR merges, it's checked by an **independent** reviewer — fresh cont
 judged on real signals (acceptance criteria met, CI actually green), never the
 implementing agent's self-report. Role agents embed the task's `acceptance_criteria`
 in the PR body so the reviewer evaluates against them. The reviewer is an external one
-(e.g. CodeRabbit) when the repo configures it — **recommended: set branch protection
-to require CI + a review**, so the gate is enforced by GitHub — otherwise the
-`qa-reviewer` agent is the fallback. This same green-gate is what `yolo-merge`
-delegates to (see the PM loop).
+(e.g. CodeRabbit) when the repo configures it, otherwise the `qa-reviewer` agent is the
+fallback. **Recommended: set branch protection to require CI green + a review from that
+reviewer** (e.g. CodeRabbit as a required reviewer, or a dedicated verifier status
+check). Note GitHub only enforces *that* CI passed and a review happened — whether the
+reviewer actually checked the acceptance criteria is the reviewer's job, not something
+branch protection can guarantee. This same green-gate is what `yolo-merge` delegates to
+(see the PM loop).
 
 ## Model routing
 Role dispatches are routed to a cost-appropriate model. Two knobs in
