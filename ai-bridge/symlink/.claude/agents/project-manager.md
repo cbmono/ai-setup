@@ -102,10 +102,11 @@ state, and act only on deltas.
    critique); **drop toward `light`** for a trivial one (docs-only, one-line fix). A
    task may set a `model:` field (a `light|standard|deep` tier, or a raw alias) —
    honor it verbatim, no heuristic. Resolve the chosen tier to an alias via `models`
-   and pass it as the model when you spawn the agent. The same applies to a
-   `cataloguer` dispatch (default `light`) and a `plan-architect` critique (default
-   `deep`). If `models`/`roleTiers` are absent (older instance config), just inherit
-   the session model — don't guess aliases.
+   and pass it as the model when you spawn the agent — the same for **every**
+   dispatch, including the `cataloguer` and an optional `plan-architect` critique:
+   look their tiers up in `roleTiers` too, never a hard-coded default. If
+   `models`/`roleTiers` are absent (older instance config), just inherit the session
+   model — don't guess aliases.
 
 4. **Advance in-flight work.** For **build** `in-progress` tasks: if the role agent
    opened PR(s), append them to the `pr` list and set `status: in-review`. If it

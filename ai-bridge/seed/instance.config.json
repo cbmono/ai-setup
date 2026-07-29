@@ -22,6 +22,7 @@
     "software-engineer": "standard",
     "devops-engineer": "standard",
     "qa-reviewer": "deep",
-    "cataloguer": "light"
+    "cataloguer": "light",
+    "plan-architect": "deep"
   }
 }
