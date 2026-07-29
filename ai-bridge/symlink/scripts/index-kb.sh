@@ -80,17 +80,17 @@ for dir in "$REPOS_ROOT"/*/; do
   if [[ -d "$dir/.codegraph" ]]; then
     echo "== [$repo] codegraph sync"
     if codegraph sync "$dir" >/dev/null 2>&1; then echo "   synced"; indexed=$((indexed+1))
-    else echo "   FAILED (sync)" >&2; failed=$((failed+1)); continue; fi
+    else echo "   [$repo] FAILED (sync)" >&2; failed=$((failed+1)); continue; fi
   else
     echo "== [$repo] codegraph init"
     if codegraph init "$dir" >/dev/null 2>&1; then echo "   indexed"; indexed=$((indexed+1))
-    else echo "   FAILED (init)" >&2; failed=$((failed+1)); continue; fi
+    else echo "   [$repo] FAILED (init)" >&2; failed=$((failed+1)); continue; fi
   fi
 
   if [[ "$WITH_SERENA" == 1 ]]; then
     echo "== [$repo] serena index"
-    if yes N | serena project index "$dir" --log-level ERROR >/dev/null 2>&1; then echo "   serena cache warmed"
-    else echo "   FAILED (serena)" >&2; failed=$((failed+1)); fi
+    if serena project index "$dir" --log-level ERROR < <(yes N) >/dev/null 2>&1; then echo "   serena cache warmed"
+    else echo "   [$repo] FAILED (serena)" >&2; failed=$((failed+1)); fi
   fi
 done
 
