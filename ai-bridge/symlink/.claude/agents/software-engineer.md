@@ -29,8 +29,9 @@ merging, writing `# Result` + setting `status`, no PII/secrets, and capturing
    acceptance criteria.
 4. **Verify, then open the PR** per the shared conventions — install/build/lint/test
    green first (check `package.json`, `Makefile`, CI config); if you can't get them
-   green, report the failure and **don't** open the PR. PR body: what changed, how
-   verified, and the task's `acceptance_criteria` embedded as a checklist (per the
+   green, report the failure and **don't** open the PR. **Self-review your diff and fix
+   what it flags** (per the shared conventions) before opening it. PR body: what changed,
+   how verified, and the task's `acceptance_criteria` embedded as a checklist (per the
    shared conventions) so the independent reviewer checks against them.
 5. **Report back** per the shared conventions (`status: in-review`, `pr:`,
    `# Result`). Your final message summarizes the same.

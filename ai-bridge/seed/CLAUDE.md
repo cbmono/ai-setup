@@ -164,6 +164,14 @@ rule here, not in each agent.
   your own "it's done."
 - Run the repo's build, lint, and tests green before opening a PR. If you can't
   get them green, report rather than open the PR.
+- **Self-review before you open the PR (a pre-filter, not the gate).** On your own
+  diff, run a review and fix what it flags *first*: prefer `coderabbit review` locally
+  if the `coderabbit` CLI is available (same reviewer the PR will get, shifted left);
+  else dispatch `code-architect` if it's installed in `~/.claude/agents/`; else do a
+  careful pass yourself (correctness, edge cases, security, tests). This shifts the
+  cheap findings left so they don't bounce back from review — but it does **not**
+  replace the independent verifier: you review your own work leniently, so the
+  fresh-context reviewer still runs after (see `SCHEMA.md` "Independent verification gate").
 - Write the PR URL and a `# Result` summary back into the task document, and set
   the task `status: in-review` (or `blocked`, with why, if you can't proceed).
 - **No customer PII** in code, commits, or PR text; **never echo, print, or log
