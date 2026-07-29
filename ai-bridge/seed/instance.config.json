@@ -4,6 +4,7 @@
   "reposRoot": "~/workspace/<group>",
   "authorEmail": "you@example.com",
   "defaultRepo": null,
+  "codegraphSkip": "",
   "prReviewSlackChannel": null,
   "roles": [
     "project-manager",
