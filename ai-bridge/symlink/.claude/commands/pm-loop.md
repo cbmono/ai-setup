@@ -43,7 +43,11 @@ Parse `$ARGUMENTS` as the inter-tick **gap** (default **10m**). Then:
 
 1. **Run one tick now.** Spawn the `project-manager` agent
    (`subagent_type: project-manager`) for ONE LIVE tick (background), with the
-   standing guardrails below. A LIVE tick refines drafts, dispatches `ready` tasks,
+   standing guardrails below. **Run the tick on the orchestrator's configured model:**
+   resolve `project-manager` in `roleTiers` (default `deep`) → an alias via `models`
+   (default `deep` → `opus`), and pass that as the tick's model. If `models`/`roleTiers`
+   are absent, inherit the session model. (The top `apex`/`fable` tier is reserved for
+   the rarest, deepest reasoning — the `plan-architect` critique — not the routine tick.) A LIVE tick refines drafts, dispatches `ready` tasks,
    advances/reflects PRs, reclaims finished worktrees, proposes closing completed
    projects (all tasks terminal), and — **after reflecting merges** — may dispatch
    the `cataloguer` to refresh `knowledge/` from the merged work (throttled to one
