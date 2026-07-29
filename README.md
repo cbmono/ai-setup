@@ -256,7 +256,8 @@ Use the `stack-navigator` agent when you want a summary plus the recommended nex
 
 ## Opus 4.8
 
-This config targets Opus 4.8 for planning and review, Sonnet 4.6 for implementation.
+This config targets Opus for planning and review, Sonnet for implementation (model
+aliases, so they track the current release rather than pinning a version that goes stale).
 
 Key behaviours worth internalizing:
 
