@@ -6,13 +6,17 @@ in `.claude/agents/<role>.md`; this is the routing reference.
 > **Generic template file** (symlinked from the `ai-bridge` template).
 
 ## Roles
-* [project-manager](/.claude/agents/project-manager.md) - orchestrator: refines, assigns, reviews, curates. Not a task assignee.
+
+**Task assignees** — the PM dispatches human-approved `ready` build tasks to these:
 * [software-engineer](/.claude/agents/software-engineer.md) - features and bug fixes in product code
 * [devops-engineer](/.claude/agents/devops-engineer.md) - CI/CD, GitHub Actions, Helm, ArgoCD, Terraform, Docker images, observability
 * [qa-reviewer](/.claude/agents/qa-reviewer.md) - writing/extending tests and reviewing PRs (the quality gate)
-* [cataloguer](/.claude/agents/cataloguer.md) - librarian for the knowledge base (service catalog, findings, runbooks); read-only on product repos. Not a task assignee.
-* [oncall-guide](/.claude/agents/oncall-guide.md) - read-only diagnostician for a failing build / red CI / failed deploy (incl. from a pasted PR). Reports root cause + ranked next steps; never changes code. Dispatched ad-hoc (usually in the background). Not a task assignee.
-* [auditor](/.claude/agents/auditor.md) - read-only audit loop (slow counter-metric): grounds objectives against reality and flags Goodhart drift / stale knowledge / green-but-not-progressing work / weakened anchors. Writes only an audit report; never acts. Run via `/audit`. Not a task assignee.
+
+**Orchestration & read-only roles** — **never** task assignees (the PM invokes them, but they aren't dispatched a `ready` task):
+* [project-manager](/.claude/agents/project-manager.md) - orchestrator: refines, assigns, reviews, curates.
+* [cataloguer](/.claude/agents/cataloguer.md) - librarian for the knowledge base (service catalog, findings, runbooks); read-only on product repos.
+* [oncall-guide](/.claude/agents/oncall-guide.md) - read-only diagnostician for a failing build / red CI / failed deploy (incl. from a pasted PR). Reports root cause + ranked next steps; never changes code. Dispatched ad-hoc (usually in the background).
+* [auditor](/.claude/agents/auditor.md) - read-only audit loop (slow counter-metric): grounds objectives against reality and flags Goodhart drift / stale knowledge / green-but-not-progressing work / weakened anchors. Writes only an audit report; never acts. Run via `/audit`.
 
 ## Routing guide
 

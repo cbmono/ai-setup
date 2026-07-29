@@ -200,8 +200,8 @@ rule here, not in each agent.
 - **Code intelligence (if present):** if a repo has a CodeGraph index (a
   `.codegraph/` dir) or the `codegraph` MCP is available, use it to navigate the
   codebase before bulk-grepping — `codegraph explore "<q>" -p <repo>` for an area,
-  `codegraph node <sym>` for one symbol's callers/callees, `impact <sym>` /
-  `affected <files>` before a change. Skip silently if absent; it's an optional
+  `codegraph node <sym>` for one symbol's callers/callees, `codegraph impact <sym>` /
+  `codegraph affected <files>` before a change. Skip silently if absent; it's an optional
   local index (see the ai-bridge README).
 
 ## Knowledge base
