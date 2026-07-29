@@ -118,6 +118,22 @@ every instance. For permissions or env an instance needs on its own (e.g. allow
 `Bash` in that group's repos), put them in `.claude/settings.local.json` in the
 instance: it's local, gitignored, layered on top, and never touches the template.
 
+## Model routing
+Role dispatches are routed to a cost-appropriate model. Two knobs in
+`instance.config.json`:
+- `models` — maps tiers to model aliases: `{ "light": "haiku", "standard":
+  "sonnet", "deep": "opus" }`. Aliases track the latest model in each tier, so you
+  retune per instance without editing agents.
+- `roleTiers` — each dispatchable role's default tier (e.g. `qa-reviewer` → `deep`,
+  `cataloguer` → `light`, engineers → `standard`).
+
+Per tick the PM starts from the role's default tier, **bumps a complex build task
+up** (multi-file/service, or heavily-inferred `acceptance_criteria`) and **drops a
+trivial one down**, then resolves the tier via `models` and passes that model on
+dispatch. A task can force a specific model with a `model:` field (a tier or a raw
+alias) — the PM honors it verbatim. Omit both maps and everything just inherits the
+session model.
+
 ## Local code intelligence (codegraph, optional)
 Role agents navigate product repos faster with a local **CodeGraph** index than with
 blind grep. It's opt-in and 100% local (no code leaves the machine) — the replacement
