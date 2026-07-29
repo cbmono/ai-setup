@@ -118,6 +118,27 @@ every instance. For permissions or env an instance needs on its own (e.g. allow
 `Bash` in that group's repos), put them in `.claude/settings.local.json` in the
 instance: it's local, gitignored, layered on top, and never touches the template.
 
+## Local code intelligence (codegraph, optional)
+Role agents navigate product repos faster with a local **CodeGraph** index than with
+blind grep. It's opt-in and 100% local (no code leaves the machine) — the replacement
+for the old mempalace memory hook.
+
+1. **Install the CLI:** `npm i -g @colbymchenry/codegraph`.
+2. **Expose it to agents (MCP):** `codegraph install` wires the codegraph MCP into
+   Claude Code (writes the MCP config + an auto-allow permissions list). Use
+   `codegraph install -y` for non-interactive, or `--print-config <id>` to inspect first.
+3. **Index the repos:** from the instance root, run `scripts/index-kb.sh` — it reads
+   `reposRoot`, indexes every product repo (incremental on re-run), and skips
+   worktrees (`_wt`), instance dirs (`_ai-bridge-*`), and non-git dirs. Add infra/
+   assets repos with no useful call graph via `codegraphSkip` in
+   `instance.config.json` (space-separated) or `$CODEGRAPH_SKIP`. `--with-serena`
+   also warms a Serena LSP cache when Serena is installed.
+
+Each repo gets a `.codegraph/` index and a defensive `codegraph.json` exclude. Role
+agents detect the index and use it automatically (see the "Conventions for role
+agents" section of an instance's `CLAUDE.md`); with no index present they just grep
+as before.
+
 ## Machinery is machine-local
 The symlinks point at absolute paths into this template and are gitignored in the
 instance, so a clone on another machine has the committed instance data but
