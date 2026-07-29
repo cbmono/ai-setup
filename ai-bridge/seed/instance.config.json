@@ -17,9 +17,11 @@
   "models": {
     "light": "haiku",
     "standard": "sonnet",
-    "deep": "opus"
+    "deep": "opus",
+    "apex": "fable"
   },
   "roleTiers": {
+    "project-manager": "apex",
     "software-engineer": "standard",
     "devops-engineer": "standard",
     "qa-reviewer": "deep",
