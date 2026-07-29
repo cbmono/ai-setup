@@ -163,11 +163,15 @@ merge-blocking guarantee.
 ## Model routing
 Role dispatches are routed to a cost-appropriate model. Two knobs in
 `instance.config.json`:
-- `models` — maps tiers to model aliases: `{ "light": "haiku", "standard":
-  "sonnet", "deep": "opus" }`. Aliases track the latest model in each tier, so you
-  retune per instance without editing agents.
-- `roleTiers` — each dispatchable role's default tier (e.g. `qa-reviewer` → `deep`,
-  `cataloguer` → `light`, engineers → `standard`).
+- `models` — maps tiers to model aliases: `{ "light": "haiku", "standard": "sonnet",
+  "deep": "opus", "apex": "fable" }`. Aliases track the latest model in each tier, so
+  you retune per instance without editing agents.
+- `roleTiers` — each role's default tier (e.g. `project-manager` → `deep`, `qa-reviewer`
+  → `deep`, `cataloguer` → `light`, engineers → `standard`). The top **`apex`** tier
+  (`fable`) is reserved for the **deepest, rarest reasoning** — the `plan-architect`
+  critique the PM dispatches on genuinely complex tasks — where a frontier model earns
+  its cost. The orchestrator itself runs on `deep` (opus): plenty for routing, and it
+  ticks often. Retune per instance as cost dictates.
 
 Per tick the PM starts from the role's default tier, **bumps a complex build task
 up** (multi-file/service, or heavily-inferred `acceptance_criteria`) and **drops a
@@ -210,3 +214,33 @@ on an instance only when you **add** new machinery files (to refresh its symlink
 set and `.gitignore` block). Keep machinery generic: no org, repo, path, team, or
 channel literals — those belong in each instance's `instance.config.json` /
 `CLAUDE.md`.
+
+## Upgrading an existing instance
+When the template gains new machinery or new seed keys, bring an already-stamped
+instance up to date:
+
+1. **Pull the template** you stamped from (`ai-setup`, or your fork) to `main`. The
+   symlinked machinery — agents, commands, `SCHEMA.md`, scripts — updates **immediately**
+   (the instance symlinks it); no reinstall needed for *changed* files.
+2. **Re-run the installer** to link any **new** files and refresh the gitignore block:
+   `ai-setup/ai-bridge/install.sh <instance-dir>`. Idempotent — it never clobbers your
+   instance data.
+3. **Merge new seed keys by hand.** Seed content (`instance.config.json`, the instance
+   `CLAUDE.md`) is copied **once** and never overwritten, so new keys don't auto-arrive.
+   In particular, if `instance.config.json` lacks the model-routing block, add it —
+   otherwise model routing stays off and everything runs on the session model:
+   ```json
+   "models":    { "light": "haiku", "standard": "sonnet", "deep": "opus", "apex": "fable" },
+   "roleTiers": { "project-manager": "deep", "software-engineer": "standard",
+                  "devops-engineer": "standard", "qa-reviewer": "deep",
+                  "cataloguer": "light", "auditor": "deep", "plan-architect": "apex" }
+   ```
+   Optionally fold any new conventions from the template's `seed/CLAUDE.md` into your
+   instance's `CLAUDE.md`.
+4. **Restart Claude Code** in the instance (`/exit`, then `claude`) so new agents and
+   commands register.
+5. **Verify.** Invoke a changed command or agent (e.g. `/audit`, or a `/pm-loop` dry
+   run) and confirm it registers (no `skills:` prefix) **and** that model routing
+   resolves as configured — the deepest `plan-architect` critique routes to the `apex`
+   tier (Fable), workers to their lower tiers. If a command reports "Unknown command",
+   re-check step 2 and the restart.
