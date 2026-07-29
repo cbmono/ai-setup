@@ -60,9 +60,6 @@ if [[ "$WITH_SERENA" == 1 ]] && ! command -v serena >/dev/null 2>&1; then
   WITH_SERENA=0
 fi
 
-# Defensive per-repo exclude so heavy dirs never get indexed.
-CG_EXCLUDE='{"exclude":["**/node_modules/**","**/dist/**","**/build/**","**/.next/**","**/coverage/**","**/*.min.js","**/*.map"]}'
-
 is_skipped() {
   local name=$1 s
   case "$name" in _wt|_ai-bridge-*) return 0 ;; esac
@@ -70,30 +67,34 @@ is_skipped() {
   return 1
 }
 
-indexed=0; skipped=0
+indexed=0; skipped=0; failed=0
 for dir in "$REPOS_ROOT"/*/; do
   dir=${dir%/}
   repo=$(basename "$dir")
   [[ -e "$dir/.git" ]] || continue          # not a git repo/worktree → skip
   if is_skipped "$repo"; then echo "-- skip $repo"; skipped=$((skipped+1)); continue; fi
 
-  [[ -f "$dir/codegraph.json" ]] || printf '%s\n' "$CG_EXCLUDE" > "$dir/codegraph.json"
-
+  # Don't write config into the repo: CodeGraph already ignores node_modules/dist/etc.,
+  # and a written codegraph.json would dirty a clean worktree. A repo that needs custom
+  # excludes can commit its own codegraph.json.
   if [[ -d "$dir/.codegraph" ]]; then
     echo "== [$repo] codegraph sync"
-    codegraph sync "$dir" >/dev/null 2>&1 && echo "   synced"
+    if codegraph sync "$dir" >/dev/null 2>&1; then echo "   synced"; indexed=$((indexed+1))
+    else echo "   FAILED (sync)" >&2; failed=$((failed+1)); continue; fi
   else
     echo "== [$repo] codegraph init"
-    codegraph init "$dir" >/dev/null 2>&1 && echo "   indexed"
+    if codegraph init "$dir" >/dev/null 2>&1; then echo "   indexed"; indexed=$((indexed+1))
+    else echo "   FAILED (init)" >&2; failed=$((failed+1)); continue; fi
   fi
-  indexed=$((indexed+1))
 
   if [[ "$WITH_SERENA" == 1 ]]; then
     echo "== [$repo] serena index"
-    yes N | serena project index "$dir" --log-level ERROR >/dev/null 2>&1 && echo "   serena cache warmed"
+    if yes N | serena project index "$dir" --log-level ERROR >/dev/null 2>&1; then echo "   serena cache warmed"
+    else echo "   FAILED (serena)" >&2; failed=$((failed+1)); fi
   fi
 done
 
 echo "---"
-printf 'index-kb: %d repo(s) indexed, %d skipped.\n' "$indexed" "$skipped"
+printf 'index-kb: %d repo(s) indexed, %d skipped, %d failed.\n' "$indexed" "$skipped" "$failed"
 echo 'Query with: codegraph explore "<question>" -p <repo-path>  (or the codegraph MCP tools).'
+[[ "$failed" -eq 0 ]] || exit 1
