@@ -30,7 +30,7 @@ build projects.
   config; if there's no `defaultRepo`, ask. Ignored for research.
 - `deliverables="a; b; …"` — **research only.** What the project produces. If
   omitted, infer from the description or ask.
-- `autonomy=gated|yolo|yolo-merge` (shorthand `/yolo`, `/yolo-merge`) — how much the
+- `autonomy=gated|yolo` (shorthand `/yolo`) — how much the
   loop may do without you (default `gated`). Captured now; enforced by later machinery.
 - `clis="a; b"` (shorthand `/cli a, b`) — external CLIs/integrations this project's
   agents may use (e.g. `render`, `supabase`).
@@ -61,27 +61,26 @@ If `$ARGUMENTS` has no description, **ask** for a one-line goal before doing any
    **a. Capabilities (flags-first, else ask).** Settle `kind`, `autonomy`, `clis`, and
    `browser` **before** the kind-specific fields below — otherwise a project could be
    asked build-only questions on a research project, or vice versa. For any supplied as
-   a flag (`kind=`, `/yolo`, `/yolo-merge`, `autonomy=`, `/cli …` / `clis=`,
+   a flag (`kind=`, `/yolo`, `autonomy=`, `/cli …` / `clis=`,
    `/claudeforchrome` / `browser=`), use it and **don't** ask. For those NOT supplied,
    ask the missing ones in **one batched `AskUserQuestion`**:
    - **kind** — build / research.
-   - **autonomy** — gated (default) / yolo / yolo-merge.
+   - **autonomy** — gated (default) / yolo.
    - **clis** (multi-select) — **pre-populate from what's actually available**: run
      `claude mcp list` for connected MCP servers and probe `PATH` for likely CLIs;
      show each with a ✓/✗ on whether it looks authenticated, plus "other" for free
      entry. Declarations — agents still verify a CLI works before relying on it.
    - **browser** — off (default) / claude-for-chrome.
-   If **browser = claude-for-chrome** and **autonomy** is `yolo`/`yolo-merge`, ask an
+   If **browser = claude-for-chrome** and **autonomy** is `yolo`, ask an
    explicit follow-up to confirm the guardrail — **browser actions stay ask-first even
    under yolo** (matches `SCHEMA.md`). **Fail closed:** if the human declines, do NOT
    scaffold the ambiguous combo — downgrade per their choice (`browser: off`, or
    `autonomy: gated`) or abort setup. Record the resulting decision in `# Context`.
-   If **autonomy = yolo-merge** on a build project, **strongly recommend a required
-   external PR reviewer** (e.g. CodeRabbit) in the repo's branch protection — plus
-   **dismiss stale approvals** so a post-verification push can't ride an old approval.
-   The PM only auto-merges (bound to the verified commit) when a required independent
-   review + green CI are present, and otherwise falls back to `yolo` (surfaces the PR
-   for you). Flag this at scaffold time so the human can set branch protection.
+   If **autonomy = yolo** on a build project, **recommend an external PR reviewer**
+   (e.g. CodeRabbit) on the repo so "no unaddressed comments" is a real gate — otherwise
+   the `qa-reviewer` fallback is the only independent check. Under `yolo` the PM merges a
+   PR once its review is clean and CI is fully green (the exact verified commit); flag
+   this at scaffold time so the human knows the project will self-merge.
 
    **b. Kind-specific fields.** Now that `kind` is settled: for `build`, resolve
    `target_repo` per the Inputs rules; for `research`, resolve the `deliverables` list

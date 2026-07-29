@@ -32,16 +32,12 @@ the human set it at `/new-project`. When in doubt, act as `gated`.
 
 - **`gated`** (default) — both rules hold. Refined drafts and verified PRs are only
   *surfaced* for the human.
-- **`yolo`** — you MAY promote `draft → ready` yourself, but **only** a draft that is
-  fully refined (`acceptance_criteria` filled) with an **empty** `open_questions`
-  (nothing awaiting the human). Anything with an open question stays `draft`. **Merge
-  still stays the human's.**
-- **`yolo-merge`** — as `yolo`, **and** a PR may merge once it clears the
-  independent-verification gate + green CI (step 5). You **never** click merge on your
-  own judgment: you enable GitHub **auto-merge** and let the repo's branch protection be
-  the anchor. **Requires a required independent review on the repo** — if there isn't
-  one, you MUST NOT auto-merge: treat the project as `yolo` and surface the PR for the
-  human.
+- **`yolo`** — the loop runs the project **all-out**. You MAY (a) promote
+  `draft → ready` yourself for a fully-refined build task (`acceptance_criteria` filled)
+  with an **empty** `open_questions` — anything with an open question stays `draft`; and
+  (b) **merge** a PR once its independent review has **no unaddressed/unresolved
+  comments** and CI is **fully green** (step 5). You never merge on the executor's
+  say-so — you merge only the exact commit an independent reviewer cleared and CI passed.
 
 ## One loop tick
 
@@ -62,7 +58,7 @@ state, and act only on deltas.
    `open_questions`, **numbering every entry (`Q1:`, `Q2:`, …)** so the human can
    answer by number; otherwise leave it a clean `draft`. **Promotion follows the owning
    project's `autonomy`** (see Authority boundaries): under `gated` (default) leave it
-   `draft` for the human; under `yolo`/`yolo-merge` you may set `ready` **once it's
+   `draft` for the human; under `yolo` you may set `ready` **once it's
    fully refined with an empty `open_questions`** (build tasks only — research is
    human-driven, so leave its promotion to the human); otherwise it stays `draft`.
 
@@ -75,7 +71,7 @@ state, and act only on deltas.
    **delete that entry from `open_questions`**. Keep no answered-question history:
    `open_questions` holds only questions still awaiting an answer, so a `draft`
    becomes clean once the list empties — promotable by the human under `gated`, or
-   auto-promoted by you on the next tick under `yolo`/`yolo-merge`.
+   auto-promoted by you on the next tick under `yolo`.
 
    **Optional approach critique (advisory).** For a genuinely complex **`kind:
    build`** task — spans multiple files/services, or its `acceptance_criteria` had
@@ -160,29 +156,23 @@ state, and act only on deltas.
    invalidate it and re-verify against the new SHA. Surface the task as a 🔴 *merge*
    item only once **all** of its PRs have an independent pass **and** green CI **at
    their current head SHA**. This never bypasses the human merge gate in `gated` mode;
-   it's also the exact green-gate `yolo-merge` delegates to (see the project `autonomy`
-   field; enforced by later machinery).
+   under `yolo` this same clean-review + green gate is exactly what lets you merge (step 5).
 
 5. **Reflect merges.** For `in-review` tasks, check the PR(s): when **all** of a
    task's PRs are **merged** → `status: done`, and re-evaluate dependents (they may
    become dispatchable next tick). If review **requests changes** → back to
    `in-progress`. If a PR is **closed unmerged** and abandoned → `cancelled` (or
    `blocked`) with a note. A multi-PR task stays `in-review` until all merge.
-   Never merge yourself.
 
-   **Auto-merge under `yolo-merge` (never on your own judgment).** If the owning
-   project's `autonomy` is `yolo-merge`, a PR that has cleared the step-4 verification
-   gate (independent pass **and** green CI at its current head SHA) **and** whose repo
-   has a **required independent review** in branch protection may be handed to GitHub's
-   own gate: enable auto-merge **bound to the verified commit** — `gh pr merge --auto
-   --squash --match-head-commit <verified-sha> <pr>` — so GitHub merges **only that exact
-   head** when its checks pass. A push after verification changes the head, so the armed
-   merge won't fire on unverified code; also rely on branch protection's **dismiss stale
-   approvals / require approval of the most recent push** so a new push invalidates the
-   review gate instead of riding an old approval. You are not merging — GitHub is, once
-   branch protection is satisfied; that is the anchor. If the repo has **no** required review,
-   do **not** auto-merge — surface the PR for the human (as in `gated`). Under `gated`
-   and `yolo`, never merge or enable auto-merge: surface verified PRs for the human.
+   **Merge under `yolo`; never under `gated`.** Under **`gated`**, never merge — surface
+   each verified, green PR as a 🔴 *merge* item for the human. Under **`yolo`**, once a PR
+   has cleared the step-4 verification gate — its independent review has **no
+   unaddressed/unresolved comments** and CI is **fully green at the current head SHA** —
+   merge it: `gh pr merge --squash --match-head-commit <verified-sha> <pr>`. The
+   `--match-head-commit` guard aborts the merge if a new commit landed after verification,
+   so you never merge unverified code; if it aborts, re-verify the new head first. You are
+   not merging on the executor's say-so — you merge only the exact commit an independent
+   reviewer cleared and CI passed. Then set the task `done` as above.
 
    **Reclaim the worktree.** When you move a build task to `done` (all PRs merged)
    or `cancelled`, its worktree under `<reposRoot>/_wt/` is no longer needed — run
@@ -239,8 +229,8 @@ state, and act only on deltas.
    so keeping it fresh is what lets the human see what needs them without reading the loop.
 
 9. **Leave for the human.** Under `gated`, do not act on a `draft` beyond surfacing it
-   — it awaits the human's approval. (Under `yolo`/`yolo-merge` you auto-promote a
-   *clean* draft per step 2.) A `draft` with open questions, and any `blocked` task,
+   — it awaits the human's approval. (Under `yolo` you auto-promote a *clean* draft per
+   step 2.) A `draft` with open questions, and any `blocked` task,
    **always** await a human decision regardless of autonomy — surface, don't act.
 
 ## Modes
@@ -248,7 +238,7 @@ state, and act only on deltas.
 - **DRY RUN** (when asked, or for a first look): do steps 1–2 and *report* the
   dispatch/monitor actions you *would* take — do not spawn agents or modify any
   target repo. You may still refine task docs in this bundle (kept at `draft`). **Never
-  auto-promote or auto-merge, even under `yolo`/`yolo-merge`** — dry run only reports.
+  auto-promote or auto-merge, even under `yolo`** — dry run only reports.
 - **LIVE** (default in the loop): perform all steps.
 
 ## Output

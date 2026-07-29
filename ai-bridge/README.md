@@ -68,10 +68,10 @@ The spine, from inside an instance:
 stay yours by default: promote `draft → ready`, and merge the PR (build) / approve the
 deliverable (research). The idea is to **steer, not watch** — role agents run in the
 background and bubble up results and questions, not every step. **A project's `autonomy`
-(default `gated`) can hand the loop those gates:** `yolo` auto-promotes fully-refined
-drafts with no open questions (**build tasks only** — research stays human-driven);
-`yolo-merge` also auto-merges a verified, green PR via GitHub branch protection (which
-must require an independent review + dismiss stale approvals). Pair yolo with
+(default `gated`) can hand the loop those gates:** `yolo` runs it **all-out** —
+auto-promotes fully-refined drafts with no open questions (build tasks only; research
+stays human-driven) **and** merges a PR once its independent review has no unaddressed
+comments and CI is fully green (merging the exact verified commit). Pair yolo with
 [`/audit`](#audit-loop-slow-counter-metric) — the counter-metric that watches an
 autonomous loop for drift.
 
@@ -100,7 +100,7 @@ Projects come in two `kind`s (see `symlink/SCHEMA.md`):
   whose conclusions graduate into `knowledge/` and spawn objectives + build projects.
 
 `/new-project` scaffolds either; pass `kind=research` for the latter. It also takes
-optional capability flags — `autonomy=gated|yolo|yolo-merge` (`/yolo`, `/yolo-merge`),
+optional capability flags — `autonomy=gated|yolo` (`/yolo`),
 `clis="…"` (`/cli …`), and `browser=claude-for-chrome` (`/claudeforchrome`) — and
 **interactively asks for any you don't pass** (pre-filling detected CLIs/MCPs). They're
 recorded on `project.md` and honored by later machinery (yolo by the PM loop, browser by
@@ -142,8 +142,8 @@ shifts cheap issues left, **not** a replacement for the independent gate.
 reviewer** (e.g. CodeRabbit as a required reviewer, or a dedicated verifier status
 check). Note GitHub only enforces *that* CI passed and a review happened — whether the
 reviewer actually checked the acceptance criteria is the reviewer's job, not something
-branch protection can guarantee. This same green-gate is what `yolo-merge` delegates to
-(see the PM loop).
+branch protection can guarantee. Under `yolo` this same clean-review + green gate is what
+lets the loop merge; under `gated` it's surfaced for you (see the PM loop).
 
 ## Audit loop (slow counter-metric)
 `/pm-loop` optimizes throughput; **`/audit`** is the independent check that the
@@ -152,8 +152,8 @@ after a batch of projects close): the read-only `auditor` grounds each objective
 `success_criteria` against live `gh`/`git` reality and flags the four ways a busy
 control panel drifts — **Goodhart** (lots closed, goal unmoved), **measurement decay**
 (stale `Finding`s), **green-but-not-progressing** projects, and any **weakened anchor**
-(a human gate or the verification gate slipping, or `yolo-merge` on a repo with no
-required review). It writes a dated audit to `log.md` and **never acts** — responding
+(a human gate or the verification gate slipping, or a `yolo` project merging PRs an
+independent reviewer hasn't cleared). It writes a dated audit to `log.md` and **never acts** — responding
 (adjust targets, re-validate findings) is your governance call. It's the independent
 signal that catches a `yolo` loop gaming itself — a periodic, advisory guardrail, not a
 merge-blocking guarantee.
