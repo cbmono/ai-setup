@@ -136,6 +136,19 @@ reviewer actually checked the acceptance criteria is the reviewer's job, not som
 branch protection can guarantee. This same green-gate is what `yolo-merge` delegates to
 (see the PM loop).
 
+## Audit loop (slow counter-metric)
+`/pm-loop` optimizes throughput; **`/audit`** is the independent check that the
+throughput is actually moving the real goals. Run it on a **slow cadence** (weekly, or
+after a batch of projects close): the read-only `auditor` grounds each objective's
+`success_criteria` against live `gh`/`git` reality and flags the four ways a busy
+control panel drifts — **Goodhart** (lots closed, goal unmoved), **measurement decay**
+(stale `Finding`s), **green-but-not-progressing** projects, and any **weakened anchor**
+(a human gate or the verification gate slipping, or `yolo-merge` on a repo with no
+required review). It writes a dated audit to `log.md` and **never acts** — responding
+(adjust targets, re-validate findings) is your governance call. This is the
+counter-metric that makes running `yolo` safe: something independent watches for the
+loop gaming itself.
+
 ## Model routing
 Role dispatches are routed to a cost-appropriate model. Two knobs in
 `instance.config.json`:

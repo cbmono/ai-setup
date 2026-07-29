@@ -11,7 +11,8 @@
     "software-engineer",
     "devops-engineer",
     "qa-reviewer",
-    "cataloguer"
+    "cataloguer",
+    "auditor"
   ],
   "models": {
     "light": "haiku",
@@ -23,6 +24,7 @@
     "devops-engineer": "standard",
     "qa-reviewer": "deep",
     "cataloguer": "light",
-    "plan-architect": "deep"
+    "plan-architect": "deep",
+    "auditor": "deep"
   }
 }
