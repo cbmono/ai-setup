@@ -32,7 +32,7 @@ USAGE
 # templates, and the per-machine-sensitive settings.json (handled separately
 # below). Everything else git tracks under .claude/ is linked automatically, so
 # a new default needs no change here — only add the rare exception.
-EXCLUDE="README.md settings.json settings.local.json settings.mempalace.example.json settings.plugins.example.json"
+EXCLUDE="README.md settings.json settings.local.json settings.plugins.example.json"
 
 # Used only outside a git checkout (e.g. a tarball download), where tracked
 # entries can't be auto-discovered. Keep roughly in sync with the linkable set.

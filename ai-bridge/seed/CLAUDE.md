@@ -124,7 +124,7 @@ dispatch (or a tracked task).
 
 Subagents run **without this conversation's context** and return only their final
 message, so brief each one completely; they inherit this bundle's rules (no PII,
-metric units, BI-routing) from this `CLAUDE.md`.
+metric units, data-question routing) from this `CLAUDE.md`.
 
 ## Git workflow (this repo)
 - **This control-panel repo commits directly to `main` and pushes — no feature
