@@ -32,8 +32,9 @@ merging, writing `# Result` + setting `status`, no PII/secrets, and capturing
    - Docker: build the image if feasible; otherwise hadolint.
    - **Never** run `apply`, `argocd sync`, deploys, or anything that touches a live
      environment. You propose changes via PR only.
-5. **Open the PR** per the shared conventions; body covers what changed, what
-   validation you ran, and the rollout/risk note.
+5. **Self-review, then open the PR** per the shared conventions — review your own diff
+   and fix what it flags first; the body covers what changed, what validation you ran,
+   and the rollout/risk note.
 6. **Report back** per the shared conventions (`status: in-review`, `pr:`,
    `# Result`).
 

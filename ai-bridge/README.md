@@ -135,7 +135,10 @@ judged on real signals (acceptance criteria met, CI actually green), never the
 implementing agent's self-report. Role agents embed the task's `acceptance_criteria`
 in the PR body so the reviewer evaluates against them. The reviewer is an external one
 (e.g. CodeRabbit) when the repo configures it, otherwise the `qa-reviewer` agent is the
-fallback. **Recommended: set branch protection to require CI green + a review from that
+fallback. Before *that*, the implementing agent **self-reviews its own diff** and fixes
+findings (`coderabbit` locally / `code-architect` / a careful pass) — a pre-filter that
+shifts cheap issues left, **not** a replacement for the independent gate.
+**Recommended: set branch protection to require CI green + a review from that
 reviewer** (e.g. CodeRabbit as a required reviewer, or a dedicated verifier status
 check). Note GitHub only enforces *that* CI passed and a review happened — whether the
 reviewer actually checked the acceptance criteria is the reviewer's job, not something
