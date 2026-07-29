@@ -76,6 +76,12 @@ If `$ARGUMENTS` has no description, **ask** for a one-line goal before doing any
    under yolo** (matches `SCHEMA.md`). **Fail closed:** if the human declines, do NOT
    scaffold the ambiguous combo — downgrade per their choice (`browser: off`, or
    `autonomy: gated`) or abort setup. Record the resulting decision in `# Context`.
+   If **autonomy = yolo-merge** on a build project, **strongly recommend a required
+   external PR reviewer** (e.g. CodeRabbit) in the repo's branch protection — plus
+   **dismiss stale approvals** so a post-verification push can't ride an old approval.
+   The PM only auto-merges (bound to the verified commit) when a required independent
+   review + green CI are present, and otherwise falls back to `yolo` (surfaces the PR
+   for you). Flag this at scaffold time so the human can set branch protection.
 
    **b. Kind-specific fields.** Now that `kind` is settled: for `build`, resolve
    `target_repo` per the Inputs rules; for `research`, resolve the `deliverables` list

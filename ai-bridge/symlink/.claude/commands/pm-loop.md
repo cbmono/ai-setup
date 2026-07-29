@@ -65,7 +65,11 @@ ticks, regardless of how long a tick runs.
 
 ## Standing guardrails for each tick dispatch
 
-- Honor both human gates: **never** promote `draft → ready`, **never** merge PRs.
+- Honor the human gates **per the owning project's `autonomy`** (default `gated`):
+  under `gated` never promote `draft → ready` and never merge; under `yolo` you may
+  promote a fully-refined draft with an empty `open_questions`; under `yolo-merge` you
+  may also let a verified, green PR auto-merge via GitHub (requires a required review).
+  See the PM agent's "Authority boundaries". When `autonomy` is unset, act as `gated`.
 - Reconcile doc `status:` against live `gh`/`git` before acting; act only on deltas.
 - Concurrency cap: **≤5 role agents in flight**, and each must use its own
   worktree under `<reposRoot>/_wt/` + a **private package store** (e.g.
