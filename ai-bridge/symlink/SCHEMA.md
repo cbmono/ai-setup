@@ -25,7 +25,7 @@ type: Objective
 title: <short goal>
 description: <one line>
 status: active | paused | achieved | dropped
-success_criteria: [ "<measurable signal>", ... ]   # optional — the anchor the /audit loop grounds real progress against
+success_criteria: [ "<measurable signal>", ... ]   # optional but expected for `active` objectives — the anchor /audit grounds progress against; the audit flags an active objective that lacks it
 timestamp: <ISO 8601>
 ---
 ```

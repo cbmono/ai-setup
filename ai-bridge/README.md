@@ -145,9 +145,9 @@ control panel drifts — **Goodhart** (lots closed, goal unmoved), **measurement
 (stale `Finding`s), **green-but-not-progressing** projects, and any **weakened anchor**
 (a human gate or the verification gate slipping, or `yolo-merge` on a repo with no
 required review). It writes a dated audit to `log.md` and **never acts** — responding
-(adjust targets, re-validate findings) is your governance call. This is the
-counter-metric that makes running `yolo` safe: something independent watches for the
-loop gaming itself.
+(adjust targets, re-validate findings) is your governance call. It's the independent
+signal that catches a `yolo` loop gaming itself — a periodic, advisory guardrail, not a
+merge-blocking guarantee.
 
 ## Model routing
 Role dispatches are routed to a cost-appropriate model. Two knobs in
