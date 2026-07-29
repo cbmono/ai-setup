@@ -41,6 +41,9 @@ kind: build | research                # build = ships code via PRs (default); re
 objective: /objectives/<slug>.md      # link up to the objective it serves
 target_repo: <org>/<repo>             # BUILD only: default repo for this project's tasks (<org> from instance.config.json). Omit for research.
 deliverables: [ "<artifact>", ... ]   # RESEARCH only: what this project produces, e.g. "tech landscape per domain (md)", "exec summary deck (marp)"
+autonomy: gated | yolo | yolo-merge   # optional (default gated). Captured at creation; ENFORCED by later machinery. gated = human promotes `ready` & merges; yolo = auto-promote clean drafts + auto-drive (human still merges); yolo-merge = also auto-merge on green via GitHub (needs a required review).
+clis: [ <name>, ... ]                 # optional: external CLIs/integrations this project's agents may use (e.g. render, supabase). A declaration — agents still verify a CLI works before relying on it.
+browser: off | claude-for-chrome      # optional (default off). claude-for-chrome = agents may use the claude-in-chrome MCP when present (foreground/interactive only); browser actions stay ask-first even under yolo.
 status: active | paused | done
 timestamp: <ISO 8601>
 ---

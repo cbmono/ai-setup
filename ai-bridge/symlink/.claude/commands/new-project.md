@@ -30,6 +30,12 @@ build projects.
   config; if there's no `defaultRepo`, ask. Ignored for research.
 - `deliverables="a; b; …"` — **research only.** What the project produces. If
   omitted, infer from the description or ask.
+- `autonomy=gated|yolo|yolo-merge` (shorthand `/yolo`, `/yolo-merge`) — how much the
+  loop may do without you (default `gated`). Captured now; enforced by later machinery.
+- `clis="a; b"` (shorthand `/cli a, b`) — external CLIs/integrations this project's
+  agents may use (e.g. `render`, `supabase`).
+- `browser=off|claude-for-chrome` (shorthand `/claudeforchrome`) — let agents drive the
+  browser via the claude-in-chrome MCP when present (default `off`).
 - `--no-commit` — scaffold only; don't commit (default is to commit).
 
 If `$ARGUMENTS` has no description, **ask** for a one-line goal before doing anything.
@@ -55,12 +61,33 @@ If `$ARGUMENTS` has no description, **ask** for a one-line goal before doing any
    `deliverables=`, the description, or ask) — no repo. Get an ISO timestamp once:
    `date -u +%Y-%m-%dT%H:%M:%SZ` — reuse it for every file's `timestamp`.
 
+   **Resolve capabilities (flags-first, else ask).** Settle `autonomy`, `clis`, and
+   `browser` (and `kind` itself if it wasn't given). For any supplied as a flag
+   (`/yolo`, `/yolo-merge`, `autonomy=`, `/cli …` / `clis=`, `/claudeforchrome` /
+   `browser=`), use it and **don't** ask. For those NOT supplied, ask the missing ones
+   in **one batched `AskUserQuestion`**:
+   - **kind** (if unset) — build / research.
+   - **autonomy** — gated (default) / yolo / yolo-merge.
+   - **clis** (multi-select) — **pre-populate from what's actually available**: run
+     `claude mcp list` for connected MCP servers and probe `PATH` for likely CLIs;
+     show each with a ✓/✗ on whether it looks authenticated, plus "other" for free
+     entry. These are declarations — agents still verify a CLI works before relying on it.
+   - **browser** — off (default) / claude-for-chrome.
+   If **browser = claude-for-chrome** and **autonomy** is `yolo`/`yolo-merge`, ask a
+   follow-up confirming the guardrail — **browser actions stay ask-first (or read-only)
+   even under yolo** — and record the choice in the project `# Context`.
+   These fields are **captured now, enforced later** (yolo by the PM loop, browser by
+   the claude-in-chrome integration): creating a project never itself promotes, merges,
+   or drives a browser.
+
 5. **Scaffold `projects/<slug>/`**, matching the schema/example exactly:
    - `project.md` — `type: Project` frontmatter (`title`, `description`, `kind`,
      `objective: /objectives/<slug>.md`, `status: active`, `timestamp`) — plus
-     `target_repo` for **build**, or `deliverables: [...]` for **research** — and a
-     `# Context` body that states what the project does and why, ending by linking
-     its `index.md` and `log.md`.
+     `target_repo` for **build**, or `deliverables: [...]` for **research**; plus the
+     capabilities from step 4: `autonomy:` (always; default `gated`), and `clis:` /
+     `browser:` only when non-default (omit them otherwise) — and a `# Context` body
+     that states what the project does and why, ending by linking its `index.md` and
+     `log.md`.
    - `index.md` — `# <title> — tasks`, one bullet per seed task with its status.
    - `log.md` — `# <title> — log`, a `## <date>` heading and a **Created** bullet.
    - `tasks/` — derive seed tasks from the description. For a **research** project
