@@ -206,6 +206,13 @@ draft ──│ HUMAN promotes │──► ready ──► in-progress ⇄ in-r
 is a list. It stays `in-progress`/`in-review` until **all** its PRs merge, then
 `done`. Keep per-PR detail in the `# Result` section.
 
+**Independent verification gate.** Before an `in-review` PR is eligible to merge it
+must pass an **independent** reviewer — fresh context, judged on real signals
+(acceptance criteria actually met, CI actually green), never the implementing agent's
+self-report. That reviewer is an external one (e.g. CodeRabbit) when the repo
+configures it, else the `qa-reviewer` agent. This is **in addition to** — not a
+replacement for — the human merge authority below.
+
 **Two human authorities** keep this semi-autonomous:
 1. **Promote `draft → ready`** — the only way work enters execution. The PM must **never** set `ready`.
 2. **Merge the PR(s)** — the PM only *reflects* a merge by setting `done`; it never merges.

@@ -157,6 +157,11 @@ rule here, not in each agent.
   `origin` early (don't wait until the end) so an interrupted worktree loses nothing.
 - PR title format: `<type>: <subject> [<task-id>]` (OKF task id, e.g.
   `[ci-hardening/task-001]`). Target the default branch. **Never merge.**
+- **Embed the task's `acceptance_criteria` in the PR body** as a checklist (plus any
+  hints a reviewer needs), and note how you verified each. This is what the
+  independent reviewer — an external one (e.g. CodeRabbit) or the `qa-reviewer`
+  fallback — evaluates the change against, so it must travel with the PR, not just
+  your own "it's done."
 - Run the repo's build, lint, and tests green before opening a PR. If you can't
   get them green, report rather than open the PR.
 - Write the PR URL and a `# Result` summary back into the task document, and set
