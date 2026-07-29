@@ -11,7 +11,6 @@ Defaults shipped by this repo. See the [top-level README](../README.md) for inst
   MEMORY.md                           # project conventions (slash-command triggers); optional @-import
   settings.json                       # team-shared permissions + universally-safe hooks (checked in)
   settings.local.json                 # per-machine overrides (gitignored, auto-created by Claude Code)
-  settings.mempalace.example.json     # opt-in mempalace MCP + hooks
   settings.plugins.example.json       # opt-in MCP-backed plugins (github, linear, context7)
   hooks/                              # executable hook scripts referenced from settings.json
     format-on-write.sh                # PostToolUse Write|Edit: prettier/biome if declared in package.json

@@ -254,12 +254,6 @@ Use the `stack-navigator` agent when you want a summary plus the recommended nex
 
 ---
 
-## Memory (mempalace, optional)
-
-If you want local-first session memory, [mempalace](https://github.com/mempalace/mempalace) indexes Claude Code transcripts for semantic + keyword search (offline, no API calls). `.claude/settings.mempalace.example.json` ships the MCP + hooks shape — copy the blocks into your own `settings.json` after `pip install mempalace && mempalace init .`. Check [mempalaceofficial.com](https://mempalaceofficial.com) for the current install + hook syntax; the example file may drift.
-
----
-
 ## Opus 4.8
 
 This config targets Opus 4.8 for planning and review, Sonnet 4.6 for implementation.
@@ -291,7 +285,6 @@ Key behaviours worth internalizing:
 
 - `.claude/settings.json` — checked in, team-shared permissions baseline
 - `.claude/settings.local.json` — gitignored, per-machine overrides
-- `.claude/settings.mempalace.example.json` — reference only, copy blocks out to opt in
 - `.claude/settings.plugins.example.json` — reference only, opt-in MCP-backed plugins (github, linear, context7)
 - `.claude/potential-bugs.md`, `.claude/techdebt.md`, `.claude/plans/` — gitignored, auto-created by `/scan`, `/techdebt`, `/plan` on first run; never seeded in this repo
 - `CLAUDE.md` (this repo's root) — guidance for Claude when editing **this config repo itself**, not a template

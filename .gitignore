@@ -18,12 +18,4 @@ tmp/
 !.claude/README.md
 !.claude/claude-defaults.md
 !.claude/settings.json
-!.claude/settings.mempalace.example.json
 !.claude/settings.plugins.example.json
-
-# Mempalace local index (if user opts in)
-.mempalace/
-
-# MemPalace per-project files (issue #185)
-mempalace.yaml
-entities.json
