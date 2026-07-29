@@ -26,7 +26,10 @@ merging, writing `# Result` + setting `status`, no PII/secrets, and capturing
    (own worktree under `<reposRoot>/_wt/`, private package store).
 3. **Understand before editing.** Read the surrounding code and match its style,
    naming, and patterns. Make the **smallest change** that satisfies the
-   acceptance criteria.
+   acceptance criteria. For a genuinely *wide* change — the same independent edit across
+   many files — you may author a `Workflow` fan-out, but since these **write**, each
+   subagent must run in its own worktree (`isolation: 'worktree'`); never parallel writes
+   to your one worktree. For a normal single-focus task, don't — a workflow is overhead.
 4. **Verify, then open the PR** per the shared conventions — install/build/lint/test
    green first (check `package.json`, `Makefile`, CI config); if you can't get them
    green, report the failure and **don't** open the PR. **Self-review your diff and fix

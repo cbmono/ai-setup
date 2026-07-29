@@ -180,6 +180,16 @@ dispatch. A task can force a specific model with a `model:` field (a tier or a r
 alias) — the PM honors it verbatim. Omit both maps and everything just inherits the
 session model.
 
+## Concurrency
+`maxAgentsInFlight` (in `instance.config.json`, default **10**) caps how many role agents
+the PM runs at once. With worktree isolation + private package stores the old corruption
+risk is gone, so this is a **throughput/cost throttle**, not a safety lock — tune it to the
+machine and account: raise it on a well-resourced box with mostly-independent tasks, lower
+it (e.g. 5) on a laptop or when role agents lean on `Workflow` fan-outs. One hard rule holds
+regardless of the number: never two package installs against the **same repo's store** at
+once (the PM staggers deps-touching tasks across ticks). A role agent's own `Workflow`
+fan-out is a separate layer, bounded by the Workflow tool's own concurrency.
+
 ## Local code intelligence (codegraph, optional)
 Role agents navigate product repos faster with a local **CodeGraph** index than with
 blind grep. It's opt-in and 100% local (no code leaves the machine) — the replacement
@@ -230,6 +240,7 @@ instance up to date:
    In particular, if `instance.config.json` lacks the model-routing block, add it —
    otherwise model routing stays off and everything runs on the session model:
    ```json
+   "maxAgentsInFlight": 10,
    "models":    { "light": "haiku", "standard": "sonnet", "deep": "opus", "apex": "fable" },
    "roleTiers": { "project-manager": "deep", "software-engineer": "standard",
                   "devops-engineer": "standard", "qa-reviewer": "deep",

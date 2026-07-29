@@ -76,13 +76,14 @@ ticks, regardless of how long a tick runs.
   (the exact verified commit). See the PM agent's "Authority boundaries". When `autonomy`
   is unset, act as `gated`.
 - Reconcile doc `status:` against live `gh`/`git` before acting; act only on deltas.
-- Concurrency cap: **≤5 role agents in flight**, and each must use its own
+- Concurrency cap: **at most `maxAgentsInFlight` role agents in flight** (from
+  `instance.config.json`, default 10; treat a missing value as 5), and each must use its own
   worktree under `<reposRoot>/_wt/` + a **private package store** (e.g.
   `pnpm install --store-dir <worktree>/.pnpm-store`) and **push early** — never two
   installs against the shared store at once (see `.claude/agents/project-manager.md`).
 - A LIVE tick may also dispatch the **`cataloguer`** to refresh the KB after
   reflecting merges — read-only on product repos, writes only to `knowledge/`. It
-  **counts toward the ≤5 cap**, is **throttled to one per tick**, and (like every
+  **counts toward the `maxAgentsInFlight` cap**, is **throttled to one per tick**, and (like every
   tick action) **never promotes or merges**. Skipped on idle/docs-only/trivial ticks.
 - Commit hygiene in this repo: stage only your own changed files by explicit path
   (never `git add -A`); commit via `scripts/commit-as.sh project-manager "<msg>"`;

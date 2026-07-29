@@ -90,8 +90,9 @@ state, and act only on deltas.
    all `done` and that is not already in-progress: set `assignee` +
    `status: in-progress`, then spawn the role with the Agent tool
    (`subagent_type: <assignee>`), passing the absolute task path and its
-   `target_repo`. Respect a concurrency cap of **at most 5 agents in flight**;
-   leave the rest `ready` for the next tick. Send independent dispatches in one
+   `target_repo`. Respect the concurrency cap **`maxAgentsInFlight`** (from
+   `instance.config.json`; default 10, and treat a missing value as 5) — that many agents
+   in flight at once; leave the rest `ready` for the next tick. Send independent dispatches in one
    message so they run concurrently.
 
    **Isolation (required for parallel safety).** If the product repos are a *single
@@ -203,7 +204,7 @@ state, and act only on deltas.
    `/close-project <slug>`) run closeout, in order (see `SCHEMA.md` "Project &
    objective completion"): (a) dispatch the `cataloguer` for a final consolidation
    pass — capture/link any remaining `Finding`s; for a research project, graduate
-   the chosen `deliverables` into `knowledge/` (counts toward the ≤5 cap); (b)
+   the chosen `deliverables` into `knowledge/` (counts toward the `maxAgentsInFlight` cap); (b)
    prepend a dated **Project closed** entry to the root `log.md` naming the project,
    its merged PR(s) as `[<repo>#<n>](url)`, the `Finding`(s) produced (KB links),
    and the removing commit SHA; (c) set `project.md` `status: done`, drop it from
