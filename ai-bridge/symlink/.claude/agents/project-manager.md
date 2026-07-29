@@ -93,6 +93,21 @@ state, and act only on deltas.
    agent act on them: reuse prior work instead of re-researching, and fill the KB as
    a byproduct rather than only via the cataloguer.)
 
+   **Model routing.** Route each dispatch to a cost-appropriate model. Read the
+   `models` map (tier → model alias) and `roleTiers` (role → default tier) from
+   `instance.config.json`. For each dispatch: start from the assignee's default tier
+   in `roleTiers`; **bump one tier up** (toward `deep`) for a genuinely complex build
+   task — spans multiple files/services, or its `acceptance_criteria` had to be
+   heavily inferred (the same signal that triggers the optional `plan-architect`
+   critique); **drop toward `light`** for a trivial one (docs-only, one-line fix). A
+   task may set a `model:` field (a `light|standard|deep` tier, or a raw alias) —
+   honor it verbatim, no heuristic. Resolve the chosen tier to an alias via `models`
+   and pass it as the model when you spawn the agent — the same for **every**
+   dispatch, including the `cataloguer` and an optional `plan-architect` critique:
+   look their tiers up in `roleTiers` too, never a hard-coded default. If
+   `models`/`roleTiers` are absent (older instance config), just inherit the session
+   model — don't guess aliases.
+
 4. **Advance in-flight work.** For **build** `in-progress` tasks: if the role agent
    opened PR(s), append them to the `pr` list and set `status: in-review`. If it
    reported a blocker or died, set `status: blocked` with a `# Notes` reason.

@@ -12,5 +12,17 @@
     "devops-engineer",
     "qa-reviewer",
     "cataloguer"
-  ]
+  ],
+  "models": {
+    "light": "haiku",
+    "standard": "sonnet",
+    "deep": "opus"
+  },
+  "roleTiers": {
+    "software-engineer": "standard",
+    "devops-engineer": "standard",
+    "qa-reviewer": "deep",
+    "cataloguer": "light",
+    "plan-architect": "deep"
+  }
 }

@@ -84,6 +84,7 @@ description: <one line>
 kind: build | research                # inherits the project's kind if omitted
 status: draft                         # initial state; see lifecycle below
 assignee:                             # BUILD: role slug set by PM (software-engineer | devops-engineer | qa-reviewer). RESEARCH: usually empty (human-driven)
+model:                                # optional: override model routing — a tier (light|standard|deep) or any raw model alias (e.g. haiku|sonnet|opus). PM resolves tiers via instance.config.json and passes aliases verbatim.
 target_repo: <org>/<repo>             # BUILD only: inherits project default if omitted
 objective: /objectives/<slug>.md
 phase: /projects/<slug>/phases/<n>-<slug>.md          # optional, links task to its phase
