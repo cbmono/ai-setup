@@ -56,29 +56,35 @@ If `$ARGUMENTS` has no description, **ask** for a one-line goal before doing any
    **propose creating** a new `objectives/<slug>.md` and get the user's OK before
    creating it (an objective is a strategic goal — don't mint one silently).
 
-4. **Resolve kind-specific fields.** For `build`: resolve `target_repo` per the
-   Inputs rules. For `research`: resolve the `deliverables` list (from
-   `deliverables=`, the description, or ask) — no repo. Get an ISO timestamp once:
-   `date -u +%Y-%m-%dT%H:%M:%SZ` — reuse it for every file's `timestamp`.
+4. **Resolve capabilities & kind-specific fields (capabilities first).**
 
-   **Resolve capabilities (flags-first, else ask).** Settle `autonomy`, `clis`, and
-   `browser` (and `kind` itself if it wasn't given). For any supplied as a flag
-   (`/yolo`, `/yolo-merge`, `autonomy=`, `/cli …` / `clis=`, `/claudeforchrome` /
-   `browser=`), use it and **don't** ask. For those NOT supplied, ask the missing ones
-   in **one batched `AskUserQuestion`**:
-   - **kind** (if unset) — build / research.
+   **a. Capabilities (flags-first, else ask).** Settle `kind`, `autonomy`, `clis`, and
+   `browser` **before** the kind-specific fields below — otherwise a project could be
+   asked build-only questions on a research project, or vice versa. For any supplied as
+   a flag (`kind=`, `/yolo`, `/yolo-merge`, `autonomy=`, `/cli …` / `clis=`,
+   `/claudeforchrome` / `browser=`), use it and **don't** ask. For those NOT supplied,
+   ask the missing ones in **one batched `AskUserQuestion`**:
+   - **kind** — build / research.
    - **autonomy** — gated (default) / yolo / yolo-merge.
    - **clis** (multi-select) — **pre-populate from what's actually available**: run
      `claude mcp list` for connected MCP servers and probe `PATH` for likely CLIs;
      show each with a ✓/✗ on whether it looks authenticated, plus "other" for free
-     entry. These are declarations — agents still verify a CLI works before relying on it.
+     entry. Declarations — agents still verify a CLI works before relying on it.
    - **browser** — off (default) / claude-for-chrome.
-   If **browser = claude-for-chrome** and **autonomy** is `yolo`/`yolo-merge`, ask a
-   follow-up confirming the guardrail — **browser actions stay ask-first (or read-only)
-   even under yolo** — and record the choice in the project `# Context`.
-   These fields are **captured now, enforced later** (yolo by the PM loop, browser by
-   the claude-in-chrome integration): creating a project never itself promotes, merges,
-   or drives a browser.
+   If **browser = claude-for-chrome** and **autonomy** is `yolo`/`yolo-merge`, ask an
+   explicit follow-up to confirm the guardrail — **browser actions stay ask-first even
+   under yolo** (matches `SCHEMA.md`). **Fail closed:** if the human declines, do NOT
+   scaffold the ambiguous combo — downgrade per their choice (`browser: off`, or
+   `autonomy: gated`) or abort setup. Record the resulting decision in `# Context`.
+
+   **b. Kind-specific fields.** Now that `kind` is settled: for `build`, resolve
+   `target_repo` per the Inputs rules; for `research`, resolve the `deliverables` list
+   (from `deliverables=`, the description, or ask) — no repo. Get an ISO timestamp once:
+   `date -u +%Y-%m-%dT%H:%M:%SZ` — reuse it for every file's `timestamp`.
+
+   These capability fields are **captured now, enforced later** (yolo by the PM loop,
+   browser by the claude-in-chrome integration): creating a project never itself
+   promotes, merges, or drives a browser.
 
 5. **Scaffold `projects/<slug>/`**, matching the schema/example exactly:
    - `project.md` — `type: Project` frontmatter (`title`, `description`, `kind`,
