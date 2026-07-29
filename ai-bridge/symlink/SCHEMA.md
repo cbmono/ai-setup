@@ -187,6 +187,8 @@ Body headings: `# When to use`, `# Steps`, `# Verification`, `# References`.
 draft ──│ HUMAN promotes │──► ready ──► in-progress ⇄ in-review ──► done
                                             └─ changes requested ─┘
 
+  · `HUMAN promotes` is the default; under a project's `yolo` autonomy the PM promotes
+    clean **build** drafts and merges their PRs on a clean review + green CI
   · a `draft` with non-empty open_questions is blocked on a human answer
   · any active state ⇄ blocked     (returns to its prior status when cleared)
   · any state ──► cancelled        (terminal: abandoned / superseded / decided-against)

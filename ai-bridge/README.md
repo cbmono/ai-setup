@@ -62,7 +62,9 @@ only the symlinks it created.
 ## Run it
 The spine, from inside an instance:
 
-> **`/new-project <description>` → you approve `draft → ready` → `/pm-loop 10m` → you merge the PR**
+> **`gated` (default):** `/new-project <description>` → you approve `draft → ready` → `/pm-loop 10m` → you merge the PR
+>
+> **`yolo` (all-out):** `/new-project <description> /yolo` → `/pm-loop 10m` — the loop promotes clean build drafts, dispatches, and merges each PR on a clean review + green CI. You just answer its questions (`/answer`) and watch for drift (`/audit`).**
 
 `/pm-loop` is a serial, completion-gated loop (one tick at a time). Two human gates
 stay yours by default: promote `draft → ready`, and merge the PR (build) / approve the
