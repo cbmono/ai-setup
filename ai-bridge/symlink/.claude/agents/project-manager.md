@@ -114,6 +114,26 @@ state, and act only on deltas.
    **Research tasks have no PRs and no agent** — leave their human-set status alone
    (just keep the docs/index consistent); don't mark them `blocked` for lacking a PR.
 
+   **Independent verification (the verifier edge).** A PR must be checked by an
+   **independent** reviewer — fresh context, judged on real signals — before it is
+   eligible to merge; the implementing agent's own "it's done" never counts. When a
+   build task first reaches `in-review`:
+   - **Check the acceptance_criteria travelled with the PR.** Role agents embed the
+     task's `acceptance_criteria` (a checklist) in the PR body so the reviewer
+     evaluates against them (see the role-agent conventions). If a PR is missing
+     them, note it and have the agent add them.
+   - **Prefer the external reviewer.** If the repo runs an external PR reviewer
+     (e.g. CodeRabbit, ideally required via branch protection), that is the
+     independent verifier — track its state; the PR isn't merge-eligible until it has
+     passed (approved / no unresolved actionable comments) **and** CI is green.
+   - **Fallback when none is configured.** Otherwise dispatch the `qa-reviewer` (its
+     own fresh context) to verify the PR against the task's `acceptance_criteria` and
+     real CI/test results, and record its verdict. Counts toward the concurrency cap.
+   Surface a PR as a 🔴 *merge* item only once it has an independent pass **and** green
+   CI. This never bypasses the human merge gate in `gated` mode; it's also the exact
+   green-gate `yolo-merge` delegates to (see the project `autonomy` field; enforced by
+   later machinery).
+
 5. **Reflect merges.** For `in-review` tasks, check the PR(s): when **all** of a
    task's PRs are **merged** → `status: done`, and re-evaluate dependents (they may
    become dispatchable next tick). If review **requests changes** → back to

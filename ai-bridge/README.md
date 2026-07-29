@@ -118,6 +118,16 @@ every instance. For permissions or env an instance needs on its own (e.g. allow
 `Bash` in that group's repos), put them in `.claude/settings.local.json` in the
 instance: it's local, gitignored, layered on top, and never touches the template.
 
+## Verification gate
+Before any PR merges, it's checked by an **independent** reviewer — fresh context,
+judged on real signals (acceptance criteria met, CI actually green), never the
+implementing agent's self-report. Role agents embed the task's `acceptance_criteria`
+in the PR body so the reviewer evaluates against them. The reviewer is an external one
+(e.g. CodeRabbit) when the repo configures it — **recommended: set branch protection
+to require CI + a review**, so the gate is enforced by GitHub — otherwise the
+`qa-reviewer` agent is the fallback. This same green-gate is what `yolo-merge`
+delegates to (see the PM loop).
+
 ## Model routing
 Role dispatches are routed to a cost-appropriate model. Two knobs in
 `instance.config.json`:
