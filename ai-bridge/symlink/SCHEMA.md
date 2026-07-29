@@ -41,7 +41,7 @@ kind: build | research                # build = ships code via PRs (default); re
 objective: /objectives/<slug>.md      # link up to the objective it serves
 target_repo: <org>/<repo>             # BUILD only: default repo for this project's tasks (<org> from instance.config.json). Omit for research.
 deliverables: [ "<artifact>", ... ]   # RESEARCH only: what this project produces, e.g. "tech landscape per domain (md)", "exec summary deck (marp)"
-autonomy: gated | yolo | yolo-merge   # optional (default gated). Captured at creation; ENFORCED by later machinery. gated = human promotes `ready` & merges; yolo = auto-promote clean drafts + auto-drive (human still merges); yolo-merge = also auto-merge on green via GitHub (needs a required review).
+autonomy: gated | yolo                # optional (default gated). Captured at creation; ENFORCED by later machinery. gated = human promotes `ready` & merges; yolo = all-out — the loop auto-promotes fully-refined drafts with no open questions (build tasks) AND merges a PR once its independent review has no unaddressed comments and CI is fully green (merging the exact verified commit).
 clis: [ <name>, ... ]                 # optional: external CLIs/integrations this project's agents may use (e.g. render, supabase). A declaration — agents still verify a CLI works before relying on it.
 browser: off | claude-for-chrome      # optional (default off). claude-for-chrome = agents may use the claude-in-chrome MCP when present (foreground/interactive only); browser actions stay ask-first even under yolo.
 status: active | paused | done
@@ -187,6 +187,8 @@ Body headings: `# When to use`, `# Steps`, `# Verification`, `# References`.
 draft ──│ HUMAN promotes │──► ready ──► in-progress ⇄ in-review ──► done
                                             └─ changes requested ─┘
 
+  · `HUMAN promotes` is the default; under a project's `yolo` autonomy the PM promotes
+    clean **build** drafts and merges their PRs on a clean review + green CI
   · a `draft` with non-empty open_questions is blocked on a human answer
   · any active state ⇄ blocked     (returns to its prior status when cleared)
   · any state ──► cancelled        (terminal: abandoned / superseded / decided-against)
@@ -195,7 +197,7 @@ draft ──│ HUMAN promotes │──► ready ──► in-progress ⇄ in-r
 | Status | Meaning | Who sets it |
 |---|---|---|
 | `draft` | **Initial state.** Refined once `acceptance_criteria` are filled; **awaiting human approval**. Non-empty `open_questions` = blocked on a human answer (don't promote). | Human or PM |
-| `ready` | **Approved for execution.** The human sets this — or the PM under the project's `yolo`/`yolo-merge` autonomy (build tasks only). | Human — or PM under `yolo`/`yolo-merge` |
+| `ready` | **Approved for execution.** The human sets this — or the PM under the project's `yolo` autonomy (build tasks only). | Human — or PM under `yolo` |
 | `in-progress` | Dispatched to a role; agent is working (no PR yet, or changes requested). | PM (on dispatch) / role agent |
 | `in-review` | PR(s) open, awaiting review/merge. Returns to `in-progress` if review requests changes. | Role agent |
 | `blocked` | External / dependency blocker; returns to its prior status when cleared. | Anyone |
@@ -214,20 +216,18 @@ configures it, else the `qa-reviewer` agent. This is **in addition to** — not 
 replacement for — the human merge authority below.
 
 **Two human authorities** keep this semi-autonomous:
-1. **Promote `draft → ready`** — the only way work enters execution. **By default** the PM never sets `ready`; a project's `yolo`/`yolo-merge` autonomy delegates this to the loop for **build tasks** (below).
-2. **Merge the PR(s)** — **by default** the PM never merges (it only *reflects* a merge by setting `done`); `yolo-merge` delegates the merge trigger to GitHub auto-merge (below).
+1. **Promote `draft → ready`** — the only way work enters execution. **By default** the PM never sets `ready`; a project's `yolo` autonomy delegates this to the loop for **build tasks** (below).
+2. **Merge the PR(s)** — **by default** the PM never merges (it only *reflects* a merge by setting `done`); under `yolo` it also merges a PR once its independent review has no unaddressed comments and CI is green (below).
 
 **Per-project autonomy can delegate these to the loop.** A project's `autonomy` field
-(default `gated`) may hand the loop one or both gates, replacing the human with a
-*machine* anchor (never a self-report): `yolo` lets the PM promote a fully-refined
-**build-task** draft with no open questions (research stays human-driven — see below);
-`yolo-merge` also lets a PR auto-merge once it clears the
-independent-verification gate + green CI, via GitHub branch protection (which must
-require an independent review — else it falls back to surfacing the PR). **Auto-merge is
-bound to the exact commit that passed verification + CI** (a later push can't ride the
-armed merge on unverified code), and the repo's branch protection must **dismiss stale
-approvals** so an approval from before that commit can't be reused. The human opts in per
-project at creation; absent that, both gates stay the human's.
+(default `gated`) may hand the loop the gates, replacing the human with a *machine*
+anchor (never a self-report). `yolo` runs the project **all-out**: the PM promotes a
+fully-refined **build-task** draft with no open questions (research stays human-driven —
+see below), **and** merges a PR once its independent review has **no unaddressed
+comments** and CI is **fully green**. The merge is bound to the exact commit that was
+verified + green (re-checked immediately before merging), so a later push can't ride it.
+The human opts in per project at creation; absent that (`gated`), both gates stay the
+human's.
 
 **Research tasks (`kind: research`) are human-driven.** Same statuses, but no PRs
 and no role-agent dispatch — the human (with Claude in-session) produces the

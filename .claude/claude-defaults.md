@@ -21,3 +21,7 @@ Session-level rules. Keep this file under ~20 lines — it's re-sent every turn.
 ## PR sizing
 
 - **Keep PRs under ~500 LoC for reviewability.** If a change is heading past that, propose a `gh stack` split before committing. Line count is a heuristic — generated boilerplate, codemods, and dense logic are context-dependent — so suggest, don't block.
+
+## Output style
+
+- **Number multi-item output.** When you present multiple points, options, findings, or steps, use a numbered list so the reader can reference one by number ("re: 2, …"). Bullets only for unordered sub-points.

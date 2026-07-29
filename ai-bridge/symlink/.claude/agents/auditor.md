@@ -34,7 +34,7 @@ instance's `CLAUDE.md` (data-handling, units, no PII).
    confirm were actually met from the merged PR (spot-check — don't re-review every one).
 4. **Anchors intact.** Confirm the frozen anchors still hold: the two human gates and
    the independent-verification gate are present in the machinery, and no project's
-   `autonomy` reaches `yolo-merge` on a repo without a required independent review. Flag
+   `autonomy` is `yolo` and merging PRs an independent reviewer hasn't cleared (unaddressed comments, or CI not green). Flag
    any anchor that's been weakened — those are the nodes an optimizer is tempted to relax.
 
 ## How you run (one pass)
