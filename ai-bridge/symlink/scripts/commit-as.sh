@@ -55,13 +55,60 @@ AUTHOR_EMAIL="${CONTROL_PLANE_AUTHOR_EMAIL:-${config_email:-$(git config user.em
   exit 2
 }
 
-# Two-human-authority guard (SCHEMA.md): only the human promotes draft→ready.
-# Block any agent-role commit whose STAGED changes set a task to `status: ready`.
-# (The human-approved promotion must be committed under the `human` role.)
+# Two-human-authority guard (SCHEMA.md): draft→ready is the human's gate.
+#
+# A project may delegate that gate to the loop with `autonomy: yolo` in its
+# project.md — and then ONLY for `kind: build` tasks, because SCHEMA.md keeps
+# research tasks human-driven even under yolo. So this guard is decided PER TASK
+# from the owning project's autonomy plus the task's own kind, instead of
+# blocking every agent-role `status: ready` unconditionally — which contradicted
+# the autonomy field and left fully-refined yolo build drafts stranded at `draft`.
+#
+# Fails CLOSED: anything not clearly (yolo AND build) is refused, and an absent
+# or unparseable field is treated as `gated` / `unset`.
 if [ "$role" != "human" ]; then
-  if git diff --cached -U0 -- projects | grep -qiE '^\+status:[[:space:]]*ready[[:space:]]*$'; then
-    echo "error: role '$role' may not promote a task to 'ready' — draft→ready is the" >&2
-    echo "       human's authority (SCHEMA.md). If the human approved it, commit as 'human'." >&2
+  violations=""
+  # Here-doc (not a pipe) so the loop body runs in THIS shell and $violations survives.
+  while IFS= read -r staged_file; do
+    [ -n "$staged_file" ] || continue
+
+    # Only files whose staged diff ADDS a `status: ready` line.
+    if ! git diff --cached -U0 -- "$staged_file" \
+         | grep -qiE '^\+status:[[:space:]]*ready[[:space:]]*$'; then
+      continue
+    fi
+
+    # Owning project slug from projects/<slug>/...
+    slug="$(printf '%s\n' "$staged_file" | sed -n 's#^projects/\([^/][^/]*\)/.*#\1#p')"
+
+    autonomy="gated"
+    project_file="$repo_root/projects/$slug/project.md"
+    if [ -n "$slug" ] && [ -f "$project_file" ]; then
+      parsed="$(sed -n 's/^autonomy:[[:space:]]*\([A-Za-z][A-Za-z-]*\).*/\1/p' "$project_file" | head -n1)"
+      [ -n "$parsed" ] && autonomy="$parsed"
+    fi
+
+    # Task kind read from the STAGED blob — what is actually being committed.
+    kind="$(git show ":$staged_file" 2>/dev/null \
+            | sed -n 's/^kind:[[:space:]]*\([A-Za-z][A-Za-z-]*\).*/\1/p' | head -n1)"
+    [ -n "$kind" ] || kind="unset"
+
+    if [ "$autonomy" = "yolo" ] && [ "$kind" = "build" ]; then
+      continue
+    fi
+
+    violations="${violations}  - ${staged_file} (project '${slug:-?}': autonomy=${autonomy}, kind=${kind})
+"
+  done <<EOF
+$(git diff --cached --name-only -- projects || true)
+EOF
+
+  if [ -n "$violations" ]; then
+    echo "error: role '$role' may not promote these tasks to 'ready':" >&2
+    printf '%s' "$violations" >&2
+    echo "       draft→ready is the human's authority (SCHEMA.md). The loop may promote a task" >&2
+    echo "       only when its project sets 'autonomy: yolo' AND the task is 'kind: build'" >&2
+    echo "       (research stays human-driven). If the human approved it, commit as 'human'." >&2
     exit 3
   fi
 fi
