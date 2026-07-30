@@ -81,10 +81,13 @@ if [ "$role" != "human" ]; then
     # Owning project slug from projects/<slug>/...
     slug="$(printf '%s\n' "$staged_file" | sed -n 's#^projects/\([^/][^/]*\)/.*#\1#p')"
 
+    # Read autonomy from the STAGED blob (index), not the working tree — same source as
+    # `kind` below, so the check is consistent with exactly what's being committed (no
+    # working-tree/staged TOCTOU). Missing/unparseable → stays `gated` (fail closed).
     autonomy="gated"
-    project_file="$repo_root/projects/$slug/project.md"
-    if [ -n "$slug" ] && [ -f "$project_file" ]; then
-      parsed="$(sed -n 's/^autonomy:[[:space:]]*\([A-Za-z][A-Za-z-]*\).*/\1/p' "$project_file" | head -n1)"
+    if [ -n "$slug" ]; then
+      parsed="$(git show ":projects/$slug/project.md" 2>/dev/null \
+                | sed -n 's/^autonomy:[[:space:]]*\([A-Za-z][A-Za-z-]*\).*/\1/p' | head -n1)"
       [ -n "$parsed" ] && autonomy="$parsed"
     fi
 

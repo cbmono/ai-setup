@@ -8,7 +8,7 @@ trap 'rm -rf "$TMP"' EXIT
 pass=0; fail=0
 
 setup() {
-  rm -rf "$TMP/repo"; mkdir -p "$TMP/repo"; cd "$TMP/repo"
+  rm -rf "$TMP/repo"; mkdir -p "$TMP/repo"; cd "$TMP/repo" || exit 1
   git init -q .; git config user.email "t@example.com"; git config user.name "Test Human"
   printf '{ "authorEmail": "t@example.com" }\n' > instance.config.json
   mkdir -p projects/yolo-proj/tasks projects/gated-proj/tasks projects/noauto-proj/tasks
