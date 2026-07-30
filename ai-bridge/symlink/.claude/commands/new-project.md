@@ -129,7 +129,8 @@ If `$ARGUMENTS` has no description, **ask** for a one-line goal before doing any
      dated entries).
 
 7. **Show & commit.** Print the created tree, the `project.md` frontmatter, and the
-   seed task titles. Then (unless `--no-commit`) stage and commit to this repo via
+   seed task titles. **Record the current `HEAD` sha before committing** — step 8 needs
+   it as a review base. Then (unless `--no-commit`) stage and commit to this repo via
    the per-agent helper:
    `scripts/commit-as.sh human "feat: add <slug> project"`.
    Remind the user of the next step: the PM refines the drafts, then **you** promote
@@ -138,10 +139,77 @@ If `$ARGUMENTS` has no description, **ask** for a one-line goal before doing any
    available authoring/brand/slides skills) and write the deliverable; the PM only
    tracks status — `done` when you approve the deliverable.
 
+8. **Second-opinion review of the scaffold — CodeRabbit CLI, when available.** A fresh
+   reviewer catches what a scaffolding pass cannot see in itself: a `depends_on` missing a
+   real prerequisite, a cross-reference left stale by a rename, a design rule with a hole
+   in it. Run it **after** step 7 so the scaffold is a reviewable diff. **Skipped entirely
+   under `--no-commit`** — there's no committed scaffold to diff against, so a committed
+   review would see nothing. Skipped with a one-line note when the CLI isn't there —
+   **never block project creation on this.**
+
+   **a. Gate on availability.** First, if step 7 ran with `--no-commit`, stop here (nothing
+   to review). Otherwise `command -v cr` (the CodeRabbit CLI — `cr`, also `coderabbit`) then
+   `cr doctor`. Absent, not signed in, or erroring → say so in one line and stop. The project
+   already exists and is committed; this step is additive.
+
+   **b. Run it scoped to the new project and wait for it** (a review takes ~1–2 min; run it
+   synchronously and capture stdout — the triage in step c reads that output):
+
+   ```bash
+   cr review --agent --committed --base-commit <sha-from-step-7> \
+             --dir <instance-root>/projects/<slug> -c CLAUDE.md SCHEMA.md
+   ```
+
+   `--dir` keeps it on the new project rather than the whole commit; `--base-commit` is the
+   pre-commit `HEAD`; `-c` hands it the bundle's own rules so it reviews against `SCHEMA.md`
+   and the instance `CLAUDE.md` instead of generic style; `--agent` returns structured
+   findings. Confirm the flags with `cr review --help` before running — don't assume this
+   surface, the CLI moves.
+
+   **c. Triage before applying. On a fresh scaffold most findings are the reviewer not
+   knowing the OKF lifecycle.** These are **by design — do not "fix" them**:
+   - `acceptance_criteria: []` and `open_questions: []` — the PM fills these during refine;
+     step 5 explicitly forbids inventing them.
+   - `deliverables/*.md` TODO stubs — the deliverable **is** the work that hasn't happened
+     yet; the stub only makes the path committable.
+   - every task sitting at `status: draft` — that's the human's promotion gate.
+   - a research project having no `target_repo`, no `pr:`, and no assignee.
+   - the control panel committing straight to `main`.
+   - `autonomy: yolo` being near-inert on a research project — a documented consequence,
+     not a defect.
+
+   **Take these seriously** — each is a real defect worth a follow-up commit:
+   - a `depends_on` that omits a genuine prerequisite, or a dependency cycle;
+   - stale names, paths, or counts after a rename — typically the one file the restructure
+     missed;
+   - `project.md`, `index.md`, and the task bodies contradicting each other;
+   - a security, privacy, or authorization hole in something the project *describes*
+     (identity propagation, tenant boundaries, who may read what);
+   - PII, secrets, tokens, or credentials in committed text — including in `sources/`;
+   - a durable, verified discovery asserted in the scaffold but captured nowhere in
+     `knowledge/findings/` — write the `Finding` and link it from the task.
+
+   **d. Fail closed on an empty result.** Zero findings is a pass only if the run actually
+   reviewed something — an auth failure, an unconnected-organization notice, or a truncated
+   run all produce output that reads as "clean". Confirm it reports files reviewed before
+   calling it green.
+
+   **e. Record the verdicts.** Commit the accepted fixes, then add a dated bullet to the
+   project's `log.md` naming what you applied **and what you rejected, with the reason**.
+   Without that, the next reviewer re-raises the same by-design findings and someone
+   eventually "fixes" them — deleting the PM's refine step or filling stubs with invented
+   content.
+
 ## Notes
 - This repo commits straight to `main` — that's intended (see `CLAUDE.md`); the
   human gates are promote-to-`ready` and (build) merge / (research) approve the
   deliverable, **not** file creation.
 - For a big project, slice it into `phases/` (see `SCHEMA.md` `Phase`) — optional;
   skip unless the description clearly spans sequential stages.
-- No customer PII in any task/project/log/deliverable text.
+- No customer PII in any task/project/log/deliverable text. `sources/README.md` should warn
+  about **secrets as well as PII** — raw exports, HAR files, browser screenshots and support
+  transcripts can be PII-free and still carry access tokens, API keys, signed URLs or
+  internal hostnames. A committed token is leaked: rotate it, don't just delete the file.
+- The step-8 review is **advisory**. It never promotes, never merges, and never gates
+  creation — it produces findings you triage. Treat a rejected finding as a decision worth
+  recording (in the project's `log.md`), not as something to argue with the tool about.
