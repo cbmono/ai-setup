@@ -77,6 +77,12 @@ setup; task projects/yolo-proj/tasks/t1.md unset-kind ready
 sed -i.bak '/^kind:/d' projects/yolo-proj/tasks/t1.md; rm -f projects/yolo-proj/tasks/t1.md.bak
 check "yolo but kind missing -> blocked (fail closed)" block project-manager projects/yolo-proj/tasks/t1.md
 
+setup
+sed -i.bak 's/^autonomy: yolo$/autonomy: yolo unexpected/' projects/yolo-proj/project.md; rm -f projects/yolo-proj/project.md.bak
+git add projects/yolo-proj/project.md >/dev/null; git commit -qm "malformed autonomy" >/dev/null
+task projects/yolo-proj/tasks/t1.md build ready
+check "malformed autonomy value -> blocked (fail closed)" block project-manager projects/yolo-proj/tasks/t1.md
+
 echo
 echo "pass=$pass fail=$fail"
 [ "$fail" -eq 0 ]

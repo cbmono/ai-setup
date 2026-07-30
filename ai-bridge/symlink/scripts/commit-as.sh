@@ -87,13 +87,13 @@ if [ "$role" != "human" ]; then
     autonomy="gated"
     if [ -n "$slug" ]; then
       parsed="$(git show ":projects/$slug/project.md" 2>/dev/null \
-                | sed -n 's/^autonomy:[[:space:]]*\([A-Za-z][A-Za-z-]*\).*/\1/p' | head -n1)"
+                | sed -n 's/^autonomy:[[:space:]]*\([A-Za-z][A-Za-z-]*\)[[:space:]]*$/\1/p' | head -n1)"
       [ -n "$parsed" ] && autonomy="$parsed"
     fi
 
     # Task kind read from the STAGED blob — what is actually being committed.
     kind="$(git show ":$staged_file" 2>/dev/null \
-            | sed -n 's/^kind:[[:space:]]*\([A-Za-z][A-Za-z-]*\).*/\1/p' | head -n1)"
+            | sed -n 's/^kind:[[:space:]]*\([A-Za-z][A-Za-z-]*\)[[:space:]]*$/\1/p' | head -n1)"
     [ -n "$kind" ] || kind="unset"
 
     if [ "$autonomy" = "yolo" ] && [ "$kind" = "build" ]; then
