@@ -108,6 +108,15 @@ optional capability flags — `autonomy=gated|yolo` (`/yolo`),
 recorded on `project.md` and honored by later machinery (yolo by the PM loop, browser by
 the claude-in-chrome integration); creating a project never itself promotes or merges.
 
+After scaffolding, `/new-project` runs an **advisory second-opinion review of the new
+project** with the **CodeRabbit CLI** (`cr`) when it's installed and signed in — scoped to
+`projects/<slug>`, with `SCHEMA.md` + the instance `CLAUDE.md` passed in as review
+instructions. It ships a triage list so lifecycle features aren't "fixed" as defects (empty
+`acceptance_criteria` belong to the PM's refine; a research project's `deliverables/*.md`
+stubs are unwritten work; `draft` is the human's gate), and it records what was applied
+**and what was rejected, with reasons** in the project's `log.md`. No CLI → skipped
+silently; the review never gates creation.
+
 ## Editor view (control panel + repos in one tree)
 The product repos stay **physical peers** of the instance, never nested inside it
 — nesting would drag the instance's control-panel `CLAUDE.md` into the cascade of
