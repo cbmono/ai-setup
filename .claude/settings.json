@@ -70,8 +70,7 @@
       "Bash(pwd)",
       "Bash(echo:*)",
       "Read(./**)",
-      "Edit(./**)",
-      "Write(./**)"
+      "Edit(./**)"
     ],
     "deny": [
       "Bash(git push --force:*)",
@@ -89,24 +88,16 @@
       "Edit(**/.env)",
       "Edit(**/.env.local)",
       "Edit(**/.env.*.local)",
-      "Write(**/.env)",
-      "Write(**/.env.local)",
-      "Write(**/.env.*.local)",
       "Read(**/id_rsa)",
       "Edit(**/id_rsa)",
-      "Write(**/id_rsa)",
       "Read(**/id_ed25519)",
       "Edit(**/id_ed25519)",
-      "Write(**/id_ed25519)",
       "Read(**/id_ecdsa)",
       "Edit(**/id_ecdsa)",
-      "Write(**/id_ecdsa)",
       "Read(**/id_dsa)",
       "Edit(**/id_dsa)",
-      "Write(**/id_dsa)",
       "Read(**/.aws/credentials)",
-      "Edit(**/.aws/credentials)",
-      "Write(**/.aws/credentials)"
+      "Edit(**/.aws/credentials)"
     ]
   },
   "hooks": {
