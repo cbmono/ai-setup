@@ -142,16 +142,20 @@ If `$ARGUMENTS` has no description, **ask** for a one-line goal before doing any
 8. **Second-opinion review of the scaffold — CodeRabbit CLI, when available.** A fresh
    reviewer catches what a scaffolding pass cannot see in itself: a `depends_on` missing a
    real prerequisite, a cross-reference left stale by a rename, a design rule with a hole
-   in it. Run it **after** step 7 so the scaffold is a reviewable diff. Skipped silently
-   when the CLI isn't there — **never block project creation on this.**
+   in it. Run it **after** step 7 so the scaffold is a reviewable diff. **Skipped entirely
+   under `--no-commit`** — there's no committed scaffold to diff against, so a committed
+   review would see nothing. Skipped with a one-line note when the CLI isn't there —
+   **never block project creation on this.**
 
-   **a. Gate on availability.** `command -v cr` (the CodeRabbit CLI — `cr`, also
-   `coderabbit`) then `cr doctor`. Absent, not signed in, or erroring → say so in one line
-   and stop. The project already exists and is committed; this step is additive.
+   **a. Gate on availability.** First, if step 7 ran with `--no-commit`, stop here (nothing
+   to review). Otherwise `command -v cr` (the CodeRabbit CLI — `cr`, also `coderabbit`) then
+   `cr doctor`. Absent, not signed in, or erroring → say so in one line and stop. The project
+   already exists and is committed; this step is additive.
 
-   **b. Run it scoped to the new project, in the background** (a review takes ~1–2 min):
+   **b. Run it scoped to the new project and wait for it** (a review takes ~1–2 min; run it
+   synchronously and capture stdout — the triage in step c reads that output):
 
-   ```
+   ```bash
    cr review --agent --committed --base-commit <sha-from-step-7> \
              --dir <instance-root>/projects/<slug> -c CLAUDE.md SCHEMA.md
    ```

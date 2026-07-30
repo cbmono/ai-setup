@@ -114,8 +114,8 @@ project** with the **CodeRabbit CLI** (`cr`) when it's installed and signed in �
 instructions. It ships a triage list so lifecycle features aren't "fixed" as defects (empty
 `acceptance_criteria` belong to the PM's refine; a research project's `deliverables/*.md`
 stubs are unwritten work; `draft` is the human's gate), and it records what was applied
-**and what was rejected, with reasons** in the project's `log.md`. No CLI → skipped
-silently; the review never gates creation.
+**and what was rejected, with reasons** in the project's `log.md`. No CLI (or `--no-commit`)
+→ skipped with a one-line note; the review never gates creation.
 
 ## Editor view (control panel + repos in one tree)
 The product repos stay **physical peers** of the instance, never nested inside it
