@@ -68,6 +68,14 @@ AUTHOR_EMAIL="${CONTROL_PLANE_AUTHOR_EMAIL:-${config_email:-$(git config user.em
 # or unparseable field is treated as `gated` / `unset`.
 if [ "$role" != "human" ]; then
   violations=""
+  # Enumerate staged files under projects/ ONCE. Fail CLOSED if git itself errors
+  # (corrupt index, disk error): refuse rather than proceed with an empty list, which
+  # would let a promotion through unchecked — the one spot that would otherwise fail open.
+  if ! staged_list="$(git diff --cached --name-only -- projects)"; then
+    echo "error: could not list staged files (git diff failed) — refusing to commit as" >&2
+    echo "       role '$role' (fail closed). Fix the repo state and retry." >&2
+    exit 3
+  fi
   # Here-doc (not a pipe) so the loop body runs in THIS shell and $violations survives.
   while IFS= read -r staged_file; do
     [ -n "$staged_file" ] || continue
@@ -103,7 +111,7 @@ if [ "$role" != "human" ]; then
     violations="${violations}  - ${staged_file} (project '${slug:-?}': autonomy=${autonomy}, kind=${kind})
 "
   done <<EOF
-$(git diff --cached --name-only -- projects || true)
+$staged_list
 EOF
 
   if [ -n "$violations" ]; then
