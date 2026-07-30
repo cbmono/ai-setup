@@ -148,12 +148,14 @@ If `$ARGUMENTS` has no description, **ask** for a one-line goal before doing any
    **never block project creation on this.**
 
    **a. Gate on availability.** First, if step 7 ran with `--no-commit`, stop here (nothing
-   to review). Otherwise `command -v cr` (the CodeRabbit CLI — `cr`, also `coderabbit`) then
-   `cr doctor`. Absent, not signed in, or erroring → say so in one line and stop. The project
-   already exists and is committed; this step is additive.
+   to review). Otherwise resolve the CodeRabbit CLI — it ships under two names, so try
+   `command -v cr` then `command -v coderabbit` and keep whichever resolves as `<cli>` for the
+   rest of this step. None found, not signed in, or `<cli> doctor` erroring → say so in one
+   line and stop. The project already exists and is committed; this step is additive.
 
    **b. Run it scoped to the new project and wait for it** (a review takes ~1–2 min; run it
-   synchronously and capture stdout — the triage in step c reads that output):
+   synchronously and capture stdout — the triage in step c reads that output). Use the `<cli>`
+   resolved in step a in place of `cr` below:
 
    ```bash
    cr review --agent --committed --base-commit <sha-from-step-7> \
@@ -189,16 +191,20 @@ If `$ARGUMENTS` has no description, **ask** for a one-line goal before doing any
    - a durable, verified discovery asserted in the scaffold but captured nowhere in
      `knowledge/findings/` — write the `Finding` and link it from the task.
 
-   **d. Fail closed on an empty result.** Zero findings is a pass only if the run actually
-   reviewed something — an auth failure, an unconnected-organization notice, or a truncated
-   run all produce output that reads as "clean". Confirm it reports files reviewed before
-   calling it green.
+   **d. Fail closed on an empty result.** Zero findings is a pass only if the command exited
+   successfully **and** the output names the files it reviewed — an auth failure, an
+   unconnected-organization notice, or a truncated run can exit non-zero or still read as
+   "clean" with nothing reviewed. Check the exit status and confirm a files-reviewed line
+   before calling it green; if either is missing, treat the run as indeterminate and say so
+   rather than reporting a pass.
 
-   **e. Record the verdicts.** Commit the accepted fixes, then add a dated bullet to the
-   project's `log.md` naming what you applied **and what you rejected, with the reason**.
-   Without that, the next reviewer re-raises the same by-design findings and someone
-   eventually "fixes" them — deleting the PM's refine step or filling stubs with invented
-   content.
+   **e. Record the verdicts.** Add a dated bullet to the project's `log.md` naming what you
+   applied **and what you rejected, with the reason** — and make sure that entry is committed,
+   not just the accepted fixes. Stage `log.md` alongside the fixes so they land in one commit,
+   or record it in a follow-up commit if the fixes already landed; an uncommitted verdict
+   record doesn't survive. Without it, the next reviewer re-raises the same by-design findings
+   and someone eventually "fixes" them — deleting the PM's refine step or filling stubs with
+   invented content.
 
 ## Notes
 - This repo commits straight to `main` — that's intended (see `CLAUDE.md`); the
