@@ -107,7 +107,7 @@ Per-machine overrides go in `.claude/settings.local.json` (gitignored).
 
 ### Plugins enabled by default
 
-`settings.json` enables two plugins from the official marketplace (`claude-plugins-official`) for everyone who adopts these defaults — no `extraKnownMarketplaces` needed, since the official marketplace is registered automatically:
+`settings.json` enables three plugins from the official marketplace (`claude-plugins-official`) for everyone who adopts these defaults — no `extraKnownMarketplaces` needed, since the official marketplace is registered automatically:
 
 | Plugin           | Why it's a default                                                                                            |
 | ---------------- | ------------------------------------------------------------------------------------------------------------- |
@@ -120,6 +120,27 @@ The set is intentionally small. Most other official plugins (`code-review`, `pr-
 > **Trust gate, not silent install.** On a fresh clone Claude Code first shows the "trust this folder?" prompt; only after you trust it do the plugins auto-enable. To disable one without forking, set it `false` in your own `settings.local.json` (e.g. `"superpowers@claude-plugins-official": false`).
 
 **Opt-in, MCP-backed plugins** — `github`, `linear`, and `context7` match Alteos's connected services but are **not** in the baseline, following the same rule as MCP servers (kept out so consumers choose to wire them up). Copy the entries you want from [`.claude/settings.plugins.example.json`](./.claude/settings.plugins.example.json) into your own `settings.json`.
+
+### Browser control (Claude for Chrome)
+
+Letting Claude drive a real browser — read a logged-in page, click through a flow, screenshot — comes from **[Claude for Chrome](https://claude.com/chrome)**, and it is **not** something this repo can ship you. There is nothing to copy into `settings.json`.
+
+The extension **injects** its tools into a live paired session, so they never touch a config file: `claude mcp list` doesn't show `claude-in-chrome`, `claude mcp get claude-in-chrome` reports no such server, and there's no stanza in `~/.claude/settings.json` or any project `.mcp.json`. Unlike a stdio server (which is a `command`/`args` block you can commit), this one has no shippable form — so it gets **no `settings.*.example.json` here**; the canonical opt-in-MCP exemplar stays [`.claude/settings.plugins.example.json`](./.claude/settings.plugins.example.json).
+
+To enable it, per machine:
+
+1. Install the Claude for Chrome extension and sign in.
+2. Grant it permission **per site**, in the extension — that's the real access gate, not a Claude Code setting.
+3. Start a session with the browser paired. `mcp__claude-in-chrome__*` tools appear on their own.
+
+Two behaviors worth knowing before you rely on it:
+
+| Behavior | What it means for you |
+| --- | --- |
+| **Background subagents inherit the connection** | A background agent really can drive Chrome — it isn't foreground-only. Verified against a live connection. |
+| **…but each gets its own tab group** | An agent does **not** see your open tabs. It opens and drives its own, so brief it with an explicit URL rather than "the page I have open". |
+
+> **The baseline deliberately does not pre-allow these tools.** A paired browser carries your full logged-in identity, so a mis-click there isn't revertible the way a bad commit is. Leave them prompting, and if you do allowlist any, keep it to read-only navigation/screenshots — never form submits. Sites you'd rather Claude never touch should be denied in the **extension's** per-site permissions, which is the gate that actually holds.
 
 ### Hooks shipped in the baseline
 
@@ -289,6 +310,7 @@ Key behaviours worth internalizing:
 - `.claude/settings.plugins.example.json` — reference only, opt-in MCP-backed plugins (github, linear, context7)
 - `.claude/potential-bugs.md`, `.claude/techdebt.md`, `.claude/plans/` — gitignored, auto-created by `/scan`, `/techdebt`, `/plan` on first run; never seeded in this repo
 - `CLAUDE.md` (this repo's root) — guidance for Claude when editing **this config repo itself**, not a template
+- `.coderabbit.yaml` — this repo's own CodeRabbit settings; **not** installed into `~/.claude` (the installer only touches `.claude`). Tuned for **one review per PR**: no re-review on each push, no auto-reply to every comment. Copy it into your own repos if agent-authored PRs are burning review sessions there too
 
 ---
 

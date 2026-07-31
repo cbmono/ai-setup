@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=https://www.coderabbit.ai/integrations/schema.v2.json
+#
+# One review per PR, then done.
+#
+# Rationale: PRs here are agent-authored and land pre-reviewed (`/grill`, `/verify`,
+# self-review), so CodeRabbit's job is a single fresh-context pass. Its findings get
+# fixed in follow-up pushes — and a re-review of those fixes reliably finds nothing
+# while costing a full session. Defaults re-run the review on every push AND reply to
+# every comment, which turned one useful review into many empty ones.
+#
+# Every key below overrides a default that is `true`; see
+# https://docs.coderabbit.ai/reference/configuration
+reviews:
+  auto_review:
+    enabled: true
+    # "Re-run the review on each push." This is the main cost lever: with it off,
+    # a PR is reviewed once, when it opens. Push fixes freely — no re-review.
+    # Need another pass after a substantial rewrite? Ask for it explicitly with an
+    # `@coderabbitai review` comment.
+    auto_incremental_review: false
+    # Draft PRs aren't reviewed (already the default, pinned so the "review fires
+    # once, when the PR is marked ready" contract is explicit): open as a draft
+    # while iterating, and the single review lands on `ready for review`.
+    drafts: false
+  # Don't narrate the diff back at us in prose+mermaid — the walkthrough and
+  # high-level summary already cover it, and this repo is markdown/JSON only.
+  sequence_diagrams: false
+chat:
+  # "Let CodeRabbit reply automatically without requiring a mention/tag."
+  # On (the default) every comment in a review thread wakes the bot up — including
+  # our own "fixed in <sha>" notes, which need no reply. Off, it answers only when
+  # actually asked via `@coderabbitai`.
+  auto_reply: false
