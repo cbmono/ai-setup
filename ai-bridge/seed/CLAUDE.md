@@ -215,7 +215,9 @@ rule here, not in each agent.
   explicit URL. Tools absent (e.g. a headless tick) → take a non-browser route and say so;
   never report blocked *only* for a missing browser. **Anything that writes in the browser
   asks the human first — even under `yolo`** — and no customer PII from a logged-in page
-  ever reaches a task doc, PR, or the KB. Full rules: `SCHEMA.md` → "Browser access".
+  ever reaches a task doc, PR text, `log.md`, any log or console output, or the KB.
+  Describe the *shape* of what you saw, not the records. Full rules: `SCHEMA.md` →
+  "Browser access".
 - **Code intelligence (if present):** if a repo has a CodeGraph index (a
   `.codegraph/` dir) or the `codegraph` MCP is available, use it to navigate the
   codebase before bulk-grepping — `codegraph explore "<q>" -p <repo>` for an area,

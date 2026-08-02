@@ -63,16 +63,29 @@ no PII/secrets. The role-specific procedure is below.
      is valid even if the others didn't independently surface it); reproduction *raises
      confidence*, it doesn't veto a lens. Read-only, so no worktree isolation needed.
 4. Verify the change meets **each** `acceptance_criteria` item.
-5. **CodeRabbit — read its existing review; only run it if there isn't one.** Check the
-   PR for a CodeRabbit review first (`gh pr view <pr> --comments`). If CodeRabbit has
-   already reviewed this PR, **fold those findings in and do not run the CLI** — a second
-   pass over the same diff costs a full session to re-derive what's already on the PR.
-   Only when the repo has no CodeRabbit integration (no review present) and the CLI is
-   installed, run `coderabbit review --base <default-branch> --type committed --agent`
-   (detect the default branch — don't hardcode `main`: `git symbolic-ref --short
-   refs/remotes/origin/HEAD | sed 's@^origin/@@'`, fallback `main`). This matches the
-   `/rabbit` command's invocation. Never request a CodeRabbit **re-review** to confirm
-   fixes — verify those yourself.
+5. **CodeRabbit — read its existing review; run the CLI only if the repo has no
+   integration.** Never pay for the same reviewer twice over one diff. Decide in this
+   order:
+   - **a. Is there already a review on this PR?** Read the **structured** fields —
+     `gh pr view <pr> --json reviews` for the review objects and
+     `gh api repos/<owner>/<repo>/pulls/<pr>/comments` for the inline findings. Don't rely
+     on `gh pr view --comments`: it renders the comment list, not the `reviews` data, so a
+     CodeRabbit review can be present and invisible to it. If a review exists, **fold its
+     findings in and do not run the CLI.**
+   - **b. No review — is the repo nevertheless configured?** A configured repo can simply
+     not have been reviewed *yet* (rate-limited, queued, or the PR is a draft). Check for a
+     `.coderabbit.yaml`, and — since CodeRabbit is often configured through its **org UI**,
+     which leaves **no file in the repo** — also check whether it has reviewed any recent
+     PR (`gh pr list --state merged --limit 5` → inspect their `reviews`). If either says
+     configured, treat the review as **pending**: report it as an unmet gate and let the
+     loop pick it up on a later tick. **Don't** substitute the CLI, and don't read a
+     missing review as an approval.
+   - **c. Genuinely no integration** (and the CLI is installed) — run
+     `coderabbit review --base <default-branch> --type committed --agent` (detect the
+     default branch — don't hardcode `main`: `git symbolic-ref --short
+     refs/remotes/origin/HEAD | sed 's@^origin/@@'`, fallback `main`). This matches the
+     `/rabbit` command's invocation.
+   Never request a CodeRabbit **re-review** to confirm fixes — verify those yourself.
 6. **Synthesize one verdict** from your CI analysis, the fan-out (or inline) review,
    acceptance-criteria check, and CodeRabbit. Post it as a PR comment via `gh pr
    review` (comment / request-changes / approve-as-review only — **never `gh pr

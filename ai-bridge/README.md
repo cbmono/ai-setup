@@ -191,7 +191,9 @@ re-confirm a diff that's already clean. Three rules keep it to one:
 2. **Don't pay for the same reviewer twice.** If CodeRabbit reviews the PR, the
    pre-filter self-review uses the *free local* reviewer (`code-architect`), not the
    `coderabbit` CLI. `qa-reviewer` likewise **reads** an existing CodeRabbit review off the
-   PR rather than re-running the CLI over the same diff.
+   PR (via the structured `--json reviews`, not `--comments`) rather than re-running the CLI
+   over the same diff — and when the repo is configured but hasn't been reviewed *yet*, it
+   reports the gate as pending instead of substituting a CLI run.
 3. **Never re-review to confirm a fix.** Agents address findings, push, and reply once
    with what changed. A re-review is requested only after a rewrite substantial enough to
    invalidate the original review.

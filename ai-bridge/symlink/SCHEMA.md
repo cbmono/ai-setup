@@ -305,7 +305,8 @@ permissions**; opting in per project = this field. Nothing to configure in this 
    an autonomous mis-click there isn't revertible like a bad commit.
 5. **The usual data rules still apply.** A logged-in page is the most likely place to
    meet **customer PII** — never copy it into a task doc, `# Result`, PR text, `log.md`,
-   or the KB. Describe the shape of what you saw, not the records.
+   any log or console output, or the KB. Describe the shape of what you saw, not the
+   records.
 
 **Worktrees.** Build tasks run in git worktrees under `<reposRoot>/_wt/`. These are
 reclaimed automatically — the PM removes a task's worktree once it is `done`/
