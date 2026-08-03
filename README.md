@@ -126,7 +126,7 @@ The set is intentionally small. Most other official plugins (`code-review`, `pr-
 
 Opt-in, and the one integration here whose purpose is **not** adding a capability but **surviving the loss of one**: when you're running low on Claude tokens, hand the expensive work to [Codex](https://developers.openai.com/codex) instead of stopping. Usage counts against your *Codex* limits, which is the whole point.
 
-It comes from OpenAI's [`codex-plugin-cc`](https://github.com/openai/codex-plugin-cc) — a Claude Code plugin, so Codex runs from inside the workflow you already have. Copy the two blocks from [`.claude/settings.codex.example.json`](./.claude/settings.codex.example.json), or install it interactively:
+It comes from OpenAI's [`codex-plugin-cc`](https://github.com/openai/codex-plugin-cc) — a Claude Code plugin, so Codex runs from inside the workflow you already have. Take the entries from [`.claude/settings.codex.example.json`](./.claude/settings.codex.example.json) and **merge them key-by-key** into your own settings: the `openai-codex` key goes *into* any existing `extraKnownMarketplaces`, and `codex@openai-codex` *into* your existing `enabledPlugins`. Pasting whole blocks over the top would drop other marketplaces or switch off the baseline plugins. Or skip the files entirely and install interactively:
 
 ```bash
 /plugin marketplace add openai/codex-plugin-cc
@@ -136,6 +136,8 @@ It comes from OpenAI's [`codex-plugin-cc`](https://github.com/openai/codex-plugi
 ```
 
 Needs a ChatGPT subscription (Free included) or an OpenAI API key, plus Node ≥ 18.18 and the `@openai/codex` CLI.
+
+> **The two routes differ on pinning.** The example file pins the marketplace to `ref: v1.0.6` — it ships executable commands, a subagent, and lifecycle hooks, so tracking the upstream default branch would let new executable content arrive unreviewed. `/plugin marketplace add` does **not** pin; it follows `main`. Prefer the file if you'd rather bump versions deliberately, and check the [releases](https://github.com/openai/codex-plugin-cc/releases) when you do.
 
 **The playbook — the distinction that matters:**
 

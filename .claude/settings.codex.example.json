@@ -1,7 +1,7 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
 
-  "//": "Opt-in: run OpenAI Codex from inside Claude Code. Reference only — do NOT @-import this file. Copy the two blocks below into your own settings.json (or settings.local.json) and merge enabledPlugins with the block already there.",
+  "//": "Opt-in: run OpenAI Codex from inside Claude Code. Reference only — do NOT @-import this file. MERGE PER ENTRY, don't copy whole blocks: add the `openai-codex` key INTO any existing extraKnownMarketplaces object, and the `codex@openai-codex` key INTO your existing enabledPlugins. Replacing either map wholesale would silently drop other marketplaces or disable the baseline plugins.",
 
   "//why": "The point of this one is FAILOVER, not review: when Claude tokens run low, hand the expensive work to Codex instead of stopping. See README.md → 'Codex as a failover' for the playbook.",
 
@@ -13,13 +13,14 @@
 
   "//what-you-get": "Commands: /codex:rescue (delegate work to Codex, write-capable, backgroundable, resumable), /codex:transfer (turn THIS Claude session into a resumable Codex thread), /codex:status, /codex:result, /codex:cancel, /codex:review, /codex:adversarial-review. Plus the `codex:codex-rescue` subagent, visible in /agents.",
 
-  "//pinning": "A marketplace source may set `ref` (branch or tag) but NOT `sha`. Add `\"ref\": \"<tag>\"` inside the source block below if you want to pin rather than track the default branch.",
+  "//pinning": "PINNED ON PURPOSE. This marketplace ships executable commands, a subagent, and lifecycle hooks, so tracking the upstream default branch would let new executable content arrive unreviewed. `ref` accepts a branch or tag but NOT `sha` (marketplace sources don't support sha; only plugin sources inside a marketplace.json do). v1.0.6 is the release this setup was tested against. To take a newer version, bump the tag deliberately after reading the upstream diff — check https://github.com/openai/codex-plugin-cc/releases.",
 
   "extraKnownMarketplaces": {
     "openai-codex": {
       "source": {
         "source": "github",
-        "repo": "openai/codex-plugin-cc"
+        "repo": "openai/codex-plugin-cc",
+        "ref": "v1.0.6"
       }
     }
   },
