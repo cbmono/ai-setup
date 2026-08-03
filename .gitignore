@@ -19,3 +19,4 @@ tmp/
 !.claude/claude-defaults.md
 !.claude/settings.json
 !.claude/settings.plugins.example.json
+!.claude/settings.codex.example.json

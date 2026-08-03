@@ -32,7 +32,10 @@ USAGE
 # templates, and the per-machine-sensitive settings.json (handled separately
 # below). Everything else git tracks under .claude/ is linked automatically, so
 # a new default needs no change here — only add the rare exception.
-EXCLUDE="README.md settings.json settings.local.json settings.plugins.example.json"
+# Reference-only templates must NOT be linked into ~/.claude — they are meant to be
+# copied FROM, and a linked one just clutters the real config dir (and goes stale/dangling
+# if this checkout ever moves). Every `settings.*.example.json` belongs here.
+EXCLUDE="README.md settings.json settings.local.json settings.plugins.example.json settings.codex.example.json settings.codegraph-serena.example.json"
 
 # Used only outside a git checkout (e.g. a tarball download), where tracked
 # entries can't be auto-discovered. Keep roughly in sync with the linkable set.

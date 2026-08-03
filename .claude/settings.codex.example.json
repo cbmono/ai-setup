@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+
+  "//": "Opt-in: run OpenAI Codex from inside Claude Code. Reference only — do NOT @-import this file. MERGE PER ENTRY, don't copy whole blocks: add the `openai-codex` key INTO any existing extraKnownMarketplaces object, and the `codex@openai-codex` key INTO your existing enabledPlugins. Replacing either map wholesale would silently drop other marketplaces or disable the baseline plugins.",
+
+  "//why": "The point of this one is FAILOVER, not review: when Claude tokens run low, hand the expensive work to Codex instead of stopping. See README.md → 'Codex as a failover' for the playbook.",
+
+  "//prerequisites": "1) A ChatGPT subscription (Free tier included) or an OpenAI API key — usage counts against your CODEX limits, not your Claude limits, which is the entire point. 2) Node.js >= 18.18. 3) The Codex CLI: `npm install -g @openai/codex`, then `codex login`. After enabling, run `/codex:setup` — it reports whether Codex is ready and can install it for you if npm is available.",
+
+  "//not-in-the-baseline": "Deliberately NOT in the checked-in settings.json, for three reasons: (a) it needs external credentials, so the same rule as MCP servers applies — consumers opt in rather than have it forced on; (b) it comes from a THIRD-PARTY marketplace, so unlike claude-plugins-official it needs the extraKnownMarketplaces block below; (c) its /codex:review and /codex:adversarial-review overlap commands this repo already ships (/grill, /rabbit, code-architect), and the baseline rule is to avoid duplicating our own command surface.",
+
+  "//heads-up": "Enabling a plugin also enables its hooks. This one registers SessionStart, SessionEnd, and a Stop-time review gate whose timeout is 900s — the plugin describes that gate as optional, so check `/codex:setup` and the plugin's own docs before running it somewhere a long Stop hook would be disruptive (e.g. an automated loop).",
+
+  "//what-you-get": "Commands: /codex:rescue (delegate work to Codex, write-capable, backgroundable, resumable), /codex:transfer (turn THIS Claude session into a resumable Codex thread), /codex:status, /codex:result, /codex:cancel, /codex:review, /codex:adversarial-review. Plus the `codex:codex-rescue` subagent, visible in /agents.",
+
+  "//pinning": "PINNED ON PURPOSE. This marketplace ships executable commands, a subagent, and lifecycle hooks, so tracking the upstream default branch would let new executable content arrive unreviewed. `ref` accepts a branch or tag but NOT `sha` (marketplace sources don't support sha; only plugin sources inside a marketplace.json do). v1.0.6 is the release this setup was tested against. To take a newer version, bump the tag deliberately after reading the upstream diff — check https://github.com/openai/codex-plugin-cc/releases.",
+
+  "extraKnownMarketplaces": {
+    "openai-codex": {
+      "source": {
+        "source": "github",
+        "repo": "openai/codex-plugin-cc",
+        "ref": "v1.0.6"
+      }
+    }
+  },
+
+  "enabledPlugins": {
+    "codex@openai-codex": true
+  }
+}

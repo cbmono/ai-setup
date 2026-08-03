@@ -17,5 +17,6 @@ When the user phrases a request that maps to one of this repo's slash commands, 
 | any `gh stack` action ("stack view/add/submit/sync/merge/up/down…")                | `/stack <action>` |
 | "find tech debt", "techdebt scan", "find duplicated code"                          | `/techdebt`      |
 | "run CodeRabbit", "rabbit review"                                                  | `/rabbit`        |
+| "hand off to Codex", "switch to Codex", "running low on tokens", "back from Codex" | `/codex-handoff` |
 
 When the request adds constraints the command flow doesn't cover, invoke the command and adapt inside its steps rather than discarding it.

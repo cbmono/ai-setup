@@ -72,6 +72,7 @@ One `.md` per command; filename becomes `/<name>`. No frontmatter required; `$AR
 | `/grill`       | Adversarial fan-out over your own diff — find what's wrong before a reviewer does             | diff-grill workflow; code-architect (fallback) |
 | `/plan`        | Draft → adversarial workflow grill → save plan to `.claude/plans/<slug>.md` (rides with the stack) | plan-grill workflow; plan-architect (fallback) |
 | `/rabbit`      | Run CodeRabbit review on the current branch against `main`                                    | —                             |
+| `/codex-handoff` | Hand this session to Codex when tokens run low; `back` pulls Codex's work in and verifies it against the real diff | requires the opt-in `codex` plugin |
 | `/scan [dir]`  | Deep bug scan of a folder; appends findings to `.claude/potential-bugs.md`                    | deep-bug-scan                 |
 | `/stack`       | gh-stack wrapper (bare = smart recommendation, args = specific actions)                       | stack-navigator (no args)     |
 | `/techdebt`    | Scan for duplication/dead code; defer/apply/reject per item. Backlog in `.claude/techdebt.md` | —                             |
@@ -120,6 +121,39 @@ The set is intentionally small. Most other official plugins (`code-review`, `pr-
 > **Trust gate, not silent install.** On a fresh clone Claude Code first shows the "trust this folder?" prompt; only after you trust it do the plugins auto-enable. To disable one without forking, set it `false` in your own `settings.local.json` (e.g. `"superpowers@claude-plugins-official": false`).
 
 **Opt-in, MCP-backed plugins** — `github`, `linear`, and `context7` match Alteos's connected services but are **not** in the baseline, following the same rule as MCP servers (kept out so consumers choose to wire them up). Copy the entries you want from [`.claude/settings.plugins.example.json`](./.claude/settings.plugins.example.json) into your own `settings.json`.
+
+### Codex as a failover (when Claude tokens run low)
+
+Opt-in, and the one integration here whose purpose is **not** adding a capability but **surviving the loss of one**: when you're running low on Claude tokens, hand the expensive work to [Codex](https://developers.openai.com/codex) instead of stopping. Usage counts against your *Codex* limits, which is the whole point.
+
+It comes from OpenAI's [`codex-plugin-cc`](https://github.com/openai/codex-plugin-cc) — a Claude Code plugin, so Codex runs from inside the workflow you already have. Take the entries from [`.claude/settings.codex.example.json`](./.claude/settings.codex.example.json) and **merge them key-by-key** into your own settings: the `openai-codex` key goes *into* any existing `extraKnownMarketplaces`, and `codex@openai-codex` *into* your existing `enabledPlugins`. Pasting whole blocks over the top would drop other marketplaces or switch off the baseline plugins. Or skip the files entirely and install interactively:
+
+```bash
+/plugin marketplace add openai/codex-plugin-cc
+/plugin install codex@openai-codex
+/reload-plugins
+/codex:setup          # reports whether Codex is ready; can install it for you
+```
+
+Needs a ChatGPT subscription (Free included) or an OpenAI API key, plus Node ≥ 18.18 and the `@openai/codex` CLI.
+
+> **The two routes differ on pinning.** The example file pins the marketplace to `ref: v1.0.6` — it ships executable commands, a subagent, and lifecycle hooks, so tracking the upstream default branch would let new executable content arrive unreviewed. `/plugin marketplace add` does **not** pin; it follows `main`. Prefer the file if you'd rather bump versions deliberately, and check the [releases](https://github.com/openai/codex-plugin-cc/releases) when you do.
+
+**The playbook — the distinction that matters:**
+
+| Situation | Command | Why |
+| --- | --- | --- |
+| **Running low** | `/codex:rescue --background <task>` | Delegates real, write-capable work to Codex. Claude spends a few tokens orchestrating while Codex does the heavy lifting. Threads are resumable, so you can keep going with `--resume`. |
+| **About to run out** | `/codex:transfer` | Converts *this* Claude session into a resumable Codex thread and hands back a `codex resume <session-id>`. Run it **before** you're empty. |
+| **Already out** | — | Nothing in Claude Code can help: `rescue` still needs a working Claude session to orchestrate. This is why `transfer` is worth running early. |
+
+**Prefer [`/codex-handoff`](#commands) over raw `/codex:transfer`.** The plugin's transfer frequently fails with *"Could not identify the current Claude transcript"* — it can't reliably find the session's `.jsonl`. `/codex-handoff` resolves it from the current directory and passes `--source` for you, records the returned session ID, and — the part the plugin has no answer for — `/codex-handoff back` brings Codex's work *into* Claude by having Codex summarise itself, then reconciling that summary against the real `git diff` rather than trusting it.
+
+> **Round-tripping is asymmetric, and it's worth knowing why.** Claude→Codex is a genuine session transfer: the turn history moves, and Codex can answer questions about the earlier conversation. Codex→Claude has no equivalent primitive — nothing can resume a Claude session *from* Codex — so the return leg is a summary plus verification. Transferring also isn't free: the transcript is re-read into Codex's context (tens of thousands of tokens on a long session). Escaping a token wall justifies it; a quick question doesn't — use `/codex:rescue` for that.
+
+Manage background jobs with `/codex:status`, `/codex:result`, and `/codex:cancel`. The plugin also ships `/codex:review` and `/codex:adversarial-review`, which overlap [`/grill`](#commands) and [`/rabbit`](#commands) — reach for those if you specifically want a second opinion from a different model family, not as a replacement.
+
+> **Why it's opt-in rather than a default plugin.** It needs external credentials (same rule as MCP servers — consumers wire those up themselves), it lives in a **third-party** marketplace so it needs `extraKnownMarketplaces` unlike the `claude-plugins-official` defaults, and its review commands duplicate this repo's own command surface. Note too that enabling a plugin enables its hooks: this one registers `SessionStart`, `SessionEnd`, and a Stop-time review gate. That gate is **off unless you turn it on** with `/codex:setup --enable-review-gate` — leave it off on any machine running `/pm-loop`, since it makes every stop wait on a Codex review (900s timeout).
 
 ### Browser control (Claude for Chrome)
 
@@ -308,6 +342,7 @@ Key behaviours worth internalizing:
 - `.claude/settings.json` — checked in, team-shared permissions baseline
 - `.claude/settings.local.json` — gitignored, per-machine overrides
 - `.claude/settings.plugins.example.json` — reference only, opt-in MCP-backed plugins (github, linear, context7)
+- `.claude/settings.codex.example.json` — reference only, opt-in Codex failover (`/codex:rescue` when tokens run low, `/codex:transfer` before they run out)
 - `.claude/potential-bugs.md`, `.claude/techdebt.md`, `.claude/plans/` — gitignored, auto-created by `/scan`, `/techdebt`, `/plan` on first run; never seeded in this repo
 - `CLAUDE.md` (this repo's root) — guidance for Claude when editing **this config repo itself**, not a template
 - `.coderabbit.yaml` — this repo's own CodeRabbit settings; **not** installed into `~/.claude` (the installer only touches `.claude`). Tuned for **one review per PR**: no re-review on each push, no auto-reply to every comment. Copy it into your own repos if agent-authored PRs are burning review sessions there too
