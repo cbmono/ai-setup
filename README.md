@@ -178,7 +178,27 @@ Two behaviors worth knowing before you rely on it:
 | **Background subagents inherit the connection** | A background agent really can drive Chrome — it isn't foreground-only. Verified against a live connection. |
 | **…but each gets its own tab group** | An agent does **not** see your open tabs. It opens and drives its own, so brief it with an explicit URL rather than "the page I have open". |
 
-> **The baseline doesn't pre-allow these tools — that's a default, not a recommendation.** Left prompting, every browser action asks, which is the safe starting point but also means a **background** agent stalls waiting for a human who isn't watching. So if you want autonomous browser work (an ai-bridge project on `yolo`, say), you have to allowlist `mcp__claude-in-chrome__*` in your own `settings.local.json` — the project's `autonomy` alone won't do it, because permissions are a harness-level gate that sits *underneath* it. Decide that deliberately: the **extension's per-site permissions** then become the boundary that actually holds, so restrict there rather than trusting prompts.
+> **The baseline allows `mcp__claude-in-chrome__*`.** Without it every browser action prompts, which silently breaks the main use case — a **background** agent stalls waiting for a human who isn't watching, and the task reads as hung rather than blocked. The rule is safe to ship because it's **inert until you opt in at the extension**: no extension installed means the tools never exist and nothing matches. That makes the **extension's per-site permissions** the boundary that actually governs this, so restrict there rather than relying on Claude Code prompts.
+>
+> **Whether a `git pull` actually delivers it depends on how your `~/.claude/settings.json` got there** — worth checking, because the failure is silent:
+>
+> | Your setup | Do you get the rule? |
+> | --- | --- |
+> | `~/.claude/settings.json` is a **symlink** to this repo (what `install.sh` does when you had none) | **Yes**, automatically |
+> | You have your **own real** `~/.claude/settings.json` | **No.** `install.sh` deliberately never edits it, so add the rule yourself (below) |
+> | ai-bridge **instances** | **Yes** — they read `ai-bridge/symlink/.claude/settings.json`, which is symlinked, so no per-machine step |
+>
+> If you're in the middle row, add this to your own `settings.json` (or `settings.local.json`) — one line, no need to adopt the whole baseline:
+>
+> ```json
+> { "permissions": { "allow": ["mcp__claude-in-chrome__*"] } }
+> ```
+>
+> Two consequences worth being deliberate about. It applies to **ordinary sessions too**, not just ai-bridge — so once a browser is paired, Claude can act (including submitting forms) without asking anywhere. And it's a server-level rule: it can't distinguish read-only navigation from writes, because the tool names are injected by the extension and aren't enumerable from config. To keep prompts, shadow it in your own `settings.local.json`:
+>
+> ```json
+> { "permissions": { "ask": ["mcp__claude-in-chrome__*"] } }
+> ```
 
 ### Hooks shipped in the baseline
 

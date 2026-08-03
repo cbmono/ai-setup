@@ -70,7 +70,8 @@
       "Bash(pwd)",
       "Bash(echo:*)",
       "Read(./**)",
-      "Edit(./**)"
+      "Edit(./**)",
+      "mcp__claude-in-chrome__*"
     ],
     "deny": [
       "Bash(git push --force:*)",
