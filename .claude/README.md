@@ -12,6 +12,7 @@ Defaults shipped by this repo. See the [top-level README](../README.md) for inst
   settings.json                       # team-shared permissions + universally-safe hooks (checked in)
   settings.local.json                 # per-machine overrides (gitignored, auto-created by Claude Code)
   settings.plugins.example.json       # opt-in MCP-backed plugins (github, linear, context7)
+  settings.codex.example.json         # opt-in Codex failover (openai/codex-plugin-cc)
   hooks/                              # executable hook scripts referenced from settings.json
     format-on-write.sh                # PostToolUse Write|Edit: prettier/biome if declared in package.json
   agents/                             # subagents (one .md per agent, YAML frontmatter)
@@ -103,6 +104,14 @@ Ship hooks here only when they're **universally safe** — must no-op cleanly on
 **Kept out of the baseline on purpose:** plugins that duplicate this repo's command surface (`code-review`/`pr-review-toolkit` ≈ `/grill` + `code-architect`, `code-simplifier` ≈ `/techdebt`, `commit-commands` ≈ `/acp`, `feature-dev` ≈ `/plan`), and MCP-backed plugins (`github`, `linear`, `context7`) which follow the same opt-in rule as MCP servers — see `settings.plugins.example.json`.
 
 Plugins enable behind the folder-trust gate on first launch, not silently. Consumers disable any default in their own `settings.local.json` (`"superpowers@claude-plugins-official": false`). When changing the default set, keep this table and the top-level `README.md` Plugins section in sync.
+
+## Codex failover (opt-in)
+
+`settings.codex.example.json` wires up OpenAI's [`codex-plugin-cc`](https://github.com/openai/codex-plugin-cc) so Codex can be driven from inside Claude Code. Its purpose is **token failover**, not review: `/codex:rescue` delegates write-capable work to Codex when Claude tokens run low, and `/codex:transfer` converts a live Claude session into a resumable Codex thread (`codex resume <id>`) for when they run out. `rescue` needs a working Claude session to orchestrate, so `transfer` is the only real escape hatch once you're empty — say so whenever documenting this.
+
+**Kept out of the baseline for three separate reasons**, each of which is independently sufficient under this repo's rules: it needs external credentials (the MCP rule), it's a **third-party** marketplace so it needs `extraKnownMarketplaces` (the official-marketplace defaults don't), and `/codex:review` + `/codex:adversarial-review` duplicate `/grill` / `/rabbit` / `code-architect`. Also note that enabling it enables its hooks — `SessionStart`, `SessionEnd`, and a Stop-time review gate with a **900s** timeout — which is a genuine hazard inside an automated loop and must stay called out.
+
+**Keep this integration modular.** All Codex content lives in that one example file plus clearly-bounded doc sections (here and in the root `README.md`). Don't thread Codex branches through unrelated machinery: the point is that mirroring it elsewhere later is a one-file copy, and that it can be dropped without unpicking anything. Marketplace sources accept `ref` (branch/tag) but **not** `sha`.
 
 ## Browser control (Claude for Chrome)
 

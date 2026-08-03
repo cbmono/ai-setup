@@ -121,6 +121,33 @@ The set is intentionally small. Most other official plugins (`code-review`, `pr-
 
 **Opt-in, MCP-backed plugins** — `github`, `linear`, and `context7` match Alteos's connected services but are **not** in the baseline, following the same rule as MCP servers (kept out so consumers choose to wire them up). Copy the entries you want from [`.claude/settings.plugins.example.json`](./.claude/settings.plugins.example.json) into your own `settings.json`.
 
+### Codex as a failover (when Claude tokens run low)
+
+Opt-in, and the one integration here whose purpose is **not** adding a capability but **surviving the loss of one**: when you're running low on Claude tokens, hand the expensive work to [Codex](https://developers.openai.com/codex) instead of stopping. Usage counts against your *Codex* limits, which is the whole point.
+
+It comes from OpenAI's [`codex-plugin-cc`](https://github.com/openai/codex-plugin-cc) — a Claude Code plugin, so Codex runs from inside the workflow you already have. Copy the two blocks from [`.claude/settings.codex.example.json`](./.claude/settings.codex.example.json), or install it interactively:
+
+```bash
+/plugin marketplace add openai/codex-plugin-cc
+/plugin install codex@openai-codex
+/reload-plugins
+/codex:setup          # reports whether Codex is ready; can install it for you
+```
+
+Needs a ChatGPT subscription (Free included) or an OpenAI API key, plus Node ≥ 18.18 and the `@openai/codex` CLI.
+
+**The playbook — the distinction that matters:**
+
+| Situation | Command | Why |
+| --- | --- | --- |
+| **Running low** | `/codex:rescue --background <task>` | Delegates real, write-capable work to Codex. Claude spends a few tokens orchestrating while Codex does the heavy lifting. Threads are resumable, so you can keep going with `--resume`. |
+| **About to run out** | `/codex:transfer` | Converts *this* Claude session into a resumable Codex thread and hands back a `codex resume <session-id>`. Run it **before** you're empty. |
+| **Already out** | — | Nothing in Claude Code can help: `rescue` still needs a working Claude session to orchestrate. This is why `transfer` is worth running early. |
+
+Manage background jobs with `/codex:status`, `/codex:result`, and `/codex:cancel`. The plugin also ships `/codex:review` and `/codex:adversarial-review`, which overlap [`/grill`](#commands) and [`/rabbit`](#commands) — reach for those if you specifically want a second opinion from a different model family, not as a replacement.
+
+> **Why it's opt-in rather than a default plugin.** It needs external credentials (same rule as MCP servers — consumers wire those up themselves), it lives in a **third-party** marketplace so it needs `extraKnownMarketplaces` unlike the `claude-plugins-official` defaults, and its review commands duplicate this repo's own command surface. Note too that enabling a plugin enables its hooks: this one registers `SessionStart`, `SessionEnd`, and a **Stop-time review gate with a 900s timeout** — the plugin calls that gate optional, so check it before running this inside an automated loop.
+
 ### Browser control (Claude for Chrome)
 
 Letting Claude drive a real browser — read a logged-in page, click through a flow, screenshot — comes from **[Claude for Chrome](https://claude.com/chrome)**, and it is **not** something this repo can ship you. There is nothing to copy into `settings.json`.
@@ -308,6 +335,7 @@ Key behaviours worth internalizing:
 - `.claude/settings.json` — checked in, team-shared permissions baseline
 - `.claude/settings.local.json` — gitignored, per-machine overrides
 - `.claude/settings.plugins.example.json` — reference only, opt-in MCP-backed plugins (github, linear, context7)
+- `.claude/settings.codex.example.json` — reference only, opt-in Codex failover (`/codex:rescue` when tokens run low, `/codex:transfer` before they run out)
 - `.claude/potential-bugs.md`, `.claude/techdebt.md`, `.claude/plans/` — gitignored, auto-created by `/scan`, `/techdebt`, `/plan` on first run; never seeded in this repo
 - `CLAUDE.md` (this repo's root) — guidance for Claude when editing **this config repo itself**, not a template
 - `.coderabbit.yaml` — this repo's own CodeRabbit settings; **not** installed into `~/.claude` (the installer only touches `.claude`). Tuned for **one review per PR**: no re-review on each push, no auto-reply to every comment. Copy it into your own repos if agent-authored PRs are burning review sessions there too
