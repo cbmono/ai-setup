@@ -66,12 +66,21 @@ no PII/secrets. The role-specific procedure is below.
 5. **CodeRabbit — read its existing review; run the CLI only if the repo has no
    integration.** Never pay for the same reviewer twice over one diff. Decide in this
    order:
-   - **a. Is there already a review on this PR?** Read the **structured** fields —
+   - **a. Is there already a CodeRabbit review on this PR?** Read the **structured** fields —
      `gh pr view <pr> --json reviews` for the review objects and
      `gh api repos/<owner>/<repo>/pulls/<pr>/comments` for the inline findings. Don't rely
      on `gh pr view --comments`: it renders the comment list, not the `reviews` data, so a
-     CodeRabbit review can be present and invisible to it. If a review exists, **fold its
-     findings in and do not run the CLI.**
+     CodeRabbit review can be present and invisible to it.
+     **Match on identity and state, not merely "a review exists"** — otherwise a human's
+     comment satisfies a gate CodeRabbit never ran, which is the failure that matters here:
+     `author.login == "coderabbitai"` in the `--json reviews` output (`user.login ==
+     "coderabbitai[bot]"` for the REST comments endpoint), with `submittedAt` present and
+     `state` **not** `DISMISSED`. If such a review exists, **fold its findings in and do not
+     run the CLI.**
+     **Reconcile the count before you conclude anything:** CodeRabbit's summary states
+     "Actionable comments posted: N" — compare N against the number of inline comments you
+     actually read, and paginate until they agree. A truncated fetch looks exactly like a
+     clean review.
    - **b. No review — is the repo nevertheless configured?** A configured repo can simply
      not have been reviewed *yet* (rate-limited, queued, or the PR is a draft). Check for a
      `.coderabbit.yaml`, and — since CodeRabbit is often configured through its **org UI**,

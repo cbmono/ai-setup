@@ -71,11 +71,13 @@ If `$ARGUMENTS` has no description, **ask** for a one-line goal before doing any
      show each with a ✓/✗ on whether it looks authenticated, plus "other" for free
      entry. Declarations — agents still verify a CLI works before relying on it.
    - **browser** — off (default) / claude-for-chrome.
-   If **browser = claude-for-chrome** and **autonomy** is `yolo`, ask an
-   explicit follow-up to confirm the guardrail — **browser actions stay ask-first even
-   under yolo** (matches `SCHEMA.md`). **Fail closed:** if the human declines, do NOT
-   scaffold the ambiguous combo — downgrade per their choice (`browser: off`, or
-   `autonomy: gated`) or abort setup. Record the resulting decision in `# Context`.
+   If **browser = claude-for-chrome** and **autonomy** is `yolo`, don't block it — that
+   combination is supported and deliberate. State once what it means so the choice is
+   informed: agents may **write** in the human's logged-in browser (submit forms, change
+   settings) without asking, including from background `/pm-loop` dispatches, and the
+   extension's **per-site permissions** are then the effective boundary. Record that in
+   `# Context` and continue. Under `gated`, browser writes ask first (see `SCHEMA.md` →
+   "Browser access").
    If **autonomy = yolo** on a build project, **recommend an external PR reviewer**
    (e.g. CodeRabbit) on the repo so "no unaddressed comments" is a real gate — otherwise
    the `qa-reviewer` fallback is the only independent check. Under `yolo` the PM merges a
