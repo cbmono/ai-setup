@@ -104,6 +104,14 @@ Ship hooks here only when they're **universally safe** — must no-op cleanly on
 
 Plugins enable behind the folder-trust gate on first launch, not silently. Consumers disable any default in their own `settings.local.json` (`"superpowers@claude-plugins-official": false`). When changing the default set, keep this table and the top-level `README.md` Plugins section in sync.
 
+## Browser control (Claude for Chrome)
+
+**Nothing to ship here — this one is deliberately docs-only.** Claude for Chrome's `mcp__claude-in-chrome__*` tools are **injected by the extension** into a live paired session; they appear in no config file (`claude mcp list` doesn't list the server, and there's no stanza in `settings.json` or any `.mcp.json`). So there is no `settings.claudeforchrome.example.json` and there shouldn't be — inventing a `command`/`args` block would violate "don't invent tool invocations". Setup is: install the extension → grant **per-site** permissions in it → the tools appear. See the top-level `README.md` → "Browser control" for the consumer-facing version.
+
+Two verified behaviors that shape guidance elsewhere: background subagents **do** inherit the browser connection (it isn't foreground-only), but each gets its **own tab group** rather than the human's open tabs — so agents must navigate from an explicit URL. `settings.json` intentionally leaves these tools **prompting** (a paired browser carries the human's logged-in identity; a mis-click isn't revertible like a commit).
+
+The `ai-bridge/` subtree consumes this: a project opts in with `browser: claude-for-chrome`, and `ai-bridge/symlink/SCHEMA.md` → "Browser access" holds the agent-facing rules (browser-first, degrade when absent, write-actions ask-first even under `yolo`).
+
 ## Commands vs skills
 
 Claude Code has two distinct mechanisms. This repo uses mostly **commands**, plus one **skill** (`test-locators`).

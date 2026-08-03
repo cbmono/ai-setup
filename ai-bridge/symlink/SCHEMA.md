@@ -43,7 +43,7 @@ target_repo: <org>/<repo>             # BUILD only: default repo for this projec
 deliverables: [ "<artifact>", ... ]   # RESEARCH only: what this project produces, e.g. "tech landscape per domain (md)", "exec summary deck (marp)"
 autonomy: gated | yolo                # optional (default gated). Captured at creation; ENFORCED by later machinery. gated = human promotes `ready` & merges; yolo = all-out — the loop auto-promotes fully-refined drafts with no open questions (build tasks) AND merges a PR once its independent review has no unaddressed comments and CI is fully green (merging the exact verified commit).
 clis: [ <name>, ... ]                 # optional: external CLIs/integrations this project's agents may use (e.g. render, supabase). A declaration — agents still verify a CLI works before relying on it.
-browser: off | claude-for-chrome      # optional (default off). claude-for-chrome = agents may use the claude-in-chrome MCP when present (foreground/interactive only); browser actions stay ask-first even under yolo.
+browser: off | claude-for-chrome      # optional (default off). claude-for-chrome = agents may drive the browser via the claude-in-chrome tools when present — background role agents included, each with its OWN tab group (not the human's tabs), so navigate explicitly. Absent tools = degrade, don't fail. Browser actions stay ask-first even under yolo. See "Browser access" below.
 status: active | paused | done
 timestamp: <ISO 8601>
 ---
@@ -270,6 +270,43 @@ in this order:
    the record — there is no `archive/`.** The full task→PR→Finding trail stays
    recoverable via `git`, and a done folder left live would only cost context on
    every PM tick. Removal is reversible with `git revert`, but is treated as final.
+
+# Browser access (`browser: claude-for-chrome`)
+
+A project may let its agents **drive a real browser** — read a logged-in page, click
+through a flow, screenshot — via **Claude for Chrome**. Opt in per project with
+`browser: claude-for-chrome` on `project.md` (default `off`).
+
+**How it's wired: it isn't.** The Chrome extension **injects** the
+`mcp__claude-in-chrome__*` tools into a live paired session. There is no `mcpServers`
+stanza, no `.mcp.json`, nothing in `settings.json` — `claude mcp list` doesn't even show
+it. Opting in at the machine level = **install the extension and grant it per-site
+permissions**; opting in per project = this field. Nothing to configure in this bundle.
+
+**Rules for agents:**
+
+1. **Availability is not guaranteed — degrade, never fail.** The tools exist only when a
+   browser is paired to the session. A cron/headless tick has none. If they're absent,
+   fall back to a non-browser route (CLI, API, `gh`, asking the human) and say so; never
+   report a task blocked *solely* because the browser wasn't there.
+2. **Background role agents can use it — but each gets its own tab group.** The
+   connection is inherited by background subagents; the human's open tabs are **not**.
+   So always **navigate explicitly** from a URL rather than assuming a page is already
+   open, and never assume you can see (or should touch) what the human is looking at.
+3. **Browser-first, escalate if stuck.** On a `browser: claude-for-chrome` project, if a
+   step needs a browser, try it yourself before handing it back — that's the point of the
+   opt-in. Ask the human only when the browser genuinely can't get there (an MFA prompt,
+   a permission the extension lacks, a destructive confirmation).
+4. **Ask-first even under `yolo` — no exceptions.** `yolo` delegates the *promote* and
+   *merge* gates; it does **not** delegate acting in the human's logged-in browser.
+   Read-only navigation and screenshots are fine; anything that **writes** (submitting a
+   form, changing a setting, sending a message, a payment, a delete) asks the human
+   first regardless of autonomy. A logged-in browser carries the human's full identity —
+   an autonomous mis-click there isn't revertible like a bad commit.
+5. **The usual data rules still apply.** A logged-in page is the most likely place to
+   meet **customer PII** — never copy it into a task doc, `# Result`, PR text, `log.md`,
+   any log or console output, or the KB. Describe the shape of what you saw, not the
+   records.
 
 **Worktrees.** Build tasks run in git worktrees under `<reposRoot>/_wt/`. These are
 reclaimed automatically — the PM removes a task's worktree once it is `done`/

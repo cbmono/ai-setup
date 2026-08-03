@@ -117,6 +117,36 @@ stubs are unwritten work; `draft` is the human's gate), and it records what was 
 **and what was rejected, with reasons** in the project's `log.md`. No CLI (or `--no-commit`)
 → skipped with a one-line note; the review never gates creation.
 
+## Browser access (`browser: claude-for-chrome`)
+A project can let its role agents **drive a real browser** — read a logged-in page, click
+through a flow, screenshot — via **Claude for Chrome**. Opt in at creation
+(`/claudeforchrome`) or by setting `browser: claude-for-chrome` on `project.md`; default
+`off`. Agent-facing rules live in `symlink/SCHEMA.md` → "Browser access".
+
+There is **nothing to configure in the instance**. The Chrome extension *injects* the
+`mcp__claude-in-chrome__*` tools into a live paired session — no `mcpServers` stanza, no
+`.mcp.json`, and `claude mcp list` doesn't even show it. Machine-level setup is: install the
+extension, then grant it **per-site** permissions there.
+
+What this means in practice:
+- **Background role agents can use it.** The connection is inherited by background
+  subagents, so this is *not* foreground-only — `/pm-loop`-dispatched agents can drive
+  Chrome. To make that reachable, `software-engineer`, `devops-engineer`, and `qa-reviewer`
+  carry `ToolSearch, mcp__claude-in-chrome__*` in their `tools:` allowlist (a closed
+  allowlist otherwise excludes every MCP tool). The pattern resolves to nothing when the
+  extension isn't paired, which is harmless — the rest of the allowlist still resolves.
+- **Each agent gets its own tab group**, not the human's open tabs. Agents must navigate
+  from an explicit URL; they can't "look at the tab you have open".
+- **A headless/cron tick has no browser.** Agents degrade to a non-browser route and say
+  so, rather than reporting the task blocked.
+- **Write actions ask the human first — even under `yolo`.** `yolo` delegates the promote
+  and merge gates, never acting in the human's logged-in browser.
+
+> **Upgrading an existing instance:** re-running `install.sh` picks up `SCHEMA.md` and the
+> role agents (symlinked), but **not** `CLAUDE.md` — seed content is copied only when
+> absent, never clobbered. Add the **Browser** bullet from `seed/CLAUDE.md`'s "Conventions
+> for role agents working in target repos" to your instance's `CLAUDE.md` by hand.
+
 ## Editor view (control panel + repos in one tree)
 The product repos stay **physical peers** of the instance, never nested inside it
 — nesting would drag the instance's control-panel `CLAUDE.md` into the cascade of
@@ -147,8 +177,26 @@ implementing agent's self-report. Role agents embed the task's `acceptance_crite
 in the PR body so the reviewer evaluates against them. The reviewer is an external one
 (e.g. CodeRabbit) when the repo configures it, otherwise the `qa-reviewer` agent is the
 fallback. Before *that*, the implementing agent **self-reviews its own diff** and fixes
-findings (`coderabbit` locally / `code-architect` / a careful pass) — a pre-filter that
+findings (`code-architect` / a careful pass) — a pre-filter that
 shifts cheap issues left, **not** a replacement for the independent gate.
+
+**One review per PR (cost control).** The gate needs *one* fresh-context review, not a
+review per push. Left at its defaults CodeRabbit re-runs on **every push** and replies to
+**every comment**, so a PR whose findings an agent then fixes burns several sessions to
+re-confirm a diff that's already clean. Three rules keep it to one:
+1. **Pin it in the target repo's `.coderabbit.yaml`** — `reviews.auto_review.auto_incremental_review: false`
+   (stop re-reviewing each push) and `chat.auto_reply: false` (stop replying to every
+   comment; it still answers an explicit `@coderabbitai`). Both default to `true`. This
+   repo's own [`.coderabbit.yaml`](../.coderabbit.yaml) is a working, commented example.
+2. **Don't pay for the same reviewer twice.** If CodeRabbit reviews the PR, the
+   pre-filter self-review uses the *free local* reviewer (`code-architect`), not the
+   `coderabbit` CLI. `qa-reviewer` likewise **reads** an existing CodeRabbit review off the
+   PR (via the structured `--json reviews`, not `--comments`) rather than re-running the CLI
+   over the same diff — and when the repo is configured but hasn't been reviewed *yet*, it
+   reports the gate as pending instead of substituting a CLI run.
+3. **Never re-review to confirm a fix.** Agents address findings, push, and reply once
+   with what changed. A re-review is requested only after a rewrite substantial enough to
+   invalidate the original review.
 **Recommended: set branch protection to require CI green + a review from that
 reviewer** (e.g. CodeRabbit as a required reviewer, or a dedicated verifier status
 check). Note GitHub only enforces *that* CI passed and a review happened — whether the

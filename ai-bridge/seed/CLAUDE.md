@@ -164,14 +164,24 @@ rule here, not in each agent.
   your own "it's done."
 - Run the repo's build, lint, and tests green before opening a PR. If you can't
   get them green, report rather than open the PR.
-- **Self-review before you open the PR (a pre-filter, not the gate).** On your own
-  diff, run a review and fix what it flags *first*: prefer `coderabbit review` locally
-  if the `coderabbit` CLI is available (same reviewer the PR will get, shifted left);
-  else dispatch `code-architect` if it's installed in `~/.claude/agents/`; else do a
-  careful pass yourself (correctness, edge cases, security, tests). This shifts the
-  cheap findings left so they don't bounce back from review — but it does **not**
-  replace the independent verifier: you review your own work leniently, so the
-  fresh-context reviewer still runs after (see `SCHEMA.md` "Independent verification gate").
+- **Self-review before you open the PR (a pre-filter, not the gate).** On your own diff,
+  run a review and fix what it flags *first*: dispatch `code-architect` if it's installed
+  in `~/.claude/agents/`, else do a careful pass yourself (correctness, edge cases,
+  security, tests). **Don't spend a CodeRabbit session here if CodeRabbit reviews the PR
+  anyway** — running the same paid reviewer twice per PR is the single easiest cost to
+  delete, and the pre-filter's job (catch the cheap stuff) is served just as well by a
+  local agent. Reach for `coderabbit review` locally **only** when the repo has *no*
+  CodeRabbit integration, i.e. when the `qa-reviewer` fallback would be the gate. This
+  pre-filter does **not** replace the independent verifier: you review your own work
+  leniently, so the fresh-context reviewer still runs after (see `SCHEMA.md`
+  "Independent verification gate").
+- **One review per PR — fix findings, don't re-trigger.** Address every review comment,
+  push the fix, and reply once stating what changed (or why you disagree). Do **not** ask
+  for a re-review to confirm your fixes: a re-review of addressed findings reliably finds
+  nothing and costs a full session. Request one (`@coderabbitai review`) only after a
+  *substantial rewrite* that invalidates the original review. Repos should pin this with
+  `.coderabbit.yaml` (`auto_incremental_review: false`, `chat.auto_reply: false`) so it
+  holds by default rather than by everyone's discipline.
 - **Wide work via workflows (optional).** For genuinely wide, *independent* work, author a
   `Workflow` fan-out instead of grinding serially (find the real edges → fan out → verify →
   synthesize). **Read-only** fan-out (review, audit, research, code-navigation) needs **no
@@ -197,6 +207,17 @@ rule here, not in each agent.
   unavailable to you as a subagent. (`settings.json` sets `worktree.bgIsolation:
   none` so the control panel manages worktrees itself; harness isolation would
   only isolate this repo, not the product repos.)
+- **Browser (only if the project opts in):** when the task's project sets `browser:
+  claude-for-chrome` **and** the `mcp__claude-in-chrome__*` tools are actually present, be
+  **browser-first**: verify the change in the real page, read the logged-in view, take the
+  screenshot — don't hand a browser step back to the human just because it's a browser
+  step. You get your **own tab group**, not the human's tabs, so always navigate from an
+  explicit URL. Tools absent (e.g. a headless tick) → take a non-browser route and say so;
+  never report blocked *only* for a missing browser. **Anything that writes in the browser
+  asks the human first — even under `yolo`** — and no customer PII from a logged-in page
+  ever reaches a task doc, PR text, `log.md`, any log or console output, or the KB.
+  Describe the *shape* of what you saw, not the records. Full rules: `SCHEMA.md` →
+  "Browser access".
 - **Code intelligence (if present):** if a repo has a CodeGraph index (a
   `.codegraph/` dir) or the `codegraph` MCP is available, use it to navigate the
   codebase before bulk-grepping — `codegraph explore "<q>" -p <repo>` for an area,
