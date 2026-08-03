@@ -143,13 +143,13 @@ What this means in practice:
   (forms included) — the loop already self-promotes and self-merges, so carving out the
   browser would be inconsistent. Under `gated`, ask first. Read-only navigation and
   screenshots need no permission either way.
-- **`yolo` alone isn't enough to make it autonomous — mind the second gate.** Claude Code's
-  tool permissions sit *underneath* a project's `autonomy`. If `mcp__claude-in-chrome__*`
-  is left prompting (the shipped default), a background agent stalls waiting on a human who
-  isn't watching, and the task looks hung rather than blocked. To get genuinely autonomous
-  browser work, allowlist those tools in the machine's `settings.local.json` as well — and
-  from that point the extension's **per-site permissions** are the boundary that actually
-  holds, so restrict there.
+- **Permissions are pre-wired, so nothing stalls.** Claude Code's tool permissions sit
+  *underneath* a project's `autonomy`: left prompting, a background agent would stall on a
+  prompt nobody is watching and the task would read as hung rather than blocked. So
+  `symlink/.claude/settings.json` allows `mcp__claude-in-chrome__*`, and every instance picks
+  it up via the symlink — no per-machine setup. From here the extension's **per-site
+  permissions** are the boundary that actually holds, so restrict there. To restore prompts,
+  shadow the rule with `ask` in the instance's `.claude/settings.local.json`.
 
 > **Upgrading an existing instance:** re-running `install.sh` picks up `SCHEMA.md` and the
 > role agents (symlinked), but **not** `CLAUDE.md` — seed content is copied only when

@@ -1,4 +1,9 @@
 {
+  "permissions": {
+    "allow": [
+      "mcp__claude-in-chrome__*"
+    ]
+  },
   "worktree": {
     "bgIsolation": "none"
   },
