@@ -178,7 +178,7 @@ Two behaviors worth knowing before you rely on it:
 | **Background subagents inherit the connection** | A background agent really can drive Chrome — it isn't foreground-only. Verified against a live connection. |
 | **…but each gets its own tab group** | An agent does **not** see your open tabs. It opens and drives its own, so brief it with an explicit URL rather than "the page I have open". |
 
-> **The baseline deliberately does not pre-allow these tools.** A paired browser carries your full logged-in identity, so a mis-click there isn't revertible the way a bad commit is. Leave them prompting, and if you do allowlist any, keep it to read-only navigation/screenshots — never form submits. Sites you'd rather Claude never touch should be denied in the **extension's** per-site permissions, which is the gate that actually holds.
+> **The baseline doesn't pre-allow these tools — that's a default, not a recommendation.** Left prompting, every browser action asks, which is the safe starting point but also means a **background** agent stalls waiting for a human who isn't watching. So if you want autonomous browser work (an ai-bridge project on `yolo`, say), you have to allowlist `mcp__claude-in-chrome__*` in your own `settings.local.json` — the project's `autonomy` alone won't do it, because permissions are a harness-level gate that sits *underneath* it. Decide that deliberately: the **extension's per-site permissions** then become the boundary that actually holds, so restrict there rather than trusting prompts.
 
 ### Hooks shipped in the baseline
 

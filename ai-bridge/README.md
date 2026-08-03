@@ -139,8 +139,17 @@ What this means in practice:
   from an explicit URL; they can't "look at the tab you have open".
 - **A headless/cron tick has no browser.** Agents degrade to a non-browser route and say
   so, rather than reporting the task blocked.
-- **Write actions ask the human first — even under `yolo`.** `yolo` delegates the promote
-  and merge gates, never acting in the human's logged-in browser.
+- **Writes follow the project's `autonomy`.** Under `yolo` browser writes are permitted
+  (forms included) — the loop already self-promotes and self-merges, so carving out the
+  browser would be inconsistent. Under `gated`, ask first. Read-only navigation and
+  screenshots need no permission either way.
+- **`yolo` alone isn't enough to make it autonomous — mind the second gate.** Claude Code's
+  tool permissions sit *underneath* a project's `autonomy`. If `mcp__claude-in-chrome__*`
+  is left prompting (the shipped default), a background agent stalls waiting on a human who
+  isn't watching, and the task looks hung rather than blocked. To get genuinely autonomous
+  browser work, allowlist those tools in the machine's `settings.local.json` as well — and
+  from that point the extension's **per-site permissions** are the boundary that actually
+  holds, so restrict there.
 
 > **Upgrading an existing instance:** re-running `install.sh` picks up `SCHEMA.md` and the
 > role agents (symlinked), but **not** `CLAUDE.md` — seed content is copied only when

@@ -43,7 +43,7 @@ target_repo: <org>/<repo>             # BUILD only: default repo for this projec
 deliverables: [ "<artifact>", ... ]   # RESEARCH only: what this project produces, e.g. "tech landscape per domain (md)", "exec summary deck (marp)"
 autonomy: gated | yolo                # optional (default gated). Captured at creation; ENFORCED by later machinery. gated = human promotes `ready` & merges; yolo = all-out — the loop auto-promotes fully-refined drafts with no open questions (build tasks) AND merges a PR once its independent review has no unaddressed comments and CI is fully green (merging the exact verified commit).
 clis: [ <name>, ... ]                 # optional: external CLIs/integrations this project's agents may use (e.g. render, supabase). A declaration — agents still verify a CLI works before relying on it.
-browser: off | claude-for-chrome      # optional (default off). claude-for-chrome = agents may drive the browser via the claude-in-chrome tools when present — background role agents included, each with its OWN tab group (not the human's tabs), so navigate explicitly. Absent tools = degrade, don't fail. Browser actions stay ask-first even under yolo. See "Browser access" below.
+browser: off | claude-for-chrome      # optional (default off). claude-for-chrome = agents may drive the browser via the claude-in-chrome tools when present — background role agents included, each with its OWN tab group (not the human's tabs), so navigate explicitly. Absent tools = degrade, don't fail. Writes follow the project's autonomy: permitted under yolo, ask-first under gated. See "Browser access" below.
 status: active | paused | done
 timestamp: <ISO 8601>
 ---
@@ -297,12 +297,19 @@ permissions**; opting in per project = this field. Nothing to configure in this 
    step needs a browser, try it yourself before handing it back — that's the point of the
    opt-in. Ask the human only when the browser genuinely can't get there (an MFA prompt,
    a permission the extension lacks, a destructive confirmation).
-4. **Ask-first even under `yolo` — no exceptions.** `yolo` delegates the *promote* and
-   *merge* gates; it does **not** delegate acting in the human's logged-in browser.
-   Read-only navigation and screenshots are fine; anything that **writes** (submitting a
-   form, changing a setting, sending a message, a payment, a delete) asks the human
-   first regardless of autonomy. A logged-in browser carries the human's full identity —
-   an autonomous mis-click there isn't revertible like a bad commit.
+4. **Writes follow the project's `autonomy`, like every other gate.**
+   - Under **`yolo`**: browser writes are **permitted** — submitting a form, changing a
+     setting, clicking through a flow — without asking, when they serve the task. `yolo`
+     means all-out; carving out the browser while the loop already self-promotes and
+     self-merges would be inconsistent.
+   - Under **`gated`** (the default): **ask first** before any browser write. Read-only
+     navigation and screenshots need no permission in either mode.
+   Two limits that are *not* browser-specific and still hold under `yolo`: an agent
+   **doesn't redefine scope**, so a write nobody asked for isn't licensed by autonomy
+   (the same rule that stops it inventing code changes); and irreversible actions well
+   outside the task — a payment, deleting an account, mailing a customer — are worth one
+   confirmation on cost grounds, not permission grounds. When in genuine doubt about
+   blast radius, say what you're about to do and continue unless told otherwise.
 5. **The usual data rules still apply.** A logged-in page is the most likely place to
    meet **customer PII** — never copy it into a task doc, `# Result`, PR text, `log.md`,
    any log or console output, or the KB. Describe the shape of what you saw, not the
