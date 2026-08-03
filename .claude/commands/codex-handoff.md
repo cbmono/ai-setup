@@ -71,6 +71,8 @@ having Codex summarise itself and ingesting that — which this does in one step
   before improvising; the surfaces differ between `codex exec` and `codex exec resume`.
 - **Transferring is not free** — the transcript is re-read into Codex's context (tens of thousands of
   tokens for a long session). Worth it to escape a token wall; wasteful for a one-line question, where
-  `/codex:rescue` is the cheaper tool.
+  `/codex:rescue` is the cheaper tool — but note `/codex:rescue` is **write-capable by default**, and
+  with `--background` it edits the same checkout you're still working in. Before suggesting it, say so:
+  the user should pause edits in that scope or give Codex its own worktree, then `git diff` the result.
 - **Don't enable the Stop-time review gate** (`/codex:setup --enable-review-gate`) on a machine that
   runs `/pm-loop` — it makes every stop wait on a Codex review.
