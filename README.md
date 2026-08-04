@@ -159,6 +159,71 @@ Manage background jobs with `/codex:status`, `/codex:result`, and `/codex:cancel
 
 > **Why it's opt-in rather than a default plugin.** It needs external credentials (same rule as MCP servers — consumers wire those up themselves), it lives in a **third-party** marketplace so it needs `extraKnownMarketplaces` unlike the `claude-plugins-official` defaults, and its review commands duplicate this repo's own command surface. Note too that enabling a plugin enables its hooks: this one registers `SessionStart`, `SessionEnd`, and a Stop-time review gate. That gate is **off unless you turn it on** with `/codex:setup --enable-review-gate` — leave it off on any machine running `/pm-loop`, since it makes every stop wait on a Codex review (900s timeout).
 
+### DeepSeek as an alternative backend (opt-in)
+
+Opt-in, off by default, and **architecturally different from the Codex integration above** — the distinction is the whole story, so don't reason about one from the other:
+
+| | Codex (`/codex-handoff`, `/codex:rescue`) | DeepSeek (`deepseek-session.sh`) |
+| --- | --- | --- |
+| Shape | **Delegation** — Claude stays the driver and hands specific work to a separate `codex` process | **Substitution** — replaces the model *behind Claude Code itself* |
+| What leaves | Only what you explicitly hand over | The entire session: prompts, file contents, tool results, diffs |
+| Wiring | A plugin, via `enabledPlugins` | Environment variables set **before** `claude` starts — so a launcher, not a settings entry |
+| Reach | Per-task, inside a normal session | Per-session, chosen at launch |
+
+Because it's env-var based it cannot be a `settings.*.example.json` like the others — `ANTHROPIC_BASE_URL` has to exist before the process starts. So it ships as one auditable script, [`.claude/scripts/deepseek-session.sh`](./.claude/scripts/deepseek-session.sh), linked to `~/.claude/scripts/` by `install.sh`.
+
+> 🚫 **Scope: this is for external projects only — do not use it on Alteos work, and do not mirror it into the Alteos `claude-code-setup` repo.** Substitution sends the whole session to DeepSeek, so it's a data-governance decision before a cost one. Valid on external/side projects (e.g. proceso.ai). Not on Alteos client or customer-adjacent code. The two config repos are otherwise kept in sync; **this feature is a deliberate exception** to that parity.
+
+#### Set it up (about two minutes, per machine)
+
+Each person uses **their own** DeepSeek key — keys are never shared or committed.
+
+1. **Get a key.** Sign up at [platform.deepseek.com](https://platform.deepseek.com), create an API key, and add credit (a few dollars goes a long way — DeepSeek is roughly an order of magnitude cheaper than Opus).
+2. **Make sure the script is linked.** If `~/.claude/scripts/` doesn't exist yet, re-run `./install.sh` from your `ai-setup` checkout — it picks up new top-level entries. Verify:
+   ```bash
+   ls ~/.claude/scripts/deepseek-session.sh
+   ```
+3. **Store the key.** Either export it in your shell profile, or drop it in a `.env` in the project you'll use it from:
+   ```bash
+   echo 'DEEPSEEK_API_KEY=sk-your-key-here' >> .env
+   ```
+   `.env` is gitignored here — check it's ignored in *your* project too (`git check-ignore .env`) before writing a key into it. See [`.env.example`](./.env.example).
+4. **Dry-run before spending anything.** This resolves your key and prints the exact environment it would set, with the key redacted, without starting a session or making an API call:
+   ```bash
+   ~/.claude/scripts/deepseek-session.sh --print-env
+   ```
+   The `# redacted, from …` comment tells you *which* source the key came from — useful when you have both an exported var and a `.env`.
+5. **Start a session.**
+   ```bash
+   ~/.claude/scripts/deepseek-session.sh          # then use Claude Code exactly as normal
+   ```
+   Optionally add `alias deepseek='~/.claude/scripts/deepseek-session.sh'` to your shell profile.
+
+**Going back to Anthropic:** just exit and run `claude`. Nothing is persisted — the script only sets variables for the one process it launches, so there is no mode to turn off and no state to clean up. Your Anthropic login is never read, modified, or invalidated.
+
+**What you keep:** every agent, command, and skill in this repo, plus locally-configured MCP servers. **What changes:** the model answering, and your claude.ai connectors (see below). `--help` lists all overrides.
+
+**Confirming which backend you're on:** every run prints an unsuppressible banner to stderr naming the endpoint, models, key source, and cwd. If you don't see it, you're on Anthropic. That's deliberate — the expensive mistake is forgetting which backend is live and pasting in code that shouldn't leave your infrastructure.
+
+#### If something goes wrong
+
+| Symptom | Cause and fix |
+| --- | --- |
+| `error: no DeepSeek API key found` | Not exported and not in `./.env` or your repo root's `.env`. Run `--print-env` to see what it resolves. |
+| `401` / authentication failed | Bad or revoked key, or credit exhausted — check the balance at [platform.deepseek.com](https://platform.deepseek.com). Note the script strips quotes and inline comments from `.env` values, so `KEY="sk-x"  # note` is parsed correctly. |
+| `error: 'claude' not found on PATH` | Claude Code isn't installed or isn't on `PATH` for this shell. |
+| `ls: ~/.claude/scripts: No such file` | `install.sh` hasn't been re-run since this landed. Re-run it (step 2). |
+| Connectors missing (Asana, Slack, …) | Expected, not a bug — see the connectors note below. |
+| Responses feel worse than Claude | Also expected. `deepseek-v4-pro` is not Opus. The trade is cost for capability; use it where that trade makes sense. |
+
+**Why our own ~40-line launcher instead of [`aattaran/deepclaude`](https://github.com/aattaran/deepclaude)?** That project (MIT, ~2.2k stars) does more — a local proxy on `:3200`, live `/deepseek` · `/anthropic` switching, cost tracking. But it publishes **no tags and no releases**, so there's nothing to pin, and this repo's rule is to pin third-party *executable* content deliberately (see the Codex note above). A launcher that holds your API key and proxies every request is the wrong place to track a moving default branch. Ours keeps that path auditable in one screen and reads the key by **parsing** `.env` rather than sourcing it, so nothing in a secrets file is ever executed as shell. Want the proxy and live switching? Install deepclaude separately, as a deliberate choice.
+
+Verified live against the API on 2026-08-04: base URL `https://api.deepseek.com/anthropic`, `Authorization: Bearer` auth, and both model IDs (`deepseek-v4-pro` → opus/sonnet tiers, `deepseek-v4-flash` → haiku/subagents). A real one-shot Claude Code session on the backend was confirmed working end-to-end.
+
+> **You lose your claude.ai connectors for that session.** Because an alternative auth source takes precedence over your claude.ai login, Claude Code prints `claude.ai connectors are disabled…` and your org's MCP connectors (Asana, Atlassian, Slack, Supabase, …) are unavailable. Agents, commands, skills, and local MCP servers still work. If a task needs a connector, run it in a normal Anthropic session.
+
+> ⚠️ **A stale model ID costs money silently.** DeepSeek maps an *unrecognised* model name to a working model rather than erroring. Testing showed an unknown name resolving to `deepseek-v4-pro` — the **expensive** tier — which contradicts DeepSeek's docs (they say it falls back to flash). So if DeepSeek renames a model, nothing breaks and nothing warns you; you just pay pro rates. Override with `DEEPSEEK_MODEL_PRO` / `DEEPSEEK_MODEL_FLASH` and re-check the [model list](https://api-docs.deepseek.com/quick_start/pricing) rather than waiting for an error.
+
 ### Browser control (Claude for Chrome)
 
 Letting Claude drive a real browser — read a logged-in page, click through a flow, screenshot — comes from **[Claude for Chrome](https://claude.com/chrome)**, and it is **not** something this repo can ship you. There is nothing to copy into `settings.json`.

@@ -15,6 +15,8 @@ Defaults shipped by this repo. See the [top-level README](../README.md) for inst
   settings.codex.example.json         # opt-in Codex failover (openai/codex-plugin-cc)
   hooks/                              # executable hook scripts referenced from settings.json
     format-on-write.sh                # PostToolUse Write|Edit: prettier/biome if declared in package.json
+  scripts/                            # executable scripts the USER runs directly (not hooks, not commands)
+    deepseek-session.sh               # opt-in: launch a session against DeepSeek instead of Anthropic
   agents/                             # subagents (one .md per agent, YAML frontmatter)
   commands/                           # slash commands (one .md per command, no frontmatter)
   skills/                             # auto-invocable capabilities; see skills/README.md
@@ -117,6 +119,29 @@ Plugins enable behind the folder-trust gate on first launch, not silently. Consu
 **`/codex:rescue --background` writes to the live checkout.** It is write-capable by default and runs while Claude keeps working in the same directory, so concurrent edits to the same files can be lost or interleaved. Pause edits in that scope or hand Codex an isolated worktree, and `git diff` before trusting the result — the same reason `/codex-handoff back` reconciles Codex's summary against the diff rather than believing it.
 
 **Keep this integration modular.** All Codex content lives in that one example file plus clearly-bounded doc sections (here and in the root `README.md`). Don't thread Codex branches through unrelated machinery: the point is that mirroring it elsewhere later is a one-file copy, and that it can be dropped without unpicking anything. Marketplace sources accept `ref` (branch/tag) but **not** `sha`.
+
+## DeepSeek backend (opt-in)
+
+`scripts/deepseek-session.sh` runs one Claude Code session against DeepSeek instead of Anthropic. **Not a default, and not the same shape as the Codex integration above** — Codex is *delegation* (Claude drives, hands tasks to a separate process), this is *substitution* (the model behind Claude Code is replaced, so the whole session — prompts, file contents, tool results — is served by DeepSeek).
+
+**Why it's a script and not a `settings.*.example.json`.** It works by setting `ANTHROPIC_BASE_URL` / `ANTHROPIC_AUTH_TOKEN` / the model-tier vars, which must exist **before** the `claude` process starts. There is no settings key that achieves this, so don't "harmonise" it into an example-settings file — that would be inventing config that doesn't work. This is also why `scripts/` exists as a category distinct from `hooks/`: hooks are invoked *by Claude Code*, these are invoked *by the user*.
+
+**Two things to preserve if you edit it.**
+
+1. It **parses** `.env` with `grep`/`sed` rather than `set -a; . .env`. Sourcing a secrets file executes arbitrary shell from it; a stray `$(...)` in someone's `.env` would run silently. There's a regression test for this (a command substitution in `.env` must not fire).
+2. It `unset`s `ANTHROPIC_API_KEY`. That's the `x-api-key` header while `ANTHROPIC_AUTH_TOKEN` is `Authorization` — leaving both set would forward an **Anthropic** credential to a third-party endpoint.
+
+**Verified live 2026-08-04** (don't re-derive these from docs, they were checked against the API): base URL `https://api.deepseek.com/anthropic`, `Authorization: Bearer` auth works, `deepseek-v4-pro` and `deepseek-v4-flash` both real, and a one-shot `claude -p` session through the launcher returned correctly. **DeepSeek's docs are wrong about the fallback** — an unrecognised model name resolved to `deepseek-v4-pro` (expensive tier), not flash as documented. Consequence worth keeping in the docs: a stale model ID inflates cost and never errors, so the IDs stay overridable via `DEEPSEEK_MODEL_PRO` / `DEEPSEEK_MODEL_FLASH`.
+
+**Known limitation, verified not theoretical:** the session prints `claude.ai connectors are disabled because ANTHROPIC_API_KEY or another auth source is set…` and org MCP connectors (Asana, Atlassian, Slack, Supabase, …) are unavailable, because a non-OAuth auth source outranks the claude.ai login. This is inherent to substitution, not a bug in the script — `unset`ting the token would just disable DeepSeek. Agents, commands, skills, and locally-configured MCP servers are unaffected.
+
+**`.claude/scripts/` needs an explicit `.gitignore` allow.** The root `.gitignore` denies `.claude/*` and re-includes tracked defaults one by one, so a new directory here is invisible to git until `!.claude/scripts/` is added. `install.sh` then links it automatically (it auto-discovers from `git ls-files`), which is exactly why the gitignore entry is load-bearing rather than cosmetic. `FALLBACK_DEFAULTS` in `install.sh` lists it too, for non-git tarball installs.
+
+**🚫 Do NOT mirror this into `claude-code-setup` (the Alteos-internal copy).** The two config repos are normally kept in parity, and shared edits are mirrored by default — **this feature is an explicit, standing exception**. Substitution routes the entire session to DeepSeek, which is not acceptable for Alteos client or customer-adjacent code, so the capability should not even be *available* there. That means: no `scripts/deepseek-session.sh`, no `.env.example` DeepSeek entry, and no DeepSeek doc sections in that repo. If you're mirroring a batch of changes across the two repos, skip everything DeepSeek — and don't "helpfully" restore it later. It's valid on external projects (e.g. proceso.ai) via this repo only.
+
+**Data governance is the consumer's call, and the docs must keep saying so.** The root `README.md` records the current Alteos position and the setup walkthrough. The unsuppressible stderr banner naming the active backend is a safety feature, not noise — don't add a `--quiet`.
+
+**Deliberately not vendoring [`aattaran/deepclaude`](https://github.com/aattaran/deepclaude).** It has more features (proxy on `:3200`, live backend switching, cost tracking) but publishes no tags or releases, so there is nothing to pin — and this repo pins third-party executable content by rule. Keeping our own ~40 lines means no unpinned third-party code sits in the path holding the API key.
 
 ## Browser control (Claude for Chrome)
 
