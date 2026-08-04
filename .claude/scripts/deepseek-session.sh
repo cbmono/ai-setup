@@ -34,6 +34,12 @@ set -euo pipefail
 BASE_URL="${DEEPSEEK_BASE_URL:-https://api.deepseek.com/anthropic}"
 MODEL_PRO="${DEEPSEEK_MODEL_PRO:-deepseek-v4-pro}"
 MODEL_FLASH="${DEEPSEEK_MODEL_FLASH:-deepseek-v4-flash}"
+# Subagents get the cheap tier by default (DeepSeek's own recommendation). That's
+# right for an ordinary session, but wrong wherever subagents do the real work —
+# an ai-bridge instance dispatches its role agents as subagents, so leaving them
+# on flash would quietly downgrade every PR-writing agent. Separate knob so such a
+# setup can raise just the subagent tier without also moving the haiku tier.
+SUBAGENT_MODEL="${DEEPSEEK_SUBAGENT_MODEL:-$MODEL_FLASH}"
 # ---------------------------------------------------------------------------
 
 usage() {
@@ -53,7 +59,10 @@ API key, first match wins:
 
 The .env file is PARSED, never sourced — nothing in it is executed as shell.
 
-Overrides: DEEPSEEK_BASE_URL (must be https://), DEEPSEEK_MODEL_PRO, DEEPSEEK_MODEL_FLASH.
+Overrides: DEEPSEEK_BASE_URL (must be https://), DEEPSEEK_MODEL_PRO,
+           DEEPSEEK_MODEL_FLASH, DEEPSEEK_SUBAGENT_MODEL (defaults to the flash
+           tier; raise it where subagents do the real work, e.g. an ai-bridge
+           instance whose role agents open PRs).
 
 Everything in the session goes to DeepSeek. Check what the code you are pointing
 it at is allowed to leave your infrastructure before you use it.
@@ -146,7 +155,12 @@ export ANTHROPIC_AUTH_TOKEN="$KEY"
 export ANTHROPIC_DEFAULT_OPUS_MODEL="$MODEL_PRO"
 export ANTHROPIC_DEFAULT_SONNET_MODEL="$MODEL_PRO"
 export ANTHROPIC_DEFAULT_HAIKU_MODEL="$MODEL_FLASH"
-export CLAUDE_CODE_SUBAGENT_MODEL="$MODEL_FLASH"
+# The installed CLI reads a FABLE tier too (confirmed present in 2.1.221), which
+# DeepSeek's setup docs omit. Left unset, a `fable`-tier request would fall through
+# to DeepSeek's silent unknown-model mapping — which resolves to the expensive tier
+# anyway, so mapping it explicitly costs nothing and removes the accident.
+export ANTHROPIC_DEFAULT_FABLE_MODEL="$MODEL_PRO"
+export CLAUDE_CODE_SUBAGENT_MODEL="$SUBAGENT_MODEL"
 
 # ANTHROPIC_API_KEY (x-api-key) and ANTHROPIC_AUTH_TOKEN (Authorization) are two
 # different auth headers. An inherited ANTHROPIC_API_KEY would travel to DeepSeek
@@ -160,6 +174,7 @@ ANTHROPIC_AUTH_TOKEN=$KEY_HINT   # redacted, from $KEY_SOURCE
 ANTHROPIC_DEFAULT_OPUS_MODEL=$ANTHROPIC_DEFAULT_OPUS_MODEL
 ANTHROPIC_DEFAULT_SONNET_MODEL=$ANTHROPIC_DEFAULT_SONNET_MODEL
 ANTHROPIC_DEFAULT_HAIKU_MODEL=$ANTHROPIC_DEFAULT_HAIKU_MODEL
+ANTHROPIC_DEFAULT_FABLE_MODEL=$ANTHROPIC_DEFAULT_FABLE_MODEL
 CLAUDE_CODE_SUBAGENT_MODEL=$CLAUDE_CODE_SUBAGENT_MODEL
 ANTHROPIC_API_KEY=(unset)
 ENVDUMP
@@ -177,7 +192,8 @@ command -v claude >/dev/null 2>&1 || {
 {
   echo "┌─ DeepSeek session ─────────────────────────────────────────"
   echo "│ backend : $BASE_URL"
-  echo "│ models  : $MODEL_PRO (opus/sonnet) · $MODEL_FLASH (haiku/subagents)"
+  echo "│ models  : $MODEL_PRO (opus/sonnet/fable) · $MODEL_FLASH (haiku)"
+  echo "│ subagent: $SUBAGENT_MODEL"
   echo "│ key     : $KEY_HINT  ← $KEY_SOURCE"
   echo "│ cwd     : $PWD"
   echo "│"
