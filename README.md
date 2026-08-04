@@ -1,52 +1,217 @@
 # ai-setup
 
-Opinionated defaults for [Claude Code](https://claude.com/claude-code), tuned for Node.js and TypeScript projects. Agents, slash commands, and settings — ready to drop into `~/.claude` or cherry-pick per project.
+**A control panel for running a small team of AI agents on your codebases — plus the [Claude Code](https://claude.com/claude-code) setup they run on.**
 
-Built for Opus 4.8 with stacked-PR workflows in mind.
+You describe the work. A "project manager" agent breaks it into tasks. You approve. Engineer agents go off and build it **in the background**, open pull requests, and get reviewed. You merge. That's the whole idea — you act like an engineering manager, not a pair programmer.
 
 ---
+
+## What's in here
+
+Two layers, and you can use either one on its own:
+
+| Layer | What it is | Use it if… |
+| --- | --- | --- |
+| **[`ai-bridge/`](#layer-1-ai-bridge--the-control-panel) — the control panel** | A folder that acts as mission control for a group of repos: projects, tasks, a background project-manager loop, role agents, a knowledge base. **This is the point of the repo.** | You want work happening while you're not watching |
+| **[`.claude/`](#layer-2-the-claude-code-defaults) — the defaults** | Agents, slash commands, permissions, and hooks for everyday Claude Code use (`/plan`, `/grill`, `/verify`, `/scan`, …) | You just want a better-configured Claude Code |
+
+Built for Opus 4.8, Node.js/TypeScript projects, and stacked pull requests.
+
+**In a hurry?** [Set up the defaults](#getting-started) (2 minutes), then [set up a control panel](#setting-up-a-control-panel) (10 minutes).
+
+---
+
+# Layer 1: `ai-bridge` — the control panel
+
+An **instance** of the control panel is a small git repo that sits beside your product repos. It holds no application code — only the state of the work: what you're trying to achieve, what's in flight, what's blocked, and what the agents have learned. Agents read from it and write back to it; you steer from it.
+
+One instance per *group* of repos (work, a side project, a client), so those worlds stay separate.
+
+> Under the hood it's an [Open Knowledge Format (OKF)](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md) **Knowledge Bundle** — a plain-markdown, schema'd way of storing projects, tasks, and findings. You never have to think about that; the commands write the files for you.
+
+## The core loop
+
+This is the part to memorise. Four steps, two of them yours:
+
+```
+  /new-project  →  the PM refines it  →  ①  YOU approve  →  agents build in the
+     (you)          into draft tasks       (draft → ready)    background, open PRs
+                                                                      │
+                       project closed  ←  ②  YOU merge  ←─────────────┘
+```
+
+| Step | Command | What happens |
+| --- | --- | --- |
+| **1. Describe the work** | `/new-project <description>` | Scaffolds a project folder with seed tasks, all marked `draft`. It asks a few questions (which repo? how autonomous? does it need a browser?) and nothing is dispatchable yet. |
+| **2. Let the PM sharpen it** | `/pm-loop` | The project-manager agent fills in acceptance criteria, and where it genuinely can't decide, writes down numbered **open questions** for you. |
+| **① Your first gate** | *`/answer`, then edit the task* | Answer its questions, then promote the task by changing `status: draft` to `status: ready` in the task file. **Only a human can do this.** Nothing gets built without it. |
+| **3. Let it run** | `/pm-loop 10m` | Each tick: dispatches `ready` tasks to role agents (which work in their own git worktrees, in the background), watches their PRs, reflects merges back, and refreshes the board. |
+| **② Your second gate** | *(merge on GitHub)* | You merge the PR — or, for a research project, approve the deliverable. **Only a human does this too**, unless you've explicitly opted a project into `yolo`. |
+| **4. Wrap up** | `/close-project <slug>` | Consolidates what was learned into the knowledge base, logs the closeout, and deletes the project folder. Git history + the knowledge base are the record. |
+
+**The mindset: steer, don't watch.** You should mostly see *results and questions*, not every intermediate step. If you find yourself reading agent output line by line, you're using it wrong — run `/status` instead.
+
+## The commands you'll actually use
+
+All of these run from inside a control-panel instance (`cd` there, then `claude`).
+
+| Command | What it does |
+| --- | --- |
+| **`/status`** | The board: 🔴 awaiting you · 🟡 in flight · 🟢 next · ⛔ blocked. Writes it to `DASHBOARD.md`. Read-only and safe anytime, even mid-loop. `/status mine` = just your queue. |
+| **`/pm-loop`** | One safe, idempotent tick of the loop — refine drafts, dispatch `ready` tasks, reflect merges. Add a gap (`/pm-loop 10m`) to keep looping. Say "DRY RUN" to see what it *would* do without spawning anything. |
+| **`/new-project <description>`** | Start work. Add `kind=research` for doc/deck/asset projects that produce deliverables instead of code. |
+| **`/answer`** | Answers all the PM's pending questions interactively in one batch, instead of editing each task file by hand. |
+| **`/close-project <slug>`** | Close a finished project (the PM flags candidates; you pull the trigger). |
+| **`/audit`** | The slow counter-metric. Weekly-ish: checks whether all this throughput is actually moving your stated goals. See [Are the agents actually helping?](#are-the-agents-actually-helping) |
+| **`/todo <text>`** | Quick personal reminders in `todos.md`, separate from formal project work. `/todo` lists, `/todo done <text>` closes. |
+| **`/fanout`** | Send a batch of independent one-off asks to parallel background agents. (Just giving the session ≥2 independent asks does this automatically.) |
+| **`/pr-review-request <filter>`** | Find related open, green PRs and draft a grouped review-request message. |
+
+Two `SessionStart` hooks mean that when you open Claude in an instance, it greets you with what's awaiting you and any open todos — you don't have to remember to ask.
+
+## Answering the PM's questions
+
+When a task is blocked on a decision only you can make, the PM writes numbered questions into the task document:
+
+```
+Q1: which region should we default to?
+```
+
+Answer it by appending ` --- ` and your answer, right there in the file:
+
+```
+Q1: which region should we default to? --- eu-central-1
+```
+
+The next tick folds it in and clears the question. Once the list is empty, the task is promotable. `/answer` does this for you conversationally, and answering in chat during a session works too.
+
+## How much do you have to babysit it?
+
+Each project has an **autonomy** setting, chosen when you create it:
+
+| Mode | What you do | What the loop does |
+| --- | --- | --- |
+| **`gated`** (default) | Approve every task, merge every PR | Refines, dispatches, reports. Never promotes, never merges. |
+| **`yolo`** (`/new-project … /yolo`) | Answer questions, watch for drift with `/audit` | Also promotes fully-refined drafts with no open questions, and merges a PR once its independent review is clean and CI is fully green (merging the exact verified commit). Build tasks only — research stays human-driven. |
+
+`yolo` is genuinely all-out. Pair it with `/audit` — that's the check that catches a loop quietly gaming itself.
+
+## Who's on the team
+
+Role agents load **only** when you launch Claude inside an instance — they never pollute your global `~/.claude`.
+
+| Agent | Role |
+| --- | --- |
+| **`project-manager`** | Runs the loop: refines drafts, asks you questions, dispatches work, tracks PRs, reflects merges, proposes closures. Never promotes and never merges. |
+| **`software-engineer`** | Implements tasks in the product repos, on a branch/worktree, and opens a PR. Never merges. |
+| **`devops-engineer`** | Same, for CI, infrastructure, and deployment work. |
+| **`qa-reviewer`** | The independent review gate when the repo has no external reviewer configured. Judges the PR against the task's acceptance criteria, with fresh context. |
+| **`cataloguer`** | Builds and refreshes the knowledge base. Read-only on product repos. |
+| **`auditor`** | Read-only drift check, dispatched by `/audit`. Never acts. |
+| **`oncall-guide`** | Diagnoses a red build, failed CI run, or broken deploy — including from a pasted PR number. Read-only: it reports the root cause and ranked next steps, it never fixes. Dispatched in the background whenever you ask "why is this failing?" |
+
+## Where the work lives
+
+```
+_ai-bridge-<group>/
+├── objectives/       what you're actually trying to achieve
+├── projects/         active work → each with tasks (draft → ready → in-review → done)
+├── knowledge/        services, findings, runbooks, teams — what's been learned
+├── todos.md          quick personal reminders
+├── log.md            the durable event log
+└── DASHBOARD.md      the derived board (regenerated, never hand-edited)
+```
+
+Projects come in two kinds:
+
+- **`build`** (default) — ships code to a repo as pull requests. Agents execute; you merge.
+- **`research`** — produces deliverables *inside* the bundle (docs, marp/pptx decks, assets). No repo, no PRs, human-driven. These are the strategic entry points: their conclusions graduate into `knowledge/` and spawn objectives and build projects.
+
+**The knowledge base is pull-based.** It's never auto-loaded into context (that would bloat every session). Agents scan a one-line-per-entry index first and open only the two or three documents that matter — so nobody re-derives what the last agent already figured out.
+
+## The safety rails
+
+The things that stop a fleet of background agents from making a mess:
+
+- **Two human authorities.** Only a human promotes `draft → ready`. Only a human merges (unless a project is explicitly `yolo`). The PM cannot do either.
+- **Nobody grades their own homework.** Before any PR merges it's checked by an **independent** reviewer with fresh context — CodeRabbit where the repo configures it, otherwise the `qa-reviewer` agent — judged on real signals (acceptance criteria met, CI actually green), never the implementing agent's say-so. The implementing agent self-reviews first, but that's a cheap pre-filter, not the gate.
+- **One review per PR.** Left at defaults, CodeRabbit re-reviews on *every push* and replies to *every comment*, so a PR whose findings an agent then fixes burns several paid sessions re-confirming a clean diff. Agents fix, push, and reply once — they never ask for a re-review to confirm their own fix. Pin it in the target repo's `.coderabbit.yaml` (`auto_incremental_review: false`, `chat.auto_reply: false`); [this repo's own](./.coderabbit.yaml) is a working example.
+- **Isolation.** Each agent gets its own git worktree and its own package store, so parallel work can't corrupt a shared checkout. Finished worktrees get reclaimed automatically.
+- **No PII, no secrets.** Never in task documents, commits, PR text, logs, or the knowledge base.
+- **Per-agent authorship.** Commits inside the control panel are attributed to the role that made them, so `git shortlog` tells you who did what. (Never in the product repos — many forbid AI attribution.)
+
+## Are the agents actually helping?
+
+`/pm-loop` optimises throughput. **`/audit`** is the independent check that the throughput is moving your real goals — run it weekly, or after a batch of projects close. The read-only `auditor` grounds each objective's success criteria against live `gh`/`git` reality and flags the four ways a busy control panel drifts:
+
+1. **Goodhart** — lots of tasks closed, goal unmoved
+2. **Measurement decay** — knowledge that's gone stale
+3. **Green but not progressing** — projects that look healthy and aren't
+4. **Weakened anchors** — a human gate or the verification gate quietly slipping, or a `yolo` project merging PRs no independent reviewer cleared
+
+It writes a dated report to `log.md` and **never acts**. Responding is your call.
+
+## Setting up a control panel
+
+First [install the defaults](#getting-started), then stamp out an instance:
+
+```bash
+mkdir -p ~/workspace/<group>/_ai-bridge-<group>
+~/path/to/ai-setup/ai-bridge/install.sh ~/workspace/<group>/_ai-bridge-<group>
+cd ~/workspace/<group>/_ai-bridge-<group>
+$EDITOR instance.config.json          # set org, reposRoot, authorEmail
+git init && git add -A && git commit -m "chore: bootstrap control panel"
+gh repo create <user>/_ai-bridge-<group> --private --source=. --push
+```
+
+Then `claude` — from inside that directory — and run `/pm-loop` as a DRY RUN to see the shape of things.
+
+A few things worth knowing:
+
+- **The instance lives *beside* your product repos, never above them.** The group folder (`~/workspace/<group>/`) is a plain directory, not a repo. Nesting the instance above the repos would tell every product-repo session it's a control panel.
+- **The leading underscore** pins it to the top of the folder listing and keeps it visible (unlike a dotfile).
+- **Launch Claude from the instance directory.** Your editor's open folder doesn't decide which config loads — the working directory does.
+- **The machinery is symlinked, not copied**, so a `git pull` on `ai-setup` updates every instance immediately. Your instance data is copied once and never clobbered. Re-run `install.sh` only when the template *adds* new files.
+- **Want one tree in your editor?** Open the seeded `<group>.code-workspace` (VS Code / Cursor / Antigravity) for a multi-root view. Zed users: open the group folder.
+
+**One `/pm-loop` per instance at a time.** The "one tick at a time" guarantee is per session and there's no cross-session lock — a second session looping the same instance would double-dispatch tasks and race pushes.
+
+## Tuning: cost, speed, and depth
+
+Set in `instance.config.json`:
+
+- **`models` + `roleTiers`** — routes each role to a cost-appropriate model (`light`/`standard`/`deep`/`apex`, mapped to aliases like haiku/sonnet/opus/fable so they track the latest release). The PM bumps a complex task up a tier and drops a trivial one down. Omit both and everything just uses the session model.
+- **`maxAgentsInFlight`** (default **10**) — how many role agents run at once. With worktree isolation this is a throughput/cost throttle, not a safety lock: raise it on a big machine, lower it on a laptop.
+
+**Optional: local code intelligence.** Agents navigate a repo faster with a [CodeGraph](https://www.npmjs.com/package/@colbymchenry/codegraph) index than with blind grep. It's opt-in and 100% local — `npm i -g @colbymchenry/codegraph`, `codegraph install`, then `scripts/index-kb.sh` from the instance root. No index present, and agents just grep as before.
+
+**Optional: browser access.** A project can let its agents drive a real Chrome — read a logged-in page, click through a flow, screenshot — with `browser: claude-for-chrome`. See [Browser control](#browser-control-claude-for-chrome) for what that involves.
+
+→ **Full technical reference: [`ai-bridge/README.md`](ai-bridge/README.md)** — schema, upgrade path, per-instance settings, the lot.
+
+---
+
+# Layer 2: the Claude Code defaults
+
+The everyday coding config the control panel runs on — and perfectly useful on its own. These install into `~/.claude` and apply in every project.
 
 ## Getting started
 
 The recommended setup is **user-wide**: run `install.sh` once, and every project picks up the agents, commands, skills, and defaults automatically.
 
 ```bash
-git clone https://github.com/<your-fork>/ai-setup.git ~/path/to/ai-setup
+git clone https://github.com/cbmono/ai-setup.git ~/path/to/ai-setup
 cd ~/path/to/ai-setup
 ./install.sh
 ```
 
-`install.sh` symlinks this repo's tracked defaults **into** your existing `~/.claude` one entry at a time (not a whole-directory symlink), so your plugins, sessions, and `settings.local.json` stay put and Claude Code's runtime state never leaks into the repo. It's idempotent and auto-discovers what to link from what git tracks — re-run it after a `git pull` that adds a new top-level entry. See [Install](#install) for what it does and the per-project alternative.
+`install.sh` symlinks this repo's tracked defaults **into** your existing `~/.claude` one entry at a time (not a whole-directory symlink), so your plugins, sessions, and `settings.local.json` stay put and Claude Code's runtime state never leaks into the repo. It's idempotent and auto-discovers what to link from what git tracks — re-run it after a `git pull` that adds a new top-level entry. See [Install](#install) for the details and the per-project alternative.
 
 Then in any project: `claude`, then `/init` to bootstrap the project's `CLAUDE.md`. Project-state files (`/scan`, `/techdebt`, `/plan` outputs) land in the project's local `.claude/`, created lazily on first write.
 
-Prefer per-project copy, or have an existing `.claude/` to overlay? See [Install](#install).
+Note that `install.sh` deliberately never touches `ai-bridge/` — the control panel installs into per-group instances, not into `~/.claude`.
 
----
-
-## ai-bridge — the background-agent control panel
-
-**This is the point of the repo.** [`ai-bridge/`](ai-bridge/README.md) is a reusable [Open Knowledge Format (OKF)](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md) **Knowledge Bundle** that acts as a *control panel* for a fleet of background AI agents working on a group's repos. You stamp out one **instance** per group (`_ai-bridge-<group>/`, its own private repo) and drive it with a few commands: a project-manager loop refines drafts and dispatches work to role agents, while two human gates stay yours — promote `draft → ready`, and merge the PR / approve the deliverable. Everything else in this repo (the agents, commands, skills, and settings below) is the **supporting tooling** a bridge session runs on top of.
-
-It's a deliberately **separate subtree**: the user-wide `install.sh` never touches it, and the agents/commands it ships install into per-group *instances*, **not** into `~/.claude`.
-
-| Part | What's there |
-| --- | --- |
-| **`symlink/`** — machinery, symlinked into every instance | `SCHEMA.md` (OKF types + the task lifecycle); role agents `project-manager`, `software-engineer`, `devops-engineer`, `qa-reviewer`, `cataloguer`; commands `/status` (status board → `DASHBOARD.md`), `/pm-loop`, `/new-project`, `/pr-review-request`, `/todo`, `/fanout`; `commit-as.sh` (per-agent commit authorship); `SessionStart` hooks that surface the tasks awaiting you and open todos |
-| **`seed/`** — copied once, then yours | `instance.config.json`, the instance `CLAUDE.md`, empty `objectives/` · `projects/` · `knowledge/`, `todos.md` (quick reminders), and a `<group>.code-workspace` (multi-root editor view; `install.sh` names it per instance so open windows are identifiable) |
-| **`install.sh`** | Stamps out / refreshes an instance: file-granular symlinks + seed copy + a managed `.gitignore` block |
-| **Project kinds** | **`build`** — ships code to a repo as PRs (role agents execute, you merge); **`research`** — produces in-bundle deliverables (docs, marp/pptx decks, assets), human-driven |
-| **Instance** | `_ai-bridge-<group>/` — its own private repo per group, living beside that group's product repos |
-
-→ Full guide and setup: **[`ai-bridge/README.md`](ai-bridge/README.md)**.
-
----
-
-## What's inside
-
-The config layer the bridge — and your everyday coding — runs on: agents, commands, skills, and settings that install into `~/.claude`.
-
-### Agents (`.claude/agents/`)
+## Agents (`.claude/agents/`)
 
 Generic Node/TS agents — they infer your toolchain from `package.json` instead of hardcoding paths.
 
@@ -61,7 +226,7 @@ Generic Node/TS agents — they infer your toolchain from `package.json` instead
 
 For cleaning up recently changed code, use the built-in `/simplify` skill (a Claude Code built-in, not a command this repo ships) — that's what it's for.
 
-### Slash commands (`.claude/commands/`)
+## Slash commands (`.claude/commands/`)
 
 One `.md` per command; filename becomes `/<name>`. No frontmatter required; `$ARGUMENTS` expands to whatever the user typed after the command. See [`.claude/README.md`](./.claude/README.md) for the command-vs-skill distinction and editing guidelines.
 
@@ -80,7 +245,7 @@ One `.md` per command; filename becomes `/<name>`. No frontmatter required; `$AR
 
 **Picking among the review commands:** `/plan` and `/grill` are the same adversarial fan-out aimed at opposite ends of the work — `/plan` attacks an _approach_ before code exists, `/grill` attacks the _diff_ after you've written it (often both on the same task: `/plan` to decide how, `/grill` once it's built). `/grill` reviews the current diff (diff-scoped, ephemeral, pre-PR). `/scan` hunts bugs in existing code (folder-scoped, durable backlog at `.claude/potential-bugs.md`). `/techdebt` finds structural cleanup opportunities across the **whole repo** (deferred backlog at `.claude/techdebt.md`); for the same kind of cleanup scoped to the current diff, use the built-in `/simplify` skill. See [`.claude/README.md`](./.claude/README.md) for the full workflow patterns.
 
-### Skills (`.claude/skills/`)
+## Skills (`.claude/skills/`)
 
 Auto-invocable capabilities — Claude fires them on intent match (no `/<name>`). One subdirectory per skill with a `SKILL.md`.
 
@@ -90,7 +255,7 @@ Auto-invocable capabilities — Claude fires them on intent match (no `/<name>`)
 
 The skill is the canonical definition of the convention — `/grill` and `/plan` also pull it in as a `locators` review lens on frontend changes (the lens carries a short, in-sync copy of the rules). `/dave` restates the rules inline in its prompt and CodeRabbit applies them from its **web** review-instruction settings — both run outside Claude Code and can't reach the skill.
 
-### Settings (`.claude/settings.json`)
+## Settings (`.claude/settings.json`)
 
 Pre-allows common safe operations so you see fewer permission prompts:
 
@@ -106,7 +271,7 @@ And denies dangerous defaults: `git push --force …` and `git push -f …` (fla
 
 Per-machine overrides go in `.claude/settings.local.json` (gitignored).
 
-### Plugins enabled by default
+## Plugins enabled by default
 
 `settings.json` enables three plugins from the official marketplace (`claude-plugins-official`) for everyone who adopts these defaults — no `extraKnownMarketplaces` needed, since the official marketplace is registered automatically:
 
@@ -120,9 +285,9 @@ The set is intentionally small. Most other official plugins (`code-review`, `pr-
 
 > **Trust gate, not silent install.** On a fresh clone Claude Code first shows the "trust this folder?" prompt; only after you trust it do the plugins auto-enable. To disable one without forking, set it `false` in your own `settings.local.json` (e.g. `"superpowers@claude-plugins-official": false`).
 
-**Opt-in, MCP-backed plugins** — `github`, `linear`, and `context7` match Alteos's connected services but are **not** in the baseline, following the same rule as MCP servers (kept out so consumers choose to wire them up). Copy the entries you want from [`.claude/settings.plugins.example.json`](./.claude/settings.plugins.example.json) into your own `settings.json`.
+**Opt-in, MCP-backed plugins** — `github`, `linear`, and `context7` are **not** in the baseline, following the same rule as MCP servers (kept out so consumers choose to wire them up). Copy the entries you want from [`.claude/settings.plugins.example.json`](./.claude/settings.plugins.example.json) into your own `settings.json`.
 
-### Codex as a failover (when Claude tokens run low)
+## Codex as a failover (when Claude tokens run low)
 
 Opt-in, and the one integration here whose purpose is **not** adding a capability but **surviving the loss of one**: when you're running low on Claude tokens, hand the expensive work to [Codex](https://developers.openai.com/codex) instead of stopping. Usage counts against your *Codex* limits, which is the whole point.
 
@@ -137,33 +302,31 @@ It comes from OpenAI's [`codex-plugin-cc`](https://github.com/openai/codex-plugi
 
 Needs a ChatGPT subscription (Free included) or an OpenAI API key, plus Node ≥ 18.18 and the `@openai/codex` CLI.
 
-> **The two routes differ on pinning.** The example file pins the marketplace to `ref: v1.0.6` — it ships executable commands, a subagent, and lifecycle hooks, so tracking the upstream default branch would let new executable content arrive unreviewed. `/plugin marketplace add` does **not** pin; it follows `main`. Prefer the file if you'd rather bump versions deliberately, and check the [releases](https://github.com/openai/codex-plugin-cc/releases) when you do.
-
 **The playbook — the distinction that matters:**
 
 | Situation | Command | Why |
 | --- | --- | --- |
-| **Running low** | `/codex:rescue --background <task>` | Delegates real, write-capable work to Codex. Claude spends a few tokens orchestrating while Codex does the heavy lifting. Threads are resumable, so you can keep going with `--resume`. ⚠️ See the concurrent-writes warning below. |
+| **Running low** | `/codex:rescue --background <task>` | Delegates real, write-capable work to Codex. Claude spends a few tokens orchestrating while Codex does the heavy lifting. Threads are resumable via `--resume`. ⚠️ See the concurrent-writes warning below. |
 | **About to run out** | `/codex:transfer` | Converts *this* Claude session into a resumable Codex thread and hands back a `codex resume <session-id>`. Run it **before** you're empty. |
 | **Already out** | — | Nothing in Claude Code can help: `rescue` still needs a working Claude session to orchestrate. This is why `transfer` is worth running early. |
 
-**Prefer [`/codex-handoff`](#whats-inside) over raw `/codex:transfer`.** The plugin's transfer frequently fails with *"Could not identify the current Claude transcript"* — it can't reliably find the session's `.jsonl`. `/codex-handoff` resolves it from the current directory and passes `--source` for you, records the returned session ID, and — the part the plugin has no answer for — `/codex-handoff back` brings Codex's work *into* Claude by having Codex summarise itself, then reconciling that summary against the real `git diff` rather than trusting it.
+**Prefer [`/codex-handoff`](#slash-commands-claudecommands) over raw `/codex:transfer`.** The plugin's transfer frequently fails with *"Could not identify the current Claude transcript"* — it can't reliably find the session's `.jsonl` (transcripts are keyed by **working directory**, so a session started elsewhere lives under a different project folder). `/codex-handoff` resolves it from the current directory and passes `--source` for you, records the returned session ID, and — the part the plugin has no answer for — `/codex-handoff back` brings Codex's work *into* Claude by having Codex summarise itself, then reconciling that summary against the real `git diff` rather than trusting it.
 
-If you do call `/codex:transfer` directly, it needs two things, and says so unhelpfully when either is missing: a Codex build with **external-agent session import**, and a readable transcript at `~/.claude/projects/<slugified-cwd>/<session-id>.jsonl` — **unless** you pass `--source <path>` yourself. Transcripts are keyed by **working directory**, so a session started elsewhere lives under a different project folder; that mismatch is the usual cause of the error above.
-
-> **Round-tripping is asymmetric, and it's worth knowing why.** Claude→Codex is a genuine session transfer: the turn history moves, and Codex can answer questions about the earlier conversation. Codex→Claude has no equivalent primitive — nothing can resume a Claude session *from* Codex — so the return leg is a summary plus verification. Transferring also isn't free: the transcript is re-read into Codex's context (tens of thousands of tokens on a long session). Escaping a token wall justifies it; a quick question doesn't — use `/codex:rescue` for that.
+> **Round-tripping is asymmetric.** Claude→Codex is a genuine session transfer: the turn history moves, and Codex can answer questions about the earlier conversation. Codex→Claude has no equivalent primitive — nothing can resume a Claude session *from* Codex — so the return leg is a summary plus verification. Transferring also isn't free: the transcript is re-read into Codex's context (tens of thousands of tokens on a long session). Escaping a token wall justifies it; a quick question doesn't — use `/codex:rescue` for that.
 >
-> ⚠️ **`--background` writes to the same checkout you're still working in.** `/codex:rescue` is write-capable **by default**, and `--background` means Codex edits your working tree while Claude keeps going in the same directory. Concurrent edits to the same files can be silently lost or interleaved — whoever writes last wins, and neither side knows. Either **stop editing the affected scope** until the job lands, or give Codex an **isolated worktree/branch** (`git worktree add`). Always `git diff` the result before you trust or merge it. `/codex:status` and `/codex:cancel` tell you whether a job is still live.
+> ⚠️ **`--background` writes to the same checkout you're still working in.** `/codex:rescue` is write-capable **by default**, so Codex edits your working tree while Claude keeps going in the same directory. Concurrent edits to the same files can be silently lost or interleaved — whoever writes last wins, and neither side knows. Either **stop editing the affected scope** until the job lands, or give Codex an **isolated worktree/branch** (`git worktree add`). Always `git diff` the result before you trust it. `/codex:status` and `/codex:cancel` tell you whether a job is still live.
+>
+> **The two install routes differ on pinning.** The example file pins the marketplace to `ref: v1.0.6` — it ships executable commands, a subagent, and lifecycle hooks, so tracking the upstream default branch would let new executable content arrive unreviewed. `/plugin marketplace add` does **not** pin; it follows `main`.
 
-Manage background jobs with `/codex:status`, `/codex:result`, and `/codex:cancel`. The plugin also ships `/codex:review` and `/codex:adversarial-review`, which overlap [`/grill`](#whats-inside) and [`/rabbit`](#whats-inside) — reach for those if you specifically want a second opinion from a different model family, not as a replacement.
+Manage background jobs with `/codex:status`, `/codex:result`, and `/codex:cancel`. The plugin also ships `/codex:review` and `/codex:adversarial-review`, which overlap `/grill` and `/rabbit` — reach for those if you specifically want a second opinion from a different model family, not as a replacement.
 
-> **Why it's opt-in rather than a default plugin.** It needs external credentials (same rule as MCP servers — consumers wire those up themselves), it lives in a **third-party** marketplace so it needs `extraKnownMarketplaces` unlike the `claude-plugins-official` defaults, and its review commands duplicate this repo's own command surface. Note too that enabling a plugin enables its hooks: this one registers `SessionStart`, `SessionEnd`, and a Stop-time review gate. That gate is **off unless you turn it on** with `/codex:setup --enable-review-gate` — leave it off on any machine running `/pm-loop`, since it makes every stop wait on a Codex review (900s timeout).
+> **Why it's opt-in rather than a default plugin.** It needs external credentials (same rule as MCP servers), it lives in a **third-party** marketplace so it needs `extraKnownMarketplaces` unlike the `claude-plugins-official` defaults, and its review commands duplicate this repo's own command surface. Note too that enabling a plugin enables its hooks: this one registers `SessionStart`, `SessionEnd`, and a Stop-time review gate. That gate is **off unless you turn it on** with `/codex:setup --enable-review-gate` — leave it off on any machine running `/pm-loop`, since it makes every stop wait on a Codex review (900s timeout).
 
-### Browser control (Claude for Chrome)
+## Browser control (Claude for Chrome)
 
 Letting Claude drive a real browser — read a logged-in page, click through a flow, screenshot — comes from **[Claude for Chrome](https://claude.com/chrome)**, and it is **not** something this repo can ship you. There is nothing to copy into `settings.json`.
 
-The extension **injects** its tools into a live paired session, so they never touch a config file: `claude mcp list` doesn't show `claude-in-chrome`, `claude mcp get claude-in-chrome` reports no such server, and there's no stanza in `~/.claude/settings.json` or any project `.mcp.json`. Unlike a stdio server (which is a `command`/`args` block you can commit), this one has no shippable form — so it gets **no `settings.*.example.json` here**; the canonical opt-in-MCP exemplar stays [`.claude/settings.plugins.example.json`](./.claude/settings.plugins.example.json).
+The extension **injects** its tools into a live paired session, so they never touch a config file: `claude mcp list` doesn't show `claude-in-chrome`, and there's no stanza in `~/.claude/settings.json` or any project `.mcp.json`. Unlike a stdio server (which is a `command`/`args` block you can commit), this one has no shippable form — so it gets **no `settings.*.example.json` here**; the canonical opt-in-MCP exemplar stays [`.claude/settings.plugins.example.json`](./.claude/settings.plugins.example.json).
 
 To enable it, per machine:
 
@@ -200,7 +363,7 @@ Two behaviors worth knowing before you rely on it:
 > { "permissions": { "ask": ["mcp__claude-in-chrome__*"] } }
 > ```
 
-### Hooks shipped in the baseline
+## Hooks shipped in the baseline
 
 `settings.json` wires up one hook by default — anything narrower stays in opt-in `.example.json` files.
 
@@ -212,14 +375,14 @@ The script (`.claude/hooks/format-on-write.sh`) self-detects — projects withou
 
 ---
 
-## Install
+# Install
 
-### Option A — Adopt as user-wide defaults
+## Option A — Adopt as user-wide defaults
 
 Clone the repo and run `install.sh`:
 
 ```bash
-git clone https://github.com/<your-fork>/ai-setup.git ~/path/to/ai-setup
+git clone https://github.com/cbmono/ai-setup.git ~/path/to/ai-setup
 cd ~/path/to/ai-setup
 ./install.sh
 ```
@@ -233,9 +396,9 @@ The script symlinks each tracked default (`agents/`, `commands/`, `skills/`, `ho
 
 Pull updates anytime with `git pull` — because the links are live, content changes and new files inside linked dirs apply immediately, no re-sync. To back out, `./install.sh --uninstall` removes only the symlinks it created, leaving your runtime state, real files, and backups untouched.
 
-### Option B — Per-project
+## Option B — Per-project
 
-Use this when you want stability per project (**frozen** defaults that *don't* track the repo), or for project-specific tweaks. This is a **copy**, not a link — so unlike Option A it won't pick up later repo changes; re-run it to refresh. (To keep `~/.claude` continuously in sync with the repo, use Option A's symlinks, not this.)
+Use this when you want stability per project (**frozen** defaults that *don't* track the repo), or for project-specific tweaks. This is a **copy**, not a link — so unlike Option A it won't pick up later repo changes; re-run it to refresh.
 
 For a fresh project (no existing `.claude/`):
 
@@ -251,7 +414,7 @@ rsync -a --exclude='settings.local.json' ~/path/to/ai-setup/.claude/ ~/path/to/y
 
 That single exclusion is enough — this repo's `.claude/` no longer carries `potential-bugs.md`, `techdebt.md`, or `plans/`. Those project-state artifacts are auto-created in the target by their respective commands (`/scan`, `/techdebt`, `/plan`) on first run, and stay gitignored. `CLAUDE.md` at the project root is also never touched. If you've customised `.claude/MEMORY.md`, back it up before syncing — it will be overwritten.
 
-### Bootstrap a CLAUDE.md
+## Bootstrap a CLAUDE.md
 
 Run `/init` in your project — it analyzes the codebase and generates an accurate CLAUDE.md (commands, architecture, structure). Then append the three sections below, which `/init` won't produce because they're workflow conventions rather than codebase facts.
 
@@ -298,7 +461,7 @@ and ensure both files exist in this project's .claude/. -->
 
 ---
 
-## Stacked pull requests (gh-stack)
+# Stacked pull requests (gh-stack)
 
 This repo is built around [github/gh-stack](https://github.com/github/gh-stack), GitHub's official stacked-PR extension.
 
@@ -333,7 +496,7 @@ Use the `stack-navigator` agent when you want a summary plus the recommended nex
 
 ---
 
-## Opus 4.8
+# Opus 4.8
 
 This config targets Opus for planning and review, Sonnet for implementation (model
 aliases, so they track the current release rather than pinning a version that goes stale).
@@ -348,11 +511,12 @@ Key behaviours worth internalizing:
 
 ---
 
-## Customizing
+# Customizing
 
 - **Add a command:** drop an `.md` file in `.claude/commands/` — the filename (minus `.md`) becomes the `/command`. Use `$ARGUMENTS` for user-supplied args. No frontmatter needed. **Don't put a `README.md` in `.claude/commands/`** — Claude Code scans every `.md` there as a command, so a README becomes `/README`. See [`.claude/README.md`](./.claude/README.md) for the command-vs-skill distinction.
 - **Add an agent:** drop an `.md` file in `.claude/agents/` with YAML frontmatter (`name`, `description`, optional `model`, `isolation: worktree`).
 - **Adjust permissions:** edit `.claude/settings.json` for team-shared rules, `.claude/settings.local.json` for this machine only.
+- **Change the control panel's machinery:** edit files under `ai-bridge/symlink/` — every instance picks the change up immediately, since they symlink it. Keep it generic: org, repo, path, team, and channel names belong in an instance's `instance.config.json`, never in the template.
 - **Compounding engineering:** when Claude does something wrong, add the rule to your project's `CLAUDE.md` so it doesn't recur.
 
 > **Restart after adding commands or agents.** Claude Code scans `.claude/commands/` and `.claude/agents/` at session start. New files aren't picked up until you `/exit` and relaunch `claude`. If `/<your-new-command>` returns "Unknown command", that's why.
@@ -361,13 +525,14 @@ Key behaviours worth internalizing:
 
 ---
 
-## Conventions in this repo
+# Conventions in this repo
 
 - `.claude/settings.json` — checked in, team-shared permissions baseline
 - `.claude/settings.local.json` — gitignored, per-machine overrides
 - `.claude/settings.plugins.example.json` — reference only, opt-in MCP-backed plugins (github, linear, context7)
 - `.claude/settings.codex.example.json` — reference only, opt-in Codex failover (`/codex:rescue` when tokens run low, `/codex:transfer` before they run out)
 - `.claude/potential-bugs.md`, `.claude/techdebt.md`, `.claude/plans/` — gitignored, auto-created by `/scan`, `/techdebt`, `/plan` on first run; never seeded in this repo
+- `ai-bridge/` — the control-panel template: `symlink/` (machinery, shared live by every instance) and `seed/` (starting content, copied once). A separate subtree; the user-wide `install.sh` never touches it
 - `CLAUDE.md` (this repo's root) — guidance for Claude when editing **this config repo itself**, not a template
 - `.coderabbit.yaml` — this repo's own CodeRabbit settings; **not** installed into `~/.claude` (the installer only touches `.claude`). Tuned for **one review per PR**: no re-review on each push, no auto-reply to every comment. Copy it into your own repos if agent-authored PRs are burning review sessions there too
 
