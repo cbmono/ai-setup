@@ -53,7 +53,7 @@ API key, first match wins:
 
 The .env file is PARSED, never sourced — nothing in it is executed as shell.
 
-Overrides: DEEPSEEK_BASE_URL, DEEPSEEK_MODEL_PRO, DEEPSEEK_MODEL_FLASH.
+Overrides: DEEPSEEK_BASE_URL (must be https://), DEEPSEEK_MODEL_PRO, DEEPSEEK_MODEL_FLASH.
 
 Everything in the session goes to DeepSeek. Check what the code you are pointing
 it at is allowed to leave your infrastructure before you use it.
@@ -70,6 +70,23 @@ while [ $# -gt 0 ]; do
     *) CLAUDE_ARGS+=("$1"); shift ;;
   esac
 done
+
+# The endpoint is exported alongside the API key, so an http:// value (a typo, or a
+# stale DEEPSEEK_BASE_URL in a shell profile) would put that key on the wire in
+# plaintext. Require https and fail closed. `https://?*` also rejects a bare scheme
+# and a hostname with no scheme, which Claude Code would otherwise turn into a
+# confusing error far from the cause. Validated here rather than at assignment so
+# `--help` still works with a bad value, and before any export so --print-env sees it.
+# NB this deliberately forbids http://127.0.0.1 local proxies — this script has no
+# proxy support (see the header); add a loopback case here if that ever changes.
+case "$BASE_URL" in
+  https://?*) : ;;
+  *)
+    echo "error: DEEPSEEK_BASE_URL must be an https:// URL (got: '$BASE_URL')." >&2
+    echo "       Anything else would send your API key unencrypted." >&2
+    exit 1
+    ;;
+esac
 
 # Extract one KEY=value from a .env file WITHOUT executing it. `set -a; . .env`
 # would run arbitrary shell from a file that exists to hold secrets; a stray
