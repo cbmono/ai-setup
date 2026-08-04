@@ -1,6 +1,8 @@
 .DS_Store
 tmp/
 
+.env
+
 # .claude/ is symlinked from ~/.claude in the recommended install, so Claude Code
 # writes all its runtime state (backups/, cache/, debug/, plugins/, projects/, …)
 # in here. Ignore everything under .claude/ and explicitly allow only the tracked
@@ -11,6 +13,7 @@ tmp/
 !.claude/agents/
 !.claude/commands/
 !.claude/hooks/
+!.claude/scripts/
 !.claude/skills/
 
 # Tracked defaults (files)
