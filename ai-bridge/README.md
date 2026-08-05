@@ -164,14 +164,22 @@ every product-repo session (telling them they're a control panel that commits to
 - **VS Code / Cursor / Antigravity** — open the seeded **`<group>.code-workspace`**
   (*Open Workspace from File…*): a multi-root view, control panel pinned on top,
   group repos below. A generic `files.exclude` glob (`_ai-bridge-*`) hides the
-  instance from the repos pane so it isn't shown twice.
+  instance from the repos pane so it isn't shown twice, and
+  `terminal.integrated.cwd` — stamped with the instance's absolute path at install
+  time — pins **new terminals** to the instance. Without it a multi-root workspace
+  picks the terminal's folder separately from the editor's and can land in the
+  group root, where the instance's `.claude/commands` doesn't exist, so `/status`,
+  `/pm-loop` and `/new-project` are silently absent. Right-clicking a repo >
+  *Open in Integrated Terminal* still overrides it, so per-repo terminals work.
 - **Zed** (no workspace-file support) — open the **group folder**; the instance's
   `_`-prefix already sorts it to the top.
 
 It only changes the editor display; nothing moves on disk. **Regardless of editor,
 launch Claude by `cd`-ing into the instance dir and running `claude` there** — the
 editor's open folder doesn't affect which `.claude/` loads; the working directory
-does.
+does. Instances created before the `terminal.integrated.cwd` line existed keep
+their own workspace file (install never clobbers instance data), so add it by hand
+there if you want the same guarantee.
 
 ## Per-instance settings
 `.claude/settings.json` is **shared machinery** (symlinked) — editing it changes

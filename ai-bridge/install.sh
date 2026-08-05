@@ -83,7 +83,15 @@ if [ -d "$SEED_SRC" ]; then
       if [ -n "$existing" ]; then
         echo "  keep  $(basename "$existing") (workspace exists)"
       else
-        cp "$SEED_SRC/$rel" "$TARGET/$WS_NAME"; echo "  seed  $WS_NAME"
+        # __BRIDGE_DIR__ becomes this instance's absolute path, so every new
+        # terminal in the workspace starts in the instance rather than the group
+        # root — see the comment in seed/bridge.code-workspace for why the wrong
+        # cwd silently hides /status, /pm-loop and /new-project. Escaped for sed's
+        # replacement side ('&' means "the match", '\' escapes, '|' is our
+        # delimiter) so a path containing any of them can't corrupt the file.
+        ws_dir="$(printf '%s' "$TARGET" | sed 's/[&|\\]/\\&/g')"
+        sed "s|__BRIDGE_DIR__|$ws_dir|g" "$SEED_SRC/$rel" > "$TARGET/$WS_NAME"
+        echo "  seed  $WS_NAME"
       fi
       continue
     fi

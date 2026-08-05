@@ -13,6 +13,21 @@
   // product-repo session never inherits this instance's control-panel CLAUDE.md.
   // The files.exclude glob hides the bridge folder from the "group repos" pane so
   // it isn't shown twice (matches the `_ai-bridge-<group>` naming convention).
+  //
+  // terminal.integrated.cwd pins every new terminal to the instance dir, whichever
+  // pane is selected. A multi-root workspace chooses the terminal's folder
+  // SEPARATELY from the editor's, so without this a terminal lands in the group
+  // root (`..`) — which has no instance `.claude/commands`, so /status, /pm-loop
+  // and /new-project silently aren't there. Launching Claude from an editor
+  // integration doesn't hit this (it uses the first folder); a terminal launch
+  // does, which is the only way to use a wrapper launcher like
+  // `.claude/scripts/deepseek-session.sh`. install.sh replaces the placeholder
+  // with this instance's absolute path; if you hand-copy this file, substitute it
+  // yourself. Absolute rather than ${workspaceFolder:AI Bridge} on purpose:
+  // substitution in this setting isn't guaranteed across editors, and a silently
+  // unresolved value reproduces the exact bug it exists to prevent. Explicitly
+  // right-clicking a repo > "Open in Integrated Terminal" still wins, so per-repo
+  // terminals keep working.
 
   "folders": [
     { "name": "AI Bridge", "path": "." },
@@ -21,6 +36,7 @@
   "settings": {
     "files.exclude": {
       "_ai-bridge-*": true
-    }
+    },
+    "terminal.integrated.cwd": "__BRIDGE_DIR__"
   }
 }
