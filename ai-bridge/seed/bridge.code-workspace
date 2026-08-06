@@ -21,22 +21,26 @@
   // and /new-project silently aren't there. Launching Claude from an editor
   // integration doesn't hit this (it uses the first folder); a terminal launch
   // does, which is the only way to use a wrapper launcher like
-  // `.claude/scripts/deepseek-session.sh`. install.sh replaces the placeholder
-  // with this instance's absolute path; if you hand-copy this file, substitute it
+  // `.claude/scripts/deepseek-session.sh`. install.sh uncomments the line below
+  // with this instance's absolute path; if you hand-copy this file, fill it in
   // yourself. Absolute rather than ${workspaceFolder:AI Bridge} on purpose:
   // substitution in this setting isn't guaranteed across editors, and a silently
-  // unresolved value reproduces the exact bug it exists to prevent. Explicitly
-  // right-clicking a repo > "Open in Integrated Terminal" still wins, so per-repo
-  // terminals keep working.
+  // unresolved value reproduces the exact bug it exists to prevent. It ships
+  // COMMENTED OUT so an unsubstituted copy — this seed opened in the template
+  // repo, or a hand-copy someone forgot to edit — merely loses the pin, instead
+  // of pointing every terminal at a nonexistent directory named "__BRIDGE_DIR__"
+  // (VS Code then refuses to launch a terminal at all). Explicitly right-clicking
+  // a repo > "Open in Integrated Terminal" still wins, so per-repo terminals keep
+  // working.
 
   "folders": [
     { "name": "AI Bridge", "path": "." },
     { "name": "repositories", "path": ".." }
   ],
   "settings": {
+    // "terminal.integrated.cwd": "__BRIDGE_DIR__",
     "files.exclude": {
       "_ai-bridge-*": true
-    },
-    "terminal.integrated.cwd": "__BRIDGE_DIR__"
+    }
   }
 }
