@@ -83,7 +83,26 @@ if [ -d "$SEED_SRC" ]; then
       if [ -n "$existing" ]; then
         echo "  keep  $(basename "$existing") (workspace exists)"
       else
-        cp "$SEED_SRC/$rel" "$TARGET/$WS_NAME"; echo "  seed  $WS_NAME"
+        # The seed ships terminal.integrated.cwd commented out with a __BRIDGE_DIR__
+        # placeholder; uncomment it with this instance's absolute path so every new
+        # terminal in the workspace starts in the instance rather than the group
+        # root — see the comment in seed/bridge.code-workspace for why the wrong
+        # cwd silently hides /status, /pm-loop and /new-project. Whole-line
+        # replacement, so a marker that ever stops matching degrades to "no pin"
+        # rather than to a broken workspace file. Escaped for sed's replacement
+        # side ('&' means "the match", '\' escapes, '|' is our delimiter) so a path
+        # containing any of them can't corrupt the file. JSON-escaped first (a
+        # literal '\' or '"' in a path would otherwise emit an invalid string).
+        ws_dir="$(printf '%s' "$TARGET" | sed 's/["\\]/\\&/g; s/[\\&|]/\\&/g')"
+        sed "s|^ *// \"terminal.integrated.cwd\": \"__BRIDGE_DIR__\",|    \"terminal.integrated.cwd\": \"$ws_dir\",|" \
+          "$SEED_SRC/$rel" > "$TARGET/$WS_NAME"
+        echo "  seed  $WS_NAME"
+        # No live setting line means the marker stopped matching the seed; say so
+        # rather than leaving a silently unpinned workspace. (Checking for a
+        # leftover placeholder wouldn't work — a drifted line is still a comment.)
+        if ! grep -q '^ *"terminal\.integrated\.cwd":' "$TARGET/$WS_NAME"; then
+          echo "  warn  $WS_NAME: terminal cwd not stamped; set terminal.integrated.cwd to $TARGET by hand" >&2
+        fi
       fi
       continue
     fi
