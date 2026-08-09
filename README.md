@@ -275,7 +275,7 @@ Two behaviors worth knowing before you rely on it:
 | -------------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `format-on-write.sh` | `PostToolUse` (Write\|Edit) | Formats the file Claude just wrote, if the nearest `package.json` declares `@biomejs/biome` (preferred) or `prettier`. Uses `npx --no-install`, so a missing or uninstalled formatter is a silent no-op. Never blocks the tool. |
 
-The script (`.claude/hooks/format-on-write.sh`) self-detects — projects without a declared formatter, files outside the project, and unsupported extensions all no-op cleanly. To disable, remove the `hooks` block from your `settings.json` or shadow it in `settings.local.json`.
+The script self-detects — projects without a declared formatter, files outside the project, and unsupported extensions all no-op cleanly. `settings.json` points at it as `"${CLAUDE_CONFIG_DIR:-$HOME/.claude}"/hooks/format-on-write.sh`, i.e. the copy `install.sh` links into your `~/.claude`, so it resolves the same from any project. (A bare relative `.claude/hooks/…` would resolve against whatever directory you launched Claude in, and fail everywhere else.) To disable, remove the `hooks` block from your `settings.json` or shadow it in `settings.local.json`.
 
 ---
 

@@ -88,7 +88,7 @@ How the tools fit together — useful for picking the right one and combining th
 
 ## Hooks
 
-Ship hooks here only when they're **universally safe** — must no-op cleanly on projects that don't match. Scripts live in `.claude/hooks/`, referenced from `settings.json`. Anything narrower than that goes in an opt-in `settings.<name>.example.json` consumers copy from.
+Ship hooks here only when they're **universally safe** — must no-op cleanly on projects that don't match. Scripts live in `.claude/hooks/`, referenced from `settings.json` by an absolute, shell-expanded path (`"${CLAUDE_CONFIG_DIR:-$HOME/.claude}"/hooks/<name>.sh`) — a bare relative path resolves against the session cwd and 127s in every project that doesn't itself ship the script. Anything narrower than that goes in an opt-in `settings.<name>.example.json` consumers copy from.
 
 | Hook                  | Event                  | What it does                                                                                                                                                            |
 | --------------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

@@ -108,7 +108,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/format-on-write.sh",
+            "command": "\"${CLAUDE_CONFIG_DIR:-$HOME/.claude}\"/hooks/format-on-write.sh",
             "timeout": 30
           }
         ]
