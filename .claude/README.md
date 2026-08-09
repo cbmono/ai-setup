@@ -29,7 +29,7 @@ Defaults shipped by this repo. See the [top-level README](../README.md) for inst
 
 > Don't put a `README.md` inside `commands/` — Claude Code registers every `.md` there as a slash command, so a README becomes `/README`.
 
-> The `../ai-bridge/` control-panel template is a **separate subtree** — its role agents and `/pm-loop` · `/pr-review-request` · `/new-project` commands install into per-group *instances*, **not** into `~/.claude`, so they're intentionally absent from the inventories below. See [`../ai-bridge/README.md`](../ai-bridge/README.md).
+> The `../ai-bridge/` control-panel template is a **separate subtree** — its role agents (`project-manager`, `software-engineer`, `devops-engineer`, `qa-reviewer`, `cataloguer`, `auditor`, `oncall-guide`) and its commands (`/status`, `/pm-loop`, `/new-project`, `/close-project`, `/answer`, `/audit`, `/pr-review-request`, `/todo`, `/fanout`) install into per-group *instances*, **not** into `~/.claude`, so they're intentionally absent from the inventories below. See [`../ai-bridge/README.md`](../ai-bridge/README.md).
 
 ## Agents
 
