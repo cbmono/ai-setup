@@ -44,7 +44,12 @@ FALLBACK_DEFAULTS="agents commands skills hooks scripts MEMORY.md claude-default
 
 REPO_ROOT="$(cd "$(dirname "$0")" && pwd)"
 REPO_CLAUDE="$REPO_ROOT/.claude"
-DEST="$HOME/.claude"
+# Honour CLAUDE_CONFIG_DIR: when it's set, Claude Code reads settings, agents, and
+# hooks from there instead of ~/.claude, so installing into $HOME would put the
+# defaults somewhere nothing loads them from. Matches the path settings.json uses
+# to reference its hooks ("${CLAUDE_CONFIG_DIR:-$HOME/.claude}"/hooks/...), so the
+# installer and the hook command can't disagree about where the config dir is.
+DEST="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 
 MODE="install"
 case "${1:-}" in
@@ -60,8 +65,8 @@ if [ ! -d "$REPO_CLAUDE" ]; then
 fi
 
 if [ -L "$DEST" ]; then
-  echo "error: ~/.claude is itself a symlink ($(readlink "$DEST"))." >&2
-  echo "       This script expects ~/.claude to be a real directory that owns your" >&2
+  echo "error: $DEST is itself a symlink ($(readlink "$DEST"))." >&2
+  echo "       This script expects it to be a real directory that owns your" >&2
   echo "       runtime state. Replace the symlink with a real dir first, then re-run." >&2
   exit 1
 fi
@@ -159,11 +164,11 @@ elif [ -L "$DEST/settings.json" ] && [ ! -e "$DEST/settings.json" ]; then
   echo "  relink settings.json (was dangling)"
 elif [ -e "$DEST/settings.json" ]; then
   echo
-  echo "note: ~/.claude/settings.json already exists and was left untouched. To adopt"
+  echo "note: $DEST/settings.json already exists and was left untouched. To adopt"
   echo "      this repo's permission + plugin baseline, back it up and link it, moving"
   echo "      any machine-specific plugins into settings.local.json (gitignored):"
-  echo "        mv ~/.claude/settings.json ~/.claude/settings.json.bak.\$(date +%s)"
-  echo "        ln -s \"$REPO_CLAUDE/settings.json\" ~/.claude/settings.json"
+  echo "        mv \"$DEST/settings.json\" \"$DEST/settings.json.bak.\$(date +%s)\""
+  echo "        ln -s \"$REPO_CLAUDE/settings.json\" \"$DEST/settings.json\""
 else
   ln -s "$REPO_CLAUDE/settings.json" "$DEST/settings.json"
   echo "  link  settings.json"
