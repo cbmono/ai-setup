@@ -50,6 +50,8 @@ EXCLUDE_PATHS=(
   ".claude/scripts/deepseek-session.sh"
   ".env.example"                       # exists only for DEEPSEEK_API_KEY
   "scripts/mirror-to.sh"               # this tool is the source repo's own
+  "tests/mirror-to.test.sh"            # …and so is its test (it carries fixture
+                                       #  strings that are deliberately forbidden)
   "LICENSE"                            # repo identity, not shared config
 )
 
@@ -217,7 +219,15 @@ for rel in "${rels[@]}"; do
                   <( { grep -iE "$LOCAL_TOKENS" "$tmp"      || true; } | sort ) \
                 | wc -l | tr -d ' ')"
     if [ "${at_risk:-0}" -gt 0 ]; then
-      printf '  MANUAL   %s (%s local line(s) would be lost — merge by hand)\n' "$rel" "$at_risk"
+      # A MANUAL file is never written, so the outbound guard never sees it. Say so
+      # now if its incoming copy carries forbidden tokens, or the human merging it
+      # by hand would carry them across unwarned.
+      note=""
+      if { grep -iE "$FORBIDDEN" "$tmp" || true; } | grep -q .; then
+        note=" [incoming copy carries forbidden tokens — strip them while merging]"
+      fi
+      printf '  MANUAL   %s (%s local line(s) would be lost — merge by hand)%s\n' \
+        "$rel" "$at_risk" "$note"
       manual=$((manual+1)); rm -f "$tmp"; continue
     fi
   fi
