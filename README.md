@@ -322,7 +322,6 @@ Manage background jobs with `/codex:status`, `/codex:result`, and `/codex:cancel
 
 > **Why it's opt-in rather than a default plugin.** It needs external credentials (same rule as MCP servers), it lives in a **third-party** marketplace so it needs `extraKnownMarketplaces` unlike the `claude-plugins-official` defaults, and its review commands duplicate this repo's own command surface. Note too that enabling a plugin enables its hooks: this one registers `SessionStart`, `SessionEnd`, and a Stop-time review gate. That gate is **off unless you turn it on** with `/codex:setup --enable-review-gate` — leave it off on any machine running `/pm-loop`, since it makes every stop wait on a Codex review (900s timeout).
 
-<!-- mirror:exclude start -->
 ## DeepSeek as an alternative backend (opt-in)
 
 Opt-in, off by default, and **architecturally different from the Codex integration above** — the distinction is the whole story, so don't reason about one from the other:
@@ -336,7 +335,7 @@ Opt-in, off by default, and **architecturally different from the Codex integrati
 
 Because it's env-var based it cannot be a `settings.*.example.json` like the others — `ANTHROPIC_BASE_URL` has to exist before the process starts. So it ships as one auditable script, [`.claude/scripts/deepseek-session.sh`](./.claude/scripts/deepseek-session.sh), linked to `~/.claude/scripts/` by `install.sh`.
 
-> 🚫 **Scope: this is for external projects only — do not use it on Alteos work, and do not mirror it into the Alteos `claude-code-setup` repo.** Substitution sends the whole session to DeepSeek, so it's a data-governance decision before a cost one. Valid on external/side projects (e.g. proceso.ai). Not on Alteos client or customer-adjacent code. The two config repos are otherwise kept in sync; **this feature is a deliberate exception** to that parity.
+> 🚫 **Scope: check your data-governance rules before using this on anything but your own projects.** Substitution sends the **whole session** — prompts, file contents, tool results — to DeepSeek, so this is a data-governance decision before it's a cost one. It's a good fit for personal and side projects; it is **not** appropriate for client or customer-adjacent code unless your organisation has explicitly cleared that third party. If yours hasn't, the right move is to not install these files at all — the feature is deliberately one script plus this section, so leaving it out costs nothing.
 
 ### Set it up (about two minutes, per machine)
 
@@ -390,7 +389,6 @@ Verified live against the API on 2026-08-04: base URL `https://api.deepseek.com/
 
 > ⚠️ **A stale model ID costs money silently.** DeepSeek maps an *unrecognised* model name to a working model rather than erroring. Testing showed an unknown name resolving to `deepseek-v4-pro` — the **expensive** tier — which contradicts DeepSeek's docs (they say it falls back to flash). So if DeepSeek renames a model, nothing breaks and nothing warns you; you just pay pro rates. Override with `DEEPSEEK_MODEL_PRO` / `DEEPSEEK_MODEL_FLASH` / `DEEPSEEK_SUBAGENT_MODEL` and re-check the [model list](https://api-docs.deepseek.com/quick_start/pricing) rather than waiting for an error. These IDs are deliberately *not* validated against a whitelist — a hardcoded list of known models would recreate exactly the staleness problem the overrides exist to solve. The startup banner prints the resolved models every run, which is what actually catches a wrong one.
 
-<!-- mirror:exclude end -->
 ## Browser control (Claude for Chrome)
 
 Letting Claude drive a real browser — read a logged-in page, click through a flow, screenshot — comes from **[Claude for Chrome](https://claude.com/chrome)**, and it is **not** something this repo can ship you. There is nothing to copy into `settings.json`.

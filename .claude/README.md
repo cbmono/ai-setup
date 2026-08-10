@@ -120,7 +120,6 @@ Plugins enable behind the folder-trust gate on first launch, not silently. Consu
 
 **Keep this integration modular.** All Codex content lives in that one example file plus clearly-bounded doc sections (here and in the root `README.md`). Don't thread Codex branches through unrelated machinery: the point is that mirroring it elsewhere later is a one-file copy, and that it can be dropped without unpicking anything. Marketplace sources accept `ref` (branch/tag) but **not** `sha`.
 
-<!-- mirror:exclude start -->
 ## DeepSeek backend (opt-in)
 
 `scripts/deepseek-session.sh` runs one Claude Code session against DeepSeek instead of Anthropic. **Not a default, and not the same shape as the Codex integration above** — Codex is *delegation* (Claude drives, hands tasks to a separate process), this is *substitution* (the model behind Claude Code is replaced, so the whole session — prompts, file contents, tool results — is served by DeepSeek).
@@ -138,13 +137,12 @@ Plugins enable behind the folder-trust gate on first launch, not silently. Consu
 
 **`.claude/scripts/` needs an explicit `.gitignore` allow.** The root `.gitignore` denies `.claude/*` and re-includes tracked defaults one by one, so a new directory here is invisible to git until `!.claude/scripts/` is added. `install.sh` then links it automatically (it auto-discovers from `git ls-files`), which is exactly why the gitignore entry is load-bearing rather than cosmetic. `FALLBACK_DEFAULTS` in `install.sh` lists it too, for non-git tarball installs.
 
-**🚫 Do NOT mirror this into `claude-code-setup` (the Alteos-internal copy).** The two config repos are normally kept in parity, and shared edits are mirrored by default — **this feature is an explicit, standing exception**. Substitution routes the entire session to DeepSeek, which is not acceptable for Alteos client or customer-adjacent code, so the capability should not even be *available* there. That means: no `scripts/deepseek-session.sh`, no `.env.example` DeepSeek entry, and no DeepSeek doc sections in that repo. If you're mirroring a batch of changes across the two repos, skip everything DeepSeek — and don't "helpfully" restore it later. It's valid on external projects (e.g. proceso.ai) via this repo only.
+**🚫 Treat this as a capability a deployment can simply not have.** Substitution routes the entire session to a third party, which many organisations' data-governance rules forbid for client or customer-adjacent code. It's kept to one script plus bounded doc sections precisely so a setup under those constraints can leave the files out entirely rather than configure the risk away.
 
-**Data governance is the consumer's call, and the docs must keep saying so.** The root `README.md` records the current Alteos position and the setup walkthrough. The unsuppressible stderr banner naming the active backend is a safety feature, not noise — don't add a `--quiet`.
+**Data governance is the consumer's call, and the docs must keep saying so.** The root `README.md` carries the scope warning and the setup walkthrough. The unsuppressible stderr banner naming the active backend is a safety feature, not noise — don't add a `--quiet`.
 
 **Deliberately not vendoring [`aattaran/deepclaude`](https://github.com/aattaran/deepclaude).** It has more features (proxy on `:3200`, live backend switching, cost tracking) but publishes no tags or releases, so there is nothing to pin — and this repo pins third-party executable content by rule. Keeping our own ~40 lines means no unpinned third-party code sits in the path holding the API key.
 
-<!-- mirror:exclude end -->
 ## Browser control (Claude for Chrome)
 
 **Nothing to ship here — this one is deliberately docs-only.** Claude for Chrome's `mcp__claude-in-chrome__*` tools are **injected by the extension** into a live paired session; they appear in no config file (`claude mcp list` doesn't list the server, and there's no stanza in `settings.json` or any `.mcp.json`). So there is no `settings.claudeforchrome.example.json` and there shouldn't be — inventing a `command`/`args` block would violate "don't invent tool invocations". Setup is: install the extension → grant **per-site** permissions in it → the tools appear. See the top-level `README.md` → "Browser control" for the consumer-facing version.
