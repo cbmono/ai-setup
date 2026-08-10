@@ -63,10 +63,8 @@ only the symlinks it created.
 The spine, from inside an instance:
 
 > **`gated` (default):** `/new-project <description>` → you approve `draft → ready` → `/pm-loop 10m` → you merge the PR
-<!-- mirror:exclude start -->
 >
 > **`yolo` (all-out):** `/new-project <description> /yolo` → `/pm-loop 10m` — the loop promotes clean build drafts, dispatches, and merges each PR on a clean review + green CI. You just answer its questions (`/answer`) and watch for drift (`/audit`).**
-<!-- mirror:exclude end -->
 
 `/pm-loop` is a serial, completion-gated loop (one tick at a time). Two human gates
 stay yours by default: promote `draft → ready`, and merge the PR (build) / approve the
@@ -79,7 +77,6 @@ can hand the loop one or both gates, but the modes themselves live in
 Drop that file and every project is `gated`,** whatever its `autonomy` says, with no other
 edits. That's how a deployment that must never self-merge gets there: by not shipping one
 file, rather than auditing eight documents for a stray permission.
-<!-- mirror:exclude start -->
 The one mode defined today is **`yolo`** — all-out: it auto-promotes fully-refined drafts
 with no open questions (build tasks only; research stays human-driven) **and** merges a PR
 once it's independently cleared and CI is fully green, at the exact verified commit. It
@@ -88,7 +85,6 @@ also permits browser writes. There is no partial variant on purpose. Pair it wit
 autonomous loop for drift — and note the **preflight**: with a single `gh` identity and no
 external reviewer, or with no required status checks, the merge authority can't be
 exercised at all, so the loop says so once and keeps surfacing PRs for you.
-<!-- mirror:exclude end -->
 
 **Answering the PM's questions:** when a `draft` is blocked it lists numbered
 `open_questions` (`Q1:`, `Q2:`, …). Answer one **in the task doc** by appending
