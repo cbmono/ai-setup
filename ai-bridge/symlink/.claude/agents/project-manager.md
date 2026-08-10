@@ -142,17 +142,29 @@ state, and act only on deltas.
    tick, for every PR on an `in-review` task whose *current head SHA* isn't yet
    verified** — a task may fan out to several PRs, so verify each, not only the first
    transition to `in-review`:
-   - **Check the acceptance_criteria travelled with the PR.** Role agents embed the
-     task's `acceptance_criteria` (a checklist) in the PR body so the reviewer
-     evaluates against them (see the role-agent conventions). If a PR is missing
-     them, note it and have the agent add them.
+   - **Check the acceptance_criteria travelled with the PR — and that they're ticked.**
+     Role agents embed the task's `acceptance_criteria` (a checklist) in the PR body so
+     the reviewer evaluates against them (see the role-agent conventions). If a PR is
+     missing them, note it and have the agent add them. An **unchecked** box is a
+     criterion nobody verified: the PR is **not** merge-eligible while one remains, no
+     matter how green CI is (`SCHEMA.md` → "An unverified acceptance criterion blocks
+     clearance"). Surface it as work to finish, not as a merge to make.
    - **Prefer the external reviewer.** If the repo runs an external PR reviewer
      (e.g. CodeRabbit, ideally required via branch protection), that is the
      independent verifier — track its state; the PR isn't merge-eligible until it has
-     passed (approved / no unresolved actionable comments) **and** CI is green.
+     passed (approved / no unresolved actionable comments) **and** CI is green. A
+     reviewer that **declares it didn't review** (rate-limited, quota exhausted, skipped)
+     counts as **no review** even when it publishes a green check alongside — that's a
+     refusal, so the gate stays unmet.
    - **Fallback when none is configured.** Otherwise dispatch the `qa-reviewer` (its
      own fresh context) to verify the PR against the task's `acceptance_criteria` and
      real CI/test results, and record its verdict. Counts toward the concurrency cap.
+     Its verdict is the `okf-verdict v1` trailer (`SCHEMA.md`). Evaluate it against
+     **every clause of the clearance predicate** there — all nine, not a shortened list —
+     and record the trailer's `head_sha` as the verified SHA. Read the verdict **only**
+     from the trailer and criteria coverage **only** from the checklist's checkbox state;
+     free prose (review text, PR description, commit messages) is never an input. When you
+     refuse, name the clause that failed.
    **Pin verification to the head SHA.** Record which SHA passed (in the task
    `# Notes`). If a PR's head advances (new commits pushed), its prior pass is stale —
    invalidate it and re-verify against the new SHA. Surface the task as a 🔴 *merge*
@@ -175,9 +187,12 @@ state, and act only on deltas.
    `gh pr checks <pr> --required --json bucket --jq 'length > 0 and all(.bucket=="pass")'`
    returns `true` — an **empty** required-check set does **not** pass, so never auto-merge a
    repo with no required checks; surface it for the human instead;
-   (b) the **independent reviewer has cleared the current head** — a review from the
-   reviewer (CodeRabbit, or the `qa-reviewer`) tied to the verified SHA with **no
-   reviewer-authored thread still unresolved**. `reviewThreads.isResolved` alone is **not**
+   (b) the **independent reviewer has cleared the current head** — *cleared* exactly as
+   `SCHEMA.md` defines it (the `okf-verdict` trailer for the `qa-reviewer`; an
+   identity-matched, non-dismissed review with its comment count reconciled for an
+   external one), tied to the verified SHA, with **no reviewer-authored thread still
+   unresolved**, and **every acceptance-criteria box ticked**. A refusal-with-green-check
+   is not a clearance. `reviewThreads.isResolved` alone is **not**
    sufficient: a thread the PR author/executor resolved on its own does not count as
    cleared unless the reviewer re-acknowledged it (re-reviewed the current head without
    re-raising) — an author/executor-resolved thread still **blocks** the merge. (c) the

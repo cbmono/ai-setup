@@ -162,6 +162,13 @@ rule here, not in each agent.
   independent reviewer — an external one (e.g. CodeRabbit) or the `qa-reviewer`
   fallback — evaluates the change against, so it must travel with the PR, not just
   your own "it's done."
+  **Tick a box only for a criterion you actually verified; leave the rest unchecked** and
+  say what verifying it would take. An unchecked box **blocks the PR from being
+  merge-eligible** (`SCHEMA.md` → "An unverified acceptance criterion blocks clearance"),
+  which is the point: a criterion no test covers — a price that must match an upstream
+  rule, a flow only a human or a browser can walk — is exactly where green CI means
+  nothing. Leaving it honestly unchecked routes the PR to a human instead of letting it
+  ride the deterministic checks. Never tick a box because everything else passed.
 - Run the repo's build, lint, and tests green before opening a PR. If you can't
   get them green, report rather than open the PR.
 - **Self-review before you open the PR (a pre-filter, not the gate).** On your own diff,

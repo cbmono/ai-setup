@@ -89,18 +89,54 @@ no PII/secrets. The role-specific procedure is below.
      configured, treat the review as **pending**: report it as an unmet gate and let the
      loop pick it up on a later tick. **Don't** substitute the CLI, and don't read a
      missing review as an approval.
-   - **c. Genuinely no integration** (and the CLI is installed) — run
+   - **c. Did the reviewer *refuse* rather than review?** A paid reviewer has a spending
+     cap and rate limits that nothing in this bundle can see — and when it hits one it
+     **still publishes a green check** while its comment says it skipped the review. Read
+     what the reviewer actually said: any "rate limit reached", "review skipped", plan- or
+     quota-exhausted message means **no review happened**. Treat it exactly like (b) —
+     pending, an unmet gate — and say so in your verdict's `caveats`. A green check next
+     to a refusal is the most convincing false pass available here; never launder it into
+     one, and never spend the CLI to paper over an exhausted quota (that's the same budget
+     from the other side — flag it for the human instead).
+   - **d. Genuinely no integration** (and the CLI is installed) — run
      `coderabbit review --base <default-branch> --type committed --agent` (detect the
      default branch — don't hardcode `main`: `git symbolic-ref --short
      refs/remotes/origin/HEAD | sed 's@^origin/@@'`, fallback `main`). This matches the
      `/rabbit` command's invocation.
    Never request a CodeRabbit **re-review** to confirm fixes — verify those yourself.
-6. **Synthesize one verdict** from your CI analysis, the fan-out (or inline) review,
-   acceptance-criteria check, and CodeRabbit. Post it as a PR comment via `gh pr
-   review` (comment / request-changes / approve-as-review only — **never `gh pr
-   merge`**).
-7. Write the verdict into the task `# Result` (pass / changes-requested + the issue
-   list). Leave `status: in-review`; the human merges.
+6. **Synthesize one verdict — after every lens has landed, never before.** Combine your
+   CI analysis, the fan-out (or inline) review, the acceptance-criteria check, and
+   CodeRabbit into a single verdict, and post it **once for the commit you reviewed**. Do
+   **not** post an early `pass` and follow up: a verdict posted while a lens is still
+   outstanding is what merges bugs (see `SCHEMA.md` → "Independent verification gate").
+
+   **"Once" is per reviewed head, not per PR.** If you requested changes and the agent
+   pushes a fix, the head moves and your verdict goes stale by clause 3 — the loop
+   re-dispatches you and that new commit gets its own single verdict. Re-verifying a new
+   head is required; it is not the "don't re-review to confirm a fix" cost rule, which is
+   about paying an external reviewer twice for the *same* diff.
+
+   **Emit all three mandatory lenses** — `correctness`, `security`, `repro`. A lens you
+   didn't run is `skipped(<why>)`, never omitted: an absent lens would otherwise pass
+   vacuously.
+
+   End the comment with the machine-readable `okf-verdict v1` trailer defined in
+   `SCHEMA.md`, filled honestly: `head_sha` = the SHA you actually reviewed (`gh pr view
+   <pr> --json headRefOid`), every lens `done` or `skipped(<why>)`, every acceptance
+   criterion you could **not** confirm listed in `unverified_criteria`, and anything you
+   could not settle in `caveats`. The trailer is the only part the loop reads, so a
+   caveat you mention in prose but not in the trailer is a caveat you have hidden. If
+   you can't assess the work, `verdict: inconclusive` is the correct answer — never
+   `pass` with an explanation.
+
+   Post via `gh pr review` as a **comment** (or `--request-changes`), **never `gh pr
+   merge`**. Don't plan on `--approve`: when the PR was opened by the same `gh` identity
+   you're reviewing under — the normal case in a single-login instance — GitHub rejects
+   self-approval, so the trailer-bearing **comment** review *is* the clearance signal.
+   Never work around that by switching identities.
+7. Write the same verdict into the task `# Result` (pass / changes-requested /
+   inconclusive + the issue list + anything left unverified). Leave `status: in-review`;
+   merging is the human's (or, on a project that delegates it, the loop's — never yours).
 
 Constraints: never merge, never push to the default branch, no customer PII in tests
 or comments. If you can't assess the work, say so explicitly rather than

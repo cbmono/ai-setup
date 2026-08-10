@@ -201,6 +201,28 @@ fallback. Before *that*, the implementing agent **self-reviews its own diff** an
 findings (`code-architect` / a careful pass) — a pre-filter that
 shifts cheap issues left, **not** a replacement for the independent gate.
 
+**A verdict is structured, and clearance is a nine-clause predicate.** The `qa-reviewer`
+ends its review with a machine-readable `okf-verdict` trailer; the loop reads the verdict
+**only** from that trailer and criteria coverage only from the checklist's checkbox state,
+never from prose. **The full predicate — the normative list every consumer must check — is
+in [`SCHEMA.md`](symlink/SCHEMA.md) → "Independent verification gate".** Don't implement
+from this summary; it names three *failure classes* to convey the shape, not the complete
+set of requirements:
+
+1. **An unfinished verdict** — trailer missing, partial, `inconclusive`, carrying
+   `caveats`, or omitting a mandatory lens. An approval that admits its own analysis is
+   unfinished is not an approval.
+2. **An unverified criterion** — any `acceptance_criteria` box left unchecked. Green CI is
+   not evidence for a criterion no check covers.
+3. **A refusal dressed as a pass** — the reviewer declaring it didn't review
+   (rate-limited, quota exhausted, skipped) while a **green check** publishes alongside.
+   The most convincing false pass in the system.
+
+The predicate also requires a current `head_sha`, the right reviewer identity, no
+unresolved reviewer thread, and — for an external reviewer — a reconciled comment count.
+Each failure class above has cleared a real bug in a real run; this is contract, not
+etiquette.
+
 **One review per PR (cost control).** The gate needs *one* fresh-context review, not a
 review per push. Left at its defaults CodeRabbit re-runs on **every push** and replies to
 **every comment**, so a PR whose findings an agent then fixes burns several sessions to
@@ -217,7 +239,10 @@ re-confirm a diff that's already clean. Three rules keep it to one:
    reports the gate as pending instead of substituting a CLI run.
 3. **Never re-review to confirm a fix.** Agents address findings, push, and reply once
    with what changed. A re-review is requested only after a rewrite substantial enough to
-   invalidate the original review.
+   invalidate the original review. **This is about the same diff.** A push moves the head,
+   which makes any prior verdict stale (predicate clause 3), so the *new* commit still has
+   to be verified before it can merge — that's re-verification of different code, not
+   re-review of the same code, and the loop does it automatically.
 **Recommended: set branch protection to require CI green + a review from that
 reviewer** (e.g. CodeRabbit as a required reviewer, or a dedicated verifier status
 check). Note GitHub only enforces *that* CI passed and a review happened — whether the
