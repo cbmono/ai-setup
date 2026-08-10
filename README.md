@@ -46,7 +46,7 @@ This is the part to memorise. Four steps, two of them yours:
 | **2. Let the PM sharpen it** | `/pm-loop` | The project-manager agent fills in acceptance criteria, and where it genuinely can't decide, writes down numbered **open questions** for you. |
 | **① Your first gate** | *`/answer`, then edit the task* | Answer its questions, then promote the task by changing `status: draft` to `status: ready` in the task file. **Only a human can do this.** Nothing gets built without it. |
 | **3. Let it run** | `/pm-loop 10m` | Each tick: dispatches `ready` tasks to role agents (which work in their own git worktrees, in the background), watches their PRs, reflects merges back, and refreshes the board. |
-| **② Your second gate** | *(merge on GitHub)* | You merge the PR — or, for a research project, approve the deliverable. **Only a human does this too**, unless you've explicitly opted a project into `yolo`. |
+| **② Your second gate** | *(merge on GitHub)* | You merge the PR — or, for a research project, approve the deliverable. **Only a human does this too**, unless you've explicitly delegated that gate for a project. |
 | **4. Wrap up** | `/close-project <slug>` | Consolidates what was learned into the knowledge base, logs the closeout, and deletes the project folder. Git history + the knowledge base are the record. |
 
 **The mindset: steer, don't watch.** You should mostly see *results and questions*, not every intermediate step. If you find yourself reading agent output line by line, you're using it wrong — run `/status` instead.
@@ -133,7 +133,7 @@ Projects come in two kinds:
 
 The things that stop a fleet of background agents from making a mess:
 
-- **Two human authorities.** Only a human promotes `draft → ready`. Only a human merges (unless a project is explicitly `yolo`). The PM cannot do either.
+- **Two human authorities.** Only a human promotes `draft → ready`. Only a human merges (unless a project explicitly delegates that gate). The PM cannot do either.
 - **Nobody grades their own homework.** Before any PR merges it's checked by an **independent** reviewer with fresh context — CodeRabbit where the repo configures it, otherwise the `qa-reviewer` agent — judged on real signals (acceptance criteria met, CI actually green), never the implementing agent's say-so. The implementing agent self-reviews first, but that's a cheap pre-filter, not the gate.
 - **One review per PR.** Left at defaults, CodeRabbit re-reviews on *every push* and replies to *every comment*, so a PR whose findings an agent then fixes burns several paid sessions re-confirming a clean diff. Agents fix, push, and reply once — they never ask for a re-review to confirm their own fix. Pin it in the target repo's `.coderabbit.yaml` (`auto_incremental_review: false`, `chat.auto_reply: false`); [this repo's own](./.coderabbit.yaml) is a working example.
 - **Isolation.** Each agent gets its own git worktree and its own package store, so parallel work can't corrupt a shared checkout. Finished worktrees get reclaimed automatically.
@@ -147,7 +147,7 @@ The things that stop a fleet of background agents from making a mess:
 1. **Goodhart** — lots of tasks closed, goal unmoved
 2. **Measurement decay** — knowledge that's gone stale
 3. **Green but not progressing** — projects that look healthy and aren't
-4. **Weakened anchors** — a human gate or the verification gate quietly slipping, or a `yolo` project merging PRs no independent reviewer cleared
+4. **Weakened anchors** — a human gate or the verification gate quietly slipping, or a project with delegated merge authority merging PRs no independent reviewer cleared
 
 It writes a dated report to `log.md` and **never acts**. Responding is your call.
 
@@ -322,6 +322,7 @@ Manage background jobs with `/codex:status`, `/codex:result`, and `/codex:cancel
 
 > **Why it's opt-in rather than a default plugin.** It needs external credentials (same rule as MCP servers), it lives in a **third-party** marketplace so it needs `extraKnownMarketplaces` unlike the `claude-plugins-official` defaults, and its review commands duplicate this repo's own command surface. Note too that enabling a plugin enables its hooks: this one registers `SessionStart`, `SessionEnd`, and a Stop-time review gate. That gate is **off unless you turn it on** with `/codex:setup --enable-review-gate` — leave it off on any machine running `/pm-loop`, since it makes every stop wait on a Codex review (900s timeout).
 
+<!-- mirror:exclude start -->
 ## DeepSeek as an alternative backend (opt-in)
 
 Opt-in, off by default, and **architecturally different from the Codex integration above** — the distinction is the whole story, so don't reason about one from the other:
@@ -389,6 +390,7 @@ Verified live against the API on 2026-08-04: base URL `https://api.deepseek.com/
 
 > ⚠️ **A stale model ID costs money silently.** DeepSeek maps an *unrecognised* model name to a working model rather than erroring. Testing showed an unknown name resolving to `deepseek-v4-pro` — the **expensive** tier — which contradicts DeepSeek's docs (they say it falls back to flash). So if DeepSeek renames a model, nothing breaks and nothing warns you; you just pay pro rates. Override with `DEEPSEEK_MODEL_PRO` / `DEEPSEEK_MODEL_FLASH` / `DEEPSEEK_SUBAGENT_MODEL` and re-check the [model list](https://api-docs.deepseek.com/quick_start/pricing) rather than waiting for an error. These IDs are deliberately *not* validated against a whitelist — a hardcoded list of known models would recreate exactly the staleness problem the overrides exist to solve. The startup banner prints the resolved models every run, which is what actually catches a wrong one.
 
+<!-- mirror:exclude end -->
 ## Browser control (Claude for Chrome)
 
 Letting Claude drive a real browser — read a logged-in page, click through a flow, screenshot — comes from **[Claude for Chrome](https://claude.com/chrome)**, and it is **not** something this repo can ship you. There is nothing to copy into `settings.json`.

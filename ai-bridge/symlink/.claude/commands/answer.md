@@ -23,7 +23,7 @@ and stop.
    that entry** from `open_questions` — the same effect as the ` --- <answer>` delimiter,
    applied here. Keep no answered-question history.
 4. **Report** which tasks became clean (empty `open_questions`). Under `gated` they're
-   now promotable by the human; under `yolo` the next `/pm-loop` tick will
+   now promotable by the human; where the project delegates promotion (`AUTONOMY.md`), the next `/pm-loop` tick will
    auto-promote the clean **build** tasks (research stays human-driven). This command
    **only answers questions** — it never promotes,
    dispatches, or merges.

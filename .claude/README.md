@@ -120,6 +120,7 @@ Plugins enable behind the folder-trust gate on first launch, not silently. Consu
 
 **Keep this integration modular.** All Codex content lives in that one example file plus clearly-bounded doc sections (here and in the root `README.md`). Don't thread Codex branches through unrelated machinery: the point is that mirroring it elsewhere later is a one-file copy, and that it can be dropped without unpicking anything. Marketplace sources accept `ref` (branch/tag) but **not** `sha`.
 
+<!-- mirror:exclude start -->
 ## DeepSeek backend (opt-in)
 
 `scripts/deepseek-session.sh` runs one Claude Code session against DeepSeek instead of Anthropic. **Not a default, and not the same shape as the Codex integration above** — Codex is *delegation* (Claude drives, hands tasks to a separate process), this is *substitution* (the model behind Claude Code is replaced, so the whole session — prompts, file contents, tool results — is served by DeepSeek).
@@ -143,11 +144,12 @@ Plugins enable behind the folder-trust gate on first launch, not silently. Consu
 
 **Deliberately not vendoring [`aattaran/deepclaude`](https://github.com/aattaran/deepclaude).** It has more features (proxy on `:3200`, live backend switching, cost tracking) but publishes no tags or releases, so there is nothing to pin — and this repo pins third-party executable content by rule. Keeping our own ~40 lines means no unpinned third-party code sits in the path holding the API key.
 
+<!-- mirror:exclude end -->
 ## Browser control (Claude for Chrome)
 
 **Nothing to ship here — this one is deliberately docs-only.** Claude for Chrome's `mcp__claude-in-chrome__*` tools are **injected by the extension** into a live paired session; they appear in no config file (`claude mcp list` doesn't list the server, and there's no stanza in `settings.json` or any `.mcp.json`). So there is no `settings.claudeforchrome.example.json` and there shouldn't be — inventing a `command`/`args` block would violate "don't invent tool invocations". Setup is: install the extension → grant **per-site** permissions in it → the tools appear. See the top-level `README.md` → "Browser control" for the consumer-facing version.
 
-Two verified behaviors that shape guidance elsewhere: background subagents **do** inherit the browser connection (it isn't foreground-only), but each gets its **own tab group** rather than the human's open tabs — so agents must navigate from an explicit URL. `settings.json` **allows `mcp__claude-in-chrome__*`** — the one MCP-tool permission in the baseline, and a deliberate exception to "consumers wire up their own integrations". Rationale: permissions belong in `settings.json` per this repo's rules, and leaving these tools prompting defeats the feature's main use case, since a *background* agent stalls on a prompt nobody sees (it reads as a hang, not a block). It's safe as a default because it is **inert until the consumer installs and pairs the extension** — no extension, no tools, nothing matches — which also means the extension's per-site permissions are the real gate. `ai-bridge/symlink/.claude/settings.json` carries the same rule, because instance sessions read that file rather than this one. Two caveats to keep stated. It's server-level and cannot separate read-only navigation from **writes** (form submits, setting changes), as the tool names are extension-injected and not enumerable from config — and it applies to ordinary sessions, not only `yolo` ai-bridge projects. To restore prompts without forking the baseline, shadow it in `.claude/settings.local.json` (or `~/.claude/settings.local.json` for a whole machine):
+Two verified behaviors that shape guidance elsewhere: background subagents **do** inherit the browser connection (it isn't foreground-only), but each gets its **own tab group** rather than the human's open tabs — so agents must navigate from an explicit URL. `settings.json` **allows `mcp__claude-in-chrome__*`** — the one MCP-tool permission in the baseline, and a deliberate exception to "consumers wire up their own integrations". Rationale: permissions belong in `settings.json` per this repo's rules, and leaving these tools prompting defeats the feature's main use case, since a *background* agent stalls on a prompt nobody sees (it reads as a hang, not a block). It's safe as a default because it is **inert until the consumer installs and pairs the extension** — no extension, no tools, nothing matches — which also means the extension's per-site permissions are the real gate. `ai-bridge/symlink/.claude/settings.json` carries the same rule, because instance sessions read that file rather than this one. Two caveats to keep stated. It's server-level and cannot separate read-only navigation from **writes** (form submits, setting changes), as the tool names are extension-injected and not enumerable from config — and it applies to ordinary sessions, not only ai-bridge projects with delegated autonomy. To restore prompts without forking the baseline, shadow it in `.claude/settings.local.json` (or `~/.claude/settings.local.json` for a whole machine):
 
 ```json
 { "permissions": { "ask": ["mcp__claude-in-chrome__*"] } }
@@ -155,7 +157,7 @@ Two verified behaviors that shape guidance elsewhere: background subagents **do*
 
 And it only arrives by `git pull` where `~/.claude/settings.json` is a **symlink** to this repo; `install.sh` leaves a real one untouched by design, so those users add the one allow rule themselves. Instances are fine either way — they read `ai-bridge/symlink/.claude/settings.json`.
 
-The `ai-bridge/` subtree consumes this: a project opts in with `browser: claude-for-chrome`, and `ai-bridge/symlink/SCHEMA.md` → "Browser access" holds the agent-facing rules (browser-first, degrade when absent, writes permitted under `yolo` and ask-first under `gated`).
+The `ai-bridge/` subtree consumes this: a project opts in with `browser: claude-for-chrome`, and `ai-bridge/symlink/SCHEMA.md` → "Browser access" holds the agent-facing rules (browser-first, degrade when absent, writes ask-first unless the project's autonomy delegates them).
 
 ## Commands vs skills
 

@@ -33,9 +33,13 @@ instance's `CLAUDE.md` (data-handling, units, no PII).
    objective didn't advance, and `done` tasks whose `acceptance_criteria` you can't
    confirm were actually met from the merged PR (spot-check — don't re-review every one).
 4. **Anchors intact.** Confirm the frozen anchors still hold: the two human gates and
-   the independent-verification gate are present in the machinery, and no project's
-   `autonomy` is `yolo` and merging PRs an independent reviewer hasn't cleared (unaddressed comments, or CI not green). Flag
-   any anchor that's been weakened — those are the nodes an optimizer is tempted to relax.
+   the independent-verification gate are present in the machinery, and no project with
+   **delegated merge authority** is merging PRs an independent reviewer hasn't cleared
+   (unaddressed comments, or CI not green). Flag any anchor that's been weakened — those
+   are the nodes an optimizer is tempted to relax. Also flag the **inverse mismatch**: a
+   project whose `autonomy` isn't `gated` while `AUTONOMY.md` is **absent**. The field is
+   inert then, so the work is silently waiting for a human who believes it's delegated —
+   a stall that looks like progress.
    **Sample recently merged PRs against the full clearance predicate** — all nine clauses
    in `SCHEMA.md` → "Independent verification gate" (plus the external-reviewer
    substitutions for clauses 1–6). Check **every** clause, not the memorable ones: a

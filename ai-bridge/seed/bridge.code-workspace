@@ -20,8 +20,8 @@
   // root (`..`) — which has no instance `.claude/commands`, so /status, /pm-loop
   // and /new-project silently aren't there. Launching Claude from an editor
   // integration doesn't hit this (it uses the first folder); a terminal launch
-  // does, which is the only way to use a wrapper launcher like
-  // `.claude/scripts/deepseek-session.sh`. install.sh uncomments the line below
+  // does, which is the only way to use a wrapper launcher (a script that sets up
+  // the environment and then execs `claude`). install.sh uncomments the line below
   // with this instance's absolute path; if you hand-copy this file, fill it in
   // yourself. Absolute rather than ${workspaceFolder:AI Bridge} on purpose:
   // substitution in this setting isn't guaranteed across editors, and a silently

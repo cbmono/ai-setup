@@ -69,12 +69,12 @@ ticks, regardless of how long a tick runs.
 
 ## Standing guardrails for each tick dispatch
 
-- Honor the human gates **per the owning project's `autonomy`** (default `gated`):
-  under `gated` never promote `draft → ready` and never merge; under `yolo` the loop runs
-  all-out — promote a fully-refined build-task draft with an empty `open_questions`, and
-  merge a PR once its independent review has no unaddressed comments and CI is fully green
-  (the exact verified commit). See the PM agent's "Authority boundaries". When `autonomy`
-  is unset, act as `gated`.
+- Honor the human gates **per the owning project's `autonomy`** (default `gated`): never
+  promote `draft → ready` and never merge. A project may delegate a gate **only** where
+  `AUTONOMY.md` exists at the bundle root and defines the mode — then follow that file
+  exactly, including its preflight. **No `AUTONOMY.md` ⇒ every project is `gated`** and
+  the field is inert. See the PM agent's "Authority boundaries". When `autonomy` is unset,
+  act as `gated`.
 - Reconcile doc `status:` against live `gh`/`git` before acting; act only on deltas.
 - Concurrency cap: **at most `maxAgentsInFlight` role agents in flight** (from
   `instance.config.json`; fall back to 5 if the key is absent), and each must use its own
