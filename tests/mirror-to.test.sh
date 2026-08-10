@@ -55,6 +55,20 @@ else
   printf '  FAIL  %-56s\n' "local content was clobbered"; fail=$((fail+1))
 fi
 
+# 1b. DUPLICATES: two identical dest-local lines vs one incoming — set membership
+#     would call this covered and silently drop one. Must be counted as surplus.
+src="$(new_src src1b)"; dest="$(new_dest dest1b)"
+printf 'shared config\nalteos dup\n' > "$src/shared.md"
+( cd "$src" && git_q add -A && git_q commit -qm srclocal ) >/dev/null
+printf 'shared config\nalteos dup\nalteos dup\n' > "$dest/shared.md"
+( cd "$dest" && git_q add -A && git_q commit -qm destdup ) >/dev/null
+check "duplicate dest-local line counted as at-risk" 0 "MANUAL   shared.md (1 local line" "$src" "$dest" --apply
+if [ "$(grep -c 'alteos dup' "$dest/shared.md")" = "2" ]; then
+  printf '  PASS  %-56s\n' "both duplicate local lines survived"; pass=$((pass+1))
+else
+  printf '  FAIL  %-56s\n' "a duplicate local line was dropped"; fail=$((fail+1))
+fi
+
 # 2. A dest file with no local tokens IS fast-forwarded.
 src="$(new_src src2)"; dest="$(new_dest dest2)"
 printf 'stale\n' > "$dest/CLAUDE.md"

@@ -204,10 +204,18 @@ for rel in "${rels[@]}"; do
   # destination's LOCAL_TOKENS lines against the incoming content line-for-line;
   # any that the incoming file doesn't carry would be lost. Report, never write.
   if [ -f "$dst_file" ]; then
-    # Each stage guarded: a grep that legitimately matches nothing exits 1, which
-    # under `set -o pipefail` would abort the whole run.
-    at_risk="$( { grep -iE "$LOCAL_TOKENS" "$dst_file" || true; } \
-                | { grep -vxF -f "$tmp" || true; } | wc -l | tr -d ' ')"
+    # Multiset, not set membership: `grep -vxF -f` would treat two identical
+    # destination-local lines as covered by ONE matching incoming line, so a
+    # duplicate would be silently dropped. comm -23 over sorted occurrences
+    # counts what's genuinely surplus in the destination. (Comparing against the
+    # incoming file's *local* lines is equivalent to comparing against all of
+    # them: an identical line necessarily matches LOCAL_TOKENS too.)
+    # Each grep guarded: a legitimate no-match exits 1, which under
+    # `set -o pipefail` would abort the whole run.
+    at_risk="$( comm -23 \
+                  <( { grep -iE "$LOCAL_TOKENS" "$dst_file" || true; } | sort ) \
+                  <( { grep -iE "$LOCAL_TOKENS" "$tmp"      || true; } | sort ) \
+                | wc -l | tr -d ' ')"
     if [ "${at_risk:-0}" -gt 0 ]; then
       printf '  MANUAL   %s (%s local line(s) would be lost — merge by hand)\n' "$rel" "$at_risk"
       manual=$((manual+1)); rm -f "$tmp"; continue
