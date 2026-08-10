@@ -286,9 +286,11 @@ when they could not actually verify it (the honest state; never tick a box you c
 confirm), because deterministic checks passing is not evidence for a criterion no
 deterministic check covers.
 
-**Two human authorities** keep this semi-autonomous:
-1. **Promote `draft → ready`** — the only way work enters execution. The PM never sets `ready`.
-2. **Merge the PR(s)** — the PM never merges; it only *reflects* a merge by setting `done`.
+**Two human authorities** keep this semi-autonomous. Both are the human's **by default**,
+and each is the human's **absolutely** unless a project explicitly delegates it (next
+paragraph) — there is no third way for the loop to acquire either:
+1. **Promote `draft → ready`** — the only way work enters execution. By default the PM never sets `ready`.
+2. **Merge the PR(s)** — by default the PM never merges; it only *reflects* a merge by setting `done`.
 
 **Delegated authority (optional, and off by default).** A project's `autonomy` field
 (default `gated`) can hand one or both of these gates to the loop — replacing the human

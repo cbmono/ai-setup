@@ -64,8 +64,12 @@ for arg in "$@"; do
 done
 [ -n "$DEST" ] || { echo "usage: $0 <dest-repo> [--apply]" >&2; exit 2; }
 
-SRC="$(git rev-parse --show-toplevel)"
-DEST="$(cd "$DEST" 2>/dev/null && pwd || true)"
+# Resolve SRC from THIS SCRIPT's location, never the caller's cwd. Invoked by
+# absolute path from inside an unrelated git repo, `git rev-parse --show-toplevel`
+# would resolve to *that* repo and mirror it into $DEST.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+SRC="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel)"
+DEST="$(cd "$DEST" 2>/dev/null && pwd -P || true)"
 [ -n "$DEST" ] || { echo "error: destination directory does not exist" >&2; exit 2; }
 [ "$SRC" != "$DEST" ] || { echo "error: destination is this repo" >&2; exit 2; }
 git -C "$DEST" rev-parse --git-dir >/dev/null 2>&1 || {
@@ -74,11 +78,16 @@ git -C "$DEST" rev-parse --git-dir >/dev/null 2>&1 || {
 }
 
 # A clean destination is what makes this safe: `git -C <dest> checkout .` undoes
-# everything this script did. Refuse if we can't offer that.
-if [ "$APPLY" -eq 1 ] && [ -n "$(git -C "$DEST" status --porcelain)" ]; then
-  echo "error: $DEST has uncommitted changes — commit or stash them first, so the" >&2
-  echo "       mirror is reviewable as a clean diff (and revertable with 'git checkout .')." >&2
-  exit 2
+# everything this script did. Checked in BOTH modes so a dry run tells you now
+# rather than letting --apply fail later — but fatal only when actually writing,
+# since previewing a diff against a dirty tree is harmless and sometimes useful.
+if [ -n "$(git -C "$DEST" status --porcelain)" ]; then
+  if [ "$APPLY" -eq 1 ]; then
+    echo "error: $DEST has uncommitted changes — commit or stash them first, so the" >&2
+    echo "       mirror is reviewable as a clean diff (and revertable with 'git checkout .')." >&2
+    exit 2
+  fi
+  echo "WARNING: $DEST has uncommitted changes. --apply will refuse until it's clean." >&2
 fi
 
 excluded_path() {
@@ -104,17 +113,49 @@ transform() {
   }
 }
 
-copied=0; skipped=0; changed=0; stripped_files=0
-written_files=()
+# A symlink anywhere along a destination path would make `>` write THROUGH it,
+# outside $DEST — a clean repo can still hold a committed symlink. Validate every
+# path component before writing anything, so a violation aborts with nothing
+# half-written rather than mid-mirror.
+symlink_on_path() {  # <rel> → prints the offending component, if any
+  local rel=$1 cur="$DEST" part
+  local IFS='/'
+  for part in $rel; do
+    cur="$cur/$part"
+    [ -L "$cur" ] && { printf '%s' "$cur"; return 0; }
+  done
+  return 1
+}
 
+skipped=0
+rels=()
 while IFS= read -r rel; do
   [ -n "$rel" ] || continue
   if excluded_path "$rel"; then
     printf '  EXCLUDE  %s\n' "$rel"; skipped=$((skipped+1)); continue
   fi
+  [ -f "$SRC/$rel" ] || continue
+  rels+=("$rel")
+done < <(git -C "$SRC" ls-files)
 
+violations=0
+for rel in "${rels[@]}"; do
+  if offender="$(symlink_on_path "$rel")"; then
+    printf '  SYMLINK  %s → %s\n' "$rel" "$offender" >&2
+    violations=$((violations+1))
+  fi
+done
+if [ "$violations" -gt 0 ]; then
+  echo "error: $violations destination path(s) traverse a symlink — refusing to write." >&2
+  echo "       A write would land outside $DEST. Replace the symlink(s) with real paths." >&2
+  exit 2
+fi
+
+copied=0; changed=0; stripped_files=0
+written_files=()
+
+for rel in "${rels[@]}"; do
   src_file="$SRC/$rel"
-  [ -f "$src_file" ] || continue
 
   tmp="$(mktemp)"
   transform < "$src_file" > "$tmp"
@@ -132,13 +173,19 @@ while IFS= read -r rel; do
   changed=$((changed+1))
   if [ "$APPLY" -eq 1 ]; then
     mkdir -p "$(dirname "$dst_file")"
-    cat "$tmp" > "$dst_file"
-    [ -x "$src_file" ] && chmod +x "$dst_file"
+    # Write to a destination-local temp, then rename into place: atomic, and it
+    # can't follow a symlink that appeared at $dst_file after validation.
+    dst_tmp="$(mktemp "$(dirname "$dst_file")/.mirror.XXXXXX")"
+    cat "$tmp" > "$dst_tmp"
+    # Mirror the source mode in BOTH directions — only setting +x would leave a
+    # destination file executable after the source stopped being so.
+    if [ -x "$src_file" ]; then chmod +x "$dst_tmp"; else chmod a-x "$dst_tmp"; fi
+    mv -f "$dst_tmp" "$dst_file"
   fi
   printf '  %s  %s\n' "$([ "$APPLY" -eq 1 ] && echo 'WRITE   ' || echo 'WOULD   ')" "$rel"
   rm -f "$tmp"
   copied=$((copied+1)); written_files+=("$rel")
-done < <(git -C "$SRC" ls-files)
+done
 
 # Files the destination has that the source doesn't: reported, never deleted —
 # the internal repo legitimately carries its own content.

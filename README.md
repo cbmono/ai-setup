@@ -46,7 +46,7 @@ This is the part to memorise. Four steps, two of them yours:
 | **2. Let the PM sharpen it** | `/pm-loop` | The project-manager agent fills in acceptance criteria, and where it genuinely can't decide, writes down numbered **open questions** for you. |
 | **① Your first gate** | *`/answer`, then edit the task* | Answer its questions, then promote the task by changing `status: draft` to `status: ready` in the task file. **Only a human can do this.** Nothing gets built without it. |
 | **3. Let it run** | `/pm-loop 10m` | Each tick: dispatches `ready` tasks to role agents (which work in their own git worktrees, in the background), watches their PRs, reflects merges back, and refreshes the board. |
-| **② Your second gate** | *(merge on GitHub)* | You merge the PR — or, for a research project, approve the deliverable. **Only a human does this too**, unless you've explicitly delegated that gate for a project. |
+| **② Your second gate** | *(merge on GitHub)* | You merge the PR — or, for a research project, approve the deliverable. **Only a human does this too** by default — unless you've explicitly delegated that gate for a project. |
 | **4. Wrap up** | `/close-project <slug>` | Consolidates what was learned into the knowledge base, logs the closeout, and deletes the project folder. Git history + the knowledge base are the record. |
 
 **The mindset: steer, don't watch.** You should mostly see *results and questions*, not every intermediate step. If you find yourself reading agent output line by line, you're using it wrong — run `/status` instead.
@@ -133,7 +133,7 @@ Projects come in two kinds:
 
 The things that stop a fleet of background agents from making a mess:
 
-- **Two human authorities.** Only a human promotes `draft → ready`. Only a human merges (unless a project explicitly delegates that gate). The PM cannot do either.
+- **Two human authorities.** Promoting `draft → ready` and merging the PR are both yours **by default** — the PM does neither, and it has no way to grant itself either one. A project can explicitly delegate one or both to the loop (see the autonomy table above); absent that, they stay yours absolutely.
 - **Nobody grades their own homework.** Before any PR merges it's checked by an **independent** reviewer with fresh context — CodeRabbit where the repo configures it, otherwise the `qa-reviewer` agent — judged on real signals (acceptance criteria met, CI actually green), never the implementing agent's say-so. The implementing agent self-reviews first, but that's a cheap pre-filter, not the gate.
 - **One review per PR.** Left at defaults, CodeRabbit re-reviews on *every push* and replies to *every comment*, so a PR whose findings an agent then fixes burns several paid sessions re-confirming a clean diff. Agents fix, push, and reply once — they never ask for a re-review to confirm their own fix. Pin it in the target repo's `.coderabbit.yaml` (`auto_incremental_review: false`, `chat.auto_reply: false`); [this repo's own](./.coderabbit.yaml) is a working example.
 - **Isolation.** Each agent gets its own git worktree and its own package store, so parallel work can't corrupt a shared checkout. Finished worktrees get reclaimed automatically.
