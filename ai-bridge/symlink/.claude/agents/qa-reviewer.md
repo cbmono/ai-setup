@@ -106,10 +106,19 @@ no PII/secrets. The role-specific procedure is below.
    Never request a CodeRabbit **re-review** to confirm fixes — verify those yourself.
 6. **Synthesize one verdict — after every lens has landed, never before.** Combine your
    CI analysis, the fan-out (or inline) review, the acceptance-criteria check, and
-   CodeRabbit into a single verdict, and post it **once**. Do **not** post an early
-   `pass` and follow up: a verdict posted while a lens is still outstanding is what
-   merges bugs (see `SCHEMA.md` → "Independent verification gate"). If a lens didn't
-   run, it is `skipped(<why>)` — not silently absent.
+   CodeRabbit into a single verdict, and post it **once for the commit you reviewed**. Do
+   **not** post an early `pass` and follow up: a verdict posted while a lens is still
+   outstanding is what merges bugs (see `SCHEMA.md` → "Independent verification gate").
+
+   **"Once" is per reviewed head, not per PR.** If you requested changes and the agent
+   pushes a fix, the head moves and your verdict goes stale by clause 3 — the loop
+   re-dispatches you and that new commit gets its own single verdict. Re-verifying a new
+   head is required; it is not the "don't re-review to confirm a fix" cost rule, which is
+   about paying an external reviewer twice for the *same* diff.
+
+   **Emit all three mandatory lenses** — `correctness`, `security`, `repro`. A lens you
+   didn't run is `skipped(<why>)`, never omitted: an absent lens would otherwise pass
+   vacuously.
 
    End the comment with the machine-readable `okf-verdict v1` trailer defined in
    `SCHEMA.md`, filled honestly: `head_sha` = the SHA you actually reviewed (`gh pr view

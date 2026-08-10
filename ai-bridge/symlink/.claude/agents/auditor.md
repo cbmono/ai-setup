@@ -36,12 +36,16 @@ instance's `CLAUDE.md` (data-handling, units, no PII).
    the independent-verification gate are present in the machinery, and no project's
    `autonomy` is `yolo` and merging PRs an independent reviewer hasn't cleared (unaddressed comments, or CI not green). Flag
    any anchor that's been weakened — those are the nodes an optimizer is tempted to relax.
-   **Sample recently merged PRs against the clearance contract** (`SCHEMA.md` →
-   "Independent verification gate"): a merge whose verifying verdict had no
-   `okf-verdict` trailer, carried `caveats`, listed `unverified_criteria`, left an
-   acceptance box unchecked, or sat next to a reviewer refusal is a **mandatory finding**
-   — the gate's deterministic core is rarely wrong, so a bad merge almost always means a
-   bad *input* was accepted. Name the PR and which condition it violated.
+   **Sample recently merged PRs against the full clearance predicate** — all nine clauses
+   in `SCHEMA.md` → "Independent verification gate" (plus the external-reviewer
+   substitutions for clauses 1–6). Check **every** clause, not the memorable ones: a
+   stale `head_sha`, a missing mandatory lens, the wrong `reviewer` identity, a
+   `DISMISSED` review, an unresolved reviewer thread, or an unreconciled comment count are
+   each as disqualifying as a caveat or an unchecked box. Any merge that violates a clause
+   is a **mandatory finding** — the gate's deterministic core is rarely wrong, so a bad
+   merge almost always means a bad *input* was accepted. Name the PR and the **clause
+   number** it violated, and don't restate the predicate here in shortened form: cite it,
+   so this list can't drift out of sync with the contract.
 
 ## How you run (one pass)
 
