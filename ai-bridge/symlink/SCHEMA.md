@@ -41,9 +41,9 @@ kind: build | research                # build = ships code via PRs (default); re
 objective: /objectives/<slug>.md      # link up to the objective it serves
 target_repo: <org>/<repo>             # BUILD only: default repo for this project's tasks (<org> from instance.config.json). Omit for research.
 deliverables: [ "<artifact>", ... ]   # RESEARCH only: what this project produces, e.g. "tech landscape per domain (md)", "exec summary deck (marp)"
-autonomy: gated | yolo                # optional (default gated). Captured at creation; ENFORCED by later machinery. gated = human promotes `ready` & merges; yolo = all-out — the loop auto-promotes fully-refined drafts with no open questions (build tasks) AND merges a PR once its independent review has no unaddressed comments and CI is fully green (merging the exact verified commit).
+autonomy: gated | <mode>              # optional (default gated). gated = the human promotes `ready` AND merges — both gates absolute. Any other value names a delegated-authority mode defined in `AUTONOMY.md`, and is INERT unless that file exists (absent ⇒ gated). See "Delegated authority" below.
 clis: [ <name>, ... ]                 # optional: external CLIs/integrations this project's agents may use (e.g. render, supabase). A declaration — agents still verify a CLI works before relying on it.
-browser: off | claude-for-chrome      # optional (default off). claude-for-chrome = agents may drive the browser via the claude-in-chrome tools when present — background role agents included, each with its OWN tab group (not the human's tabs), so navigate explicitly. Absent tools = degrade, don't fail. Writes follow the project's autonomy: permitted under yolo, ask-first under gated. See "Browser access" below.
+browser: off | claude-for-chrome      # optional (default off). claude-for-chrome = agents may drive the browser via the claude-in-chrome tools when present — background role agents included, each with its OWN tab group (not the human's tabs), so navigate explicitly. Absent tools = degrade, don't fail. Writes follow the project's autonomy: ask-first by default, permitted where a delegated mode says so (AUTONOMY.md). See "Browser access" below.
 status: active | paused | done
 timestamp: <ISO 8601>
 ---
@@ -187,8 +187,8 @@ Body headings: `# When to use`, `# Steps`, `# Verification`, `# References`.
 draft ──│ HUMAN promotes │──► ready ──► in-progress ⇄ in-review ──► done
                                             └─ changes requested ─┘
 
-  · `HUMAN promotes` is the default; under a project's `yolo` autonomy the PM promotes
-    clean **build** drafts and merges their PRs on a clean review + green CI
+  · `HUMAN promotes` is the default — and the only behaviour unless `AUTONOMY.md`
+    delegates a gate to the loop (see "Delegated authority")
   · a `draft` with non-empty open_questions is blocked on a human answer
   · any active state ⇄ blocked     (returns to its prior status when cleared)
   · any state ──► cancelled        (terminal: abandoned / superseded / decided-against)
@@ -197,7 +197,7 @@ draft ──│ HUMAN promotes │──► ready ──► in-progress ⇄ in-r
 | Status | Meaning | Who sets it |
 |---|---|---|
 | `draft` | **Initial state.** Refined once `acceptance_criteria` are filled; **awaiting human approval**. Non-empty `open_questions` = blocked on a human answer (don't promote). | Human or PM |
-| `ready` | **Approved for execution.** The human sets this — or the PM under the project's `yolo` autonomy (build tasks only). | Human — or PM under `yolo` |
+| `ready` | **Approved for execution.** The human sets this — or the loop, on a project whose `autonomy` delegates it (`AUTONOMY.md`). | Human — or the loop where delegated |
 | `in-progress` | Dispatched to a role; agent is working (no PR yet, or changes requested). | PM (on dispatch) / role agent |
 | `in-review` | PR(s) open, awaiting review/merge. Returns to `in-progress` if review requests changes. | Role agent |
 | `blocked` | External / dependency blocker; returns to its prior status when cleared. | Anyone |
@@ -286,19 +286,20 @@ when they could not actually verify it (the honest state; never tick a box you c
 confirm), because deterministic checks passing is not evidence for a criterion no
 deterministic check covers.
 
-**Two human authorities** keep this semi-autonomous:
-1. **Promote `draft → ready`** — the only way work enters execution. **By default** the PM never sets `ready`; a project's `yolo` autonomy delegates this to the loop for **build tasks** (below).
-2. **Merge the PR(s)** — **by default** the PM never merges (it only *reflects* a merge by setting `done`); under `yolo` it also merges a PR once its independent review has no unaddressed comments and CI is green (below).
+**Two human authorities** keep this semi-autonomous. Both are the human's **by default**,
+and each is the human's **absolutely** unless a project explicitly delegates it (next
+paragraph) — there is no third way for the loop to acquire either:
+1. **Promote `draft → ready`** — the only way work enters execution. By default the PM never sets `ready`.
+2. **Merge the PR(s)** — by default the PM never merges; it only *reflects* a merge by setting `done`.
 
-**Per-project autonomy can delegate these to the loop.** A project's `autonomy` field
-(default `gated`) may hand the loop the gates, replacing the human with a *machine*
-anchor (never a self-report). `yolo` runs the project **all-out**: the PM promotes a
-fully-refined **build-task** draft with no open questions (research stays human-driven —
-see below), **and** merges a PR once its independent review has **no unaddressed
-comments** and CI is **fully green**. The merge is bound to the exact commit that was
-verified + green (re-checked immediately before merging), so a later push can't ride it.
-The human opts in per project at creation; absent that (`gated`), both gates stay the
-human's.
+**Delegated authority (optional, and off by default).** A project's `autonomy` field
+(default `gated`) can hand one or both of these gates to the loop — replacing the human
+with a **machine** anchor, never a self-report. The available modes, their anchors, and
+their preconditions live in **`AUTONOMY.md`** at the bundle root, which is also the
+capability's on/off switch: **if that file is absent, there are no other modes and every
+project is `gated` no matter what its `autonomy` field says.** Read `AUTONOMY.md` only
+when a project's `autonomy` is something other than `gated` — most ticks never need it.
+Either way the human opts in per project at creation; no agent escalates it.
 
 **Research tasks (`kind: research`) are human-driven.** Same statuses, but no PRs
 and no role-agent dispatch — the human (with Claude in-session) produces the
@@ -368,19 +369,16 @@ permissions**; opting in per project = this field. Nothing to configure in this 
    step needs a browser, try it yourself before handing it back — that's the point of the
    opt-in. Ask the human only when the browser genuinely can't get there (an MFA prompt,
    a permission the extension lacks, a destructive confirmation).
-4. **Writes follow the project's `autonomy`, like every other gate.**
-   - Under **`yolo`**: browser writes are **permitted** — submitting a form, changing a
-     setting, clicking through a flow — without asking, when they serve the task. `yolo`
-     means all-out; carving out the browser while the loop already self-promotes and
-     self-merges would be inconsistent.
-   - Under **`gated`** (the default): **ask first** before any browser write. Read-only
-     navigation and screenshots need no permission in either mode.
-   Two limits that are *not* browser-specific and still hold under `yolo`: an agent
-   **doesn't redefine scope**, so a write nobody asked for isn't licensed by autonomy
-   (the same rule that stops it inventing code changes); and irreversible actions well
-   outside the task — a payment, deleting an account, mailing a customer — are worth one
-   confirmation on cost grounds, not permission grounds. When in genuine doubt about
-   blast radius, say what you're about to do and continue unless told otherwise.
+4. **Writes follow the project's `autonomy`, like every other gate.** **Ask first before
+   any browser write** — that is the default and the only behaviour unless the project's
+   `autonomy` delegates writes (see `AUTONOMY.md`; absent that file, always ask).
+   Read-only navigation and screenshots never need permission.
+   Two limits are *not* autonomy-specific and hold in **every** mode: an agent
+   **doesn't redefine scope**, so a write nobody asked for is never licensed (the same
+   rule that stops it inventing code changes); and irreversible actions well outside the
+   task — a payment, deleting an account, mailing a customer — are worth one confirmation
+   on cost grounds, not permission grounds. When in genuine doubt about blast radius, say
+   what you're about to do and continue unless told otherwise.
 5. **The usual data rules still apply.** A logged-in page is the most likely place to
    meet **customer PII** — never copy it into a task doc, `# Result`, PR text, `log.md`,
    any log or console output, or the KB. Describe the shape of what you saw, not the

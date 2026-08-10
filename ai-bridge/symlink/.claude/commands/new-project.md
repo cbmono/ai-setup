@@ -30,8 +30,10 @@ build projects.
   config; if there's no `defaultRepo`, ask. Ignored for research.
 - `deliverables="a; b; …"` — **research only.** What the project produces. If
   omitted, infer from the description or ask.
-- `autonomy=gated|yolo` (shorthand `/yolo`) — how much the
-  loop may do without you (default `gated`). Captured now; enforced by later machinery.
+- `autonomy=<mode>` — how much the loop may do without you (default `gated`). The
+  available modes, and any shorthand flag for one, are defined in `AUTONOMY.md` at the
+  bundle root; **if that file doesn't exist, `gated` is the only mode** — don't offer or
+  accept another. Captured now; enforced by later machinery.
 - `clis="a; b"` (shorthand `/cli a, b`) — external CLIs/integrations this project's
   agents may use (e.g. `render`, `supabase`).
 - `browser=off|claude-for-chrome` (shorthand `/claudeforchrome`) — let agents drive the
@@ -61,37 +63,42 @@ If `$ARGUMENTS` has no description, **ask** for a one-line goal before doing any
    **a. Capabilities (flags-first, else ask).** Settle `kind`, `autonomy`, `clis`, and
    `browser` **before** the kind-specific fields below — otherwise a project could be
    asked build-only questions on a research project, or vice versa. For any supplied as
-   a flag (`kind=`, `/yolo`, `autonomy=`, `/cli …` / `clis=`,
+   a flag (`kind=`, `autonomy=` or a mode's shorthand, `/cli …` / `clis=`,
    `/claudeforchrome` / `browser=`), use it and **don't** ask. For those NOT supplied,
    ask the missing ones in **one batched `AskUserQuestion`**:
    - **kind** — build / research.
-   - **autonomy** — gated (default) / yolo.
+   - **autonomy** — read `AUTONOMY.md` at the bundle root first. **Absent ⇒ don't ask at
+     all**: `gated` is the only mode, so record it and move on. Present ⇒ offer `gated`
+     (default) plus the modes it defines, described in that file's own terms.
    - **clis** (multi-select) — **pre-populate from what's actually available**: run
      `claude mcp list` for connected MCP servers and probe `PATH` for likely CLIs;
      show each with a ✓/✗ on whether it looks authenticated, plus "other" for free
      entry. Declarations — agents still verify a CLI works before relying on it.
    - **browser** — off (default) / claude-for-chrome.
-   If **browser = claude-for-chrome** and **autonomy** is `yolo`, don't block it — that
-   combination is supported and deliberate. State once what it means so the choice is
-   informed: agents may **write** in the human's logged-in browser (submit forms, change
-   settings) without asking, including from background `/pm-loop` dispatches, and the
-   extension's **per-site permissions** are then the effective boundary. Record that in
-   `# Context` and continue. Under `gated`, browser writes ask first (see `SCHEMA.md` →
-   "Browser access").
-   If **autonomy = yolo** on a build project, **recommend an external PR reviewer**
-   (e.g. CodeRabbit) on the repo so "no unaddressed comments" is a real gate — otherwise
-   the `qa-reviewer` fallback is the only independent check. Under `yolo` the PM merges a
-   PR once its review is clean and CI is fully green (the exact verified commit); flag
-   this at scaffold time so the human knows the project will self-merge.
+   If **browser = claude-for-chrome** and the chosen mode **delegates browser writes**,
+   don't block it — that combination is supported and deliberate. State once what it means
+   so the choice is informed: agents may **write** in the human's logged-in browser
+   (submit forms, change settings) without asking, including from background `/pm-loop`
+   dispatches, and the extension's **per-site permissions** are then the effective
+   boundary. Record that in `# Context` and continue. Otherwise browser writes ask first
+   (see `SCHEMA.md` → "Browser access").
+   If the chosen mode **delegates merging** on a build project, **run that mode's
+   preflight now** (`AUTONOMY.md`) rather than letting the loop discover mid-run that the
+   authority isn't exercisable: check whether the repo has an external PR reviewer, and
+   whether it has any required status checks. Report the result in one line and record it
+   in `# Context` — if either is missing, say plainly that every PR will still be surfaced
+   for the human, and offer to fix it (configure the reviewer / branch protection) or to
+   proceed knowing merges stay manual. Also flag at scaffold time that the project will
+   otherwise **self-merge**, so the human knows before work starts.
 
    **b. Kind-specific fields.** Now that `kind` is settled: for `build`, resolve
    `target_repo` per the Inputs rules; for `research`, resolve the `deliverables` list
    (from `deliverables=`, the description, or ask) — no repo. Get an ISO timestamp once:
    `date -u +%Y-%m-%dT%H:%M:%SZ` — reuse it for every file's `timestamp`.
 
-   These capability fields are **captured now, enforced later** (yolo by the PM loop,
-   browser by the claude-in-chrome integration): creating a project never itself
-   promotes, merges, or drives a browser.
+   These capability fields are **captured now, enforced later** (`autonomy` by the PM
+   loop, per `AUTONOMY.md`; `browser` by the claude-in-chrome integration): creating a
+   project never itself promotes, merges, or drives a browser.
 
 5. **Scaffold `projects/<slug>/`**, matching the schema/example exactly:
    - `project.md` — `type: Project` frontmatter (`title`, `description`, `kind`,
@@ -179,7 +186,7 @@ If `$ARGUMENTS` has no description, **ask** for a one-line goal before doing any
    - every task sitting at `status: draft` — that's the human's promotion gate.
    - a research project having no `target_repo`, no `pr:`, and no assignee.
    - the control panel committing straight to `main`.
-   - `autonomy: yolo` being near-inert on a research project — a documented consequence,
+   - a merge-delegating `autonomy` being near-inert on a research project — a documented consequence,
      not a defect.
 
    **Take these seriously** — each is a real defect worth a follow-up commit:

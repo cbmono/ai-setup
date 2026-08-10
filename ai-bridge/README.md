@@ -9,7 +9,7 @@ each its own git repo.
 ai-setup/ai-bridge/        # this template (lives in the ai-setup repo)
 ├── install.sh                    # stamp out / refresh an instance
 ├── symlink/                      # generic machinery → symlinked into instances (gitignored there)
-│   ├── SCHEMA.md  agents/index.md  scripts/commit-as.sh
+│   ├── SCHEMA.md  AUTONOMY.md  agents/index.md  scripts/commit-as.sh
 │   └── .claude/{agents/*, commands/{status,pm-loop,new-project,pr-review-request,todo,fanout}.md, hooks/{show-awaiting,show-todos}.sh, settings.json}
 └── seed/                         # starting content → copied into an instance once (then yours)
     ├── instance.config.json  CLAUDE.md  README.md  index.md  log.md  .gitignore
@@ -63,19 +63,32 @@ only the symlinks it created.
 The spine, from inside an instance:
 
 > **`gated` (default):** `/new-project <description>` → you approve `draft → ready` → `/pm-loop 10m` → you merge the PR
+<!-- mirror:exclude start -->
 >
 > **`yolo` (all-out):** `/new-project <description> /yolo` → `/pm-loop 10m` — the loop promotes clean build drafts, dispatches, and merges each PR on a clean review + green CI. You just answer its questions (`/answer`) and watch for drift (`/audit`).**
+<!-- mirror:exclude end -->
 
 `/pm-loop` is a serial, completion-gated loop (one tick at a time). Two human gates
 stay yours by default: promote `draft → ready`, and merge the PR (build) / approve the
 deliverable (research). The idea is to **steer, not watch** — role agents run in the
-background and bubble up results and questions, not every step. **A project's `autonomy`
-(default `gated`) can hand the loop those gates:** `yolo` runs it **all-out** —
-auto-promotes fully-refined drafts with no open questions (build tasks only; research
-stays human-driven) **and** merges a PR once its independent review has no unaddressed
-comments and CI is fully green (merging the exact verified commit). Pair yolo with
+background and bubble up results and questions, not every step.
+
+**Delegating a gate is optional and off unless installed.** A project's `autonomy` field
+can hand the loop one or both gates, but the modes themselves live in
+[`symlink/AUTONOMY.md`](symlink/AUTONOMY.md) — **which is the capability's on/off switch.
+Drop that file and every project is `gated`,** whatever its `autonomy` says, with no other
+edits. That's how a deployment that must never self-merge gets there: by not shipping one
+file, rather than auditing eight documents for a stray permission.
+<!-- mirror:exclude start -->
+The one mode defined today is **`yolo`** — all-out: it auto-promotes fully-refined drafts
+with no open questions (build tasks only; research stays human-driven) **and** merges a PR
+once it's independently cleared and CI is fully green, at the exact verified commit. It
+also permits browser writes. There is no partial variant on purpose. Pair it with
 [`/audit`](#audit-loop-slow-counter-metric) — the counter-metric that watches an
-autonomous loop for drift.
+autonomous loop for drift — and note the **preflight**: with a single `gh` identity and no
+external reviewer, or with no required status checks, the merge authority can't be
+exercised at all, so the loop says so once and keeps surfacing PRs for you.
+<!-- mirror:exclude end -->
 
 **Answering the PM's questions:** when a `draft` is blocked it lists numbered
 `open_questions` (`Q1:`, `Q2:`, …). Answer one **in the task doc** by appending
@@ -102,11 +115,12 @@ Projects come in two `kind`s (see `symlink/SCHEMA.md`):
   whose conclusions graduate into `knowledge/` and spawn objectives + build projects.
 
 `/new-project` scaffolds either; pass `kind=research` for the latter. It also takes
-optional capability flags — `autonomy=gated|yolo` (`/yolo`),
+optional capability flags — `autonomy=<mode>` (modes per `AUTONOMY.md`, if installed),
 `clis="…"` (`/cli …`), and `browser=claude-for-chrome` (`/claudeforchrome`) — and
 **interactively asks for any you don't pass** (pre-filling detected CLIs/MCPs). They're
-recorded on `project.md` and honored by later machinery (yolo by the PM loop, browser by
-the claude-in-chrome integration); creating a project never itself promotes or merges.
+recorded on `project.md` and honored by later machinery (`autonomy` by the PM loop,
+browser by the claude-in-chrome integration); creating a project never itself promotes or
+merges.
 
 After scaffolding, `/new-project` runs an **advisory second-opinion review of the new
 project** with the **CodeRabbit CLI** (`cr`) when it's installed and signed in — scoped to
@@ -139,7 +153,7 @@ What this means in practice:
   from an explicit URL; they can't "look at the tab you have open".
 - **A headless/cron tick has no browser.** Agents degrade to a non-browser route and say
   so, rather than reporting the task blocked.
-- **Writes follow the project's `autonomy`.** Under `yolo` browser writes are permitted
+- **Writes follow the project's `autonomy`.** Where a mode delegates them, browser writes are permitted
   (forms included) — the loop already self-promotes and self-merges, so carving out the
   browser would be inconsistent. Under `gated`, ask first. Read-only navigation and
   screenshots need no permission either way.
@@ -247,8 +261,8 @@ re-confirm a diff that's already clean. Three rules keep it to one:
 reviewer** (e.g. CodeRabbit as a required reviewer, or a dedicated verifier status
 check). Note GitHub only enforces *that* CI passed and a review happened — whether the
 reviewer actually checked the acceptance criteria is the reviewer's job, not something
-branch protection can guarantee. Under `yolo` this same clean-review + green gate is what
-lets the loop merge; under `gated` it's surfaced for you (see the PM loop).
+branch protection can guarantee. Where a project delegates merging this same clearance is
+what lets the loop merge; otherwise it's surfaced for you (see the PM loop).
 
 ## Audit loop (slow counter-metric)
 `/pm-loop` optimizes throughput; **`/audit`** is the independent check that the
@@ -257,10 +271,10 @@ after a batch of projects close): the read-only `auditor` grounds each objective
 `success_criteria` against live `gh`/`git` reality and flags the four ways a busy
 control panel drifts — **Goodhart** (lots closed, goal unmoved), **measurement decay**
 (stale `Finding`s), **green-but-not-progressing** projects, and any **weakened anchor**
-(a human gate or the verification gate slipping, or a `yolo` project merging PRs an
+(a human gate or the verification gate slipping, or a merge-delegating project merging PRs an
 independent reviewer hasn't cleared). It writes a dated audit to `log.md` and **never acts** — responding
 (adjust targets, re-validate findings) is your governance call. It's the independent
-signal that catches a `yolo` loop gaming itself — a periodic, advisory guardrail, not a
+signal that catches an autonomous loop gaming itself — a periodic, advisory guardrail, not a
 merge-blocking guarantee.
 
 ## Model routing

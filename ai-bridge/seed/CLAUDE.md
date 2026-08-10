@@ -221,9 +221,10 @@ rule here, not in each agent.
   step. You get your **own tab group**, not the human's tabs, so always navigate from an
   explicit URL. Tools absent (e.g. a headless tick) → take a non-browser route and say so;
   never report blocked *only* for a missing browser. **Browser writes follow the project's
-  `autonomy`:** permitted under `yolo` (submitting a form, changing a setting — `yolo` means
-  all-out), ask-first under `gated`; read-only navigation and screenshots never need asking.
-  Scope discipline still applies — a write nobody asked for isn't licensed by autonomy. And
+  `autonomy`:** **ask first** — that's the default and the only behaviour unless the project
+  delegates writes (`AUTONOMY.md` at the bundle root defines the modes; no such file means
+  always ask). Read-only navigation and screenshots never need asking. Scope discipline
+  still applies — a write nobody asked for isn't licensed by autonomy. And
   no customer PII from a logged-in page
   ever reaches a task doc, PR text, `log.md`, any log or console output, or the KB.
   Describe the *shape* of what you saw, not the records. Full rules: `SCHEMA.md` →

@@ -57,16 +57,24 @@ AUTHOR_EMAIL="${CONTROL_PLANE_AUTHOR_EMAIL:-${config_email:-$(git config user.em
 
 # Two-human-authority guard (SCHEMA.md): draft→ready is the human's gate.
 #
-# A project may delegate that gate to the loop with `autonomy: yolo` in its
-# project.md — and then ONLY for `kind: build` tasks, because SCHEMA.md keeps
-# research tasks human-driven even under yolo. So this guard is decided PER TASK
-# from the owning project's autonomy plus the task's own kind, instead of
-# blocking every agent-role `status: ready` unconditionally — which contradicted
-# the autonomy field and left fully-refined yolo build drafts stranded at `draft`.
+# A project may DELEGATE that gate to the loop via `autonomy:` in its project.md —
+# but only where the capability exists at all, which is what AUTONOMY.md at the
+# repo root is (see "Delegated authority" in SCHEMA.md). No AUTONOMY.md means no
+# modes exist, so every `autonomy` value is inert and every agent-role promotion
+# is a violation. Delegation also applies ONLY to `kind: build` tasks, because
+# SCHEMA.md keeps research human-driven in every mode. So this guard is decided
+# PER TASK from three inputs: the capability file's presence, the owning
+# project's autonomy, and the task's own kind — rather than blocking every
+# agent-role `status: ready` unconditionally, which contradicted the autonomy
+# field and left fully-refined build drafts stranded at `draft`.
 #
-# Fails CLOSED: anything not clearly (yolo AND build) is refused, and an absent
-# or unparseable field is treated as `gated` / `unset`.
+# Fails CLOSED: anything not clearly (capability present AND autonomy delegated
+# AND kind build) is refused; an absent or unparseable field reads as `gated` /
+# `unset`. It gates on delegation being POSSIBLE, not on which mode delegates
+# what — that distinction lives in AUTONOMY.md, which is authoritative.
 if [ "$role" != "human" ]; then
+  delegation_possible=0
+  [ -f "$repo_root/AUTONOMY.md" ] && delegation_possible=1
   violations=""
   # Enumerate staged files under projects/ ONCE. Fail CLOSED if git itself errors
   # (corrupt index, disk error): refuse rather than proceed with an empty list, which
@@ -104,11 +112,11 @@ if [ "$role" != "human" ]; then
             | sed -n 's/^kind:[[:space:]]*\([A-Za-z][A-Za-z-]*\)[[:space:]]*$/\1/p' | head -n1)"
     [ -n "$kind" ] || kind="unset"
 
-    if [ "$autonomy" = "yolo" ] && [ "$kind" = "build" ]; then
+    if [ "$delegation_possible" -eq 1 ] && [ "$autonomy" != "gated" ] && [ "$kind" = "build" ]; then
       continue
     fi
 
-    violations="${violations}  - ${staged_file} (project '${slug:-?}': autonomy=${autonomy}, kind=${kind})
+    violations="${violations}  - ${staged_file} (project '${slug:-?}': autonomy=${autonomy}, kind=${kind}$([ "$delegation_possible" -eq 1 ] || printf ', no AUTONOMY.md'))
 "
   done <<EOF
 $staged_list
@@ -118,7 +126,8 @@ EOF
     echo "error: role '$role' may not promote these tasks to 'ready':" >&2
     printf '%s' "$violations" >&2
     echo "       draft→ready is the human's authority (SCHEMA.md). The loop may promote a task" >&2
-    echo "       only when its project sets 'autonomy: yolo' AND the task is 'kind: build'" >&2
+    echo "       only where AUTONOMY.md exists (no file = no delegated modes), the owning" >&2
+    echo "       project's 'autonomy' is not 'gated', AND the task is 'kind: build'" >&2
     echo "       (research stays human-driven). If the human approved it, commit as 'human'." >&2
     exit 3
   fi
