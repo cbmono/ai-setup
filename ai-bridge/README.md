@@ -201,6 +201,18 @@ fallback. Before *that*, the implementing agent **self-reviews its own diff** an
 findings (`code-architect` / a careful pass) — a pre-filter that
 shifts cheap issues left, **not** a replacement for the independent gate.
 
+**A verdict is structured, and three things disqualify one.** The `qa-reviewer` ends its
+review with a machine-readable `okf-verdict` trailer (see [`SCHEMA.md`](symlink/SCHEMA.md)),
+and the loop parses **only** that — never review prose, never the PR body. A PR is not
+cleared when (1) the trailer is missing, partial, `inconclusive`, or carries any
+`caveats` — an approval that admits its own analysis is unfinished is not an approval;
+(2) any `acceptance_criteria` box in the PR body is **unchecked** — that's a criterion
+nobody verified, and green CI is not evidence for one no check covers; or (3) the
+reviewer **declared it didn't review** (rate-limited, quota exhausted, skipped) — a paid
+reviewer publishes a **green check** alongside that refusal, which is the most
+convincing false pass in the system. Each of these has cleared a real bug in a real run;
+they are contract, not etiquette.
+
 **One review per PR (cost control).** The gate needs *one* fresh-context review, not a
 review per push. Left at its defaults CodeRabbit re-runs on **every push** and replies to
 **every comment**, so a PR whose findings an agent then fixes burns several sessions to

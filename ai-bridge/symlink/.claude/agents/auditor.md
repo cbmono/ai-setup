@@ -36,6 +36,12 @@ instance's `CLAUDE.md` (data-handling, units, no PII).
    the independent-verification gate are present in the machinery, and no project's
    `autonomy` is `yolo` and merging PRs an independent reviewer hasn't cleared (unaddressed comments, or CI not green). Flag
    any anchor that's been weakened — those are the nodes an optimizer is tempted to relax.
+   **Sample recently merged PRs against the clearance contract** (`SCHEMA.md` →
+   "Independent verification gate"): a merge whose verifying verdict had no
+   `okf-verdict` trailer, carried `caveats`, listed `unverified_criteria`, left an
+   acceptance box unchecked, or sat next to a reviewer refusal is a **mandatory finding**
+   — the gate's deterministic core is rarely wrong, so a bad merge almost always means a
+   bad *input* was accepted. Name the PR and which condition it violated.
 
 ## How you run (one pass)
 
