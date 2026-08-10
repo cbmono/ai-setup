@@ -24,8 +24,22 @@
 #      markers included. Works in any comment syntax (`<!-- -->`, `#`).
 #   3. STRIP_LINE_PATTERNS drop single lines, for content inside fenced code
 #      blocks where an HTML comment would render literally.
-#   4. The GUARD then greps everything written for tokens that must not survive,
-#      and FAILS if any does. A leak is loud, not silent.
+#   4. The OUTBOUND GUARD greps everything written for tokens that must not
+#      survive, and FAILS if any does. A leak is loud, not silent.
+#
+# WHAT THIS IS NOT
+# Not a full mirror. The destination is a SUPERSET, not a copy: it carries its own
+# commands, skills and installer logic. So this is a *fast-forward for shared
+# files* plus a *divergence report*:
+#
+#   5. The INBOUND GUARD protects the destination from us. Before overwriting any
+#      file, it checks whether the destination version has lines matching
+#      LOCAL_TOKENS that the incoming content does not — local content a write
+#      would destroy. Such a file is never written; it is reported as MANUAL with
+#      the count of lines at risk, and you merge it by hand.
+#      (Learned the hard way: a run without this would have deleted ~80 lines
+#      across six files — the installer's org-specific clone/symlink logic, three
+#      org-only command triggers, and whole doc sections.)
 #
 # It never commits and never deletes in the destination — you review the diff
 # there and commit yourself.
@@ -36,7 +50,15 @@ EXCLUDE_PATHS=(
   ".claude/scripts/deepseek-session.sh"
   ".env.example"                       # exists only for DEEPSEEK_API_KEY
   "scripts/mirror-to.sh"               # this tool is the source repo's own
+  "tests/mirror-to.test.sh"            # …and so is its test (it carries fixture
+                                       #  strings that are deliberately forbidden)
+  "LICENSE"                            # repo identity, not shared config
 )
+
+# Lines matching this in the DESTINATION are local content we must never clobber.
+# Case-insensitive. Widen it if the destination grows other org-specific vocabulary.
+LOCAL_TOKENS='alteos|axa|labs|langdock'
+
 
 # Anchored regexes; a matching line is dropped. Deliberately literal: if someone
 # rewords the prose these stop matching, and the GUARD below catches the leak — a
@@ -81,6 +103,16 @@ git -C "$DEST" rev-parse --git-dir >/dev/null 2>&1 || {
 # everything this script did. Checked in BOTH modes so a dry run tells you now
 # rather than letting --apply fail later — but fatal only when actually writing,
 # since previewing a diff against a dirty tree is harmless and sometimes useful.
+# We copy the WORKING TREE (not HEAD), so uncommitted source edits would ship.
+if [ -n "$(git -C "$SRC" status --porcelain)" ]; then
+  if [ "$APPLY" -eq 1 ]; then
+    echo "error: the SOURCE repo has uncommitted changes. This script copies the working" >&2
+    echo "       tree, not HEAD, so those would be mirrored. Commit or stash them first." >&2
+    exit 2
+  fi
+  echo "WARNING: source repo is dirty; the working tree is what gets copied." >&2
+fi
+
 if [ -n "$(git -C "$DEST" status --porcelain)" ]; then
   if [ "$APPLY" -eq 1 ]; then
     echo "error: $DEST has uncommitted changes — commit or stash them first, so the" >&2
@@ -127,7 +159,7 @@ symlink_on_path() {  # <rel> → prints the offending component, if any
   return 1
 }
 
-skipped=0
+skipped=0; manual=0
 rels=()
 while IFS= read -r rel; do
   [ -n "$rel" ] || continue
@@ -168,6 +200,36 @@ for rel in "${rels[@]}"; do
   dst_file="$DEST/$rel"
   if [ -f "$dst_file" ] && cmp -s "$dst_file" "$tmp"; then
     rm -f "$tmp"; copied=$((copied+1)); written_files+=("$rel"); continue
+  fi
+
+  # INBOUND GUARD: would this write delete destination-local content? Compare the
+  # destination's LOCAL_TOKENS lines against the incoming content line-for-line;
+  # any that the incoming file doesn't carry would be lost. Report, never write.
+  if [ -f "$dst_file" ]; then
+    # Multiset, not set membership: `grep -vxF -f` would treat two identical
+    # destination-local lines as covered by ONE matching incoming line, so a
+    # duplicate would be silently dropped. comm -23 over sorted occurrences
+    # counts what's genuinely surplus in the destination. (Comparing against the
+    # incoming file's *local* lines is equivalent to comparing against all of
+    # them: an identical line necessarily matches LOCAL_TOKENS too.)
+    # Each grep guarded: a legitimate no-match exits 1, which under
+    # `set -o pipefail` would abort the whole run.
+    at_risk="$( comm -23 \
+                  <( { grep -iE "$LOCAL_TOKENS" "$dst_file" || true; } | sort ) \
+                  <( { grep -iE "$LOCAL_TOKENS" "$tmp"      || true; } | sort ) \
+                | wc -l | tr -d ' ')"
+    if [ "${at_risk:-0}" -gt 0 ]; then
+      # A MANUAL file is never written, so the outbound guard never sees it. Say so
+      # now if its incoming copy carries forbidden tokens, or the human merging it
+      # by hand would carry them across unwarned.
+      note=""
+      if { grep -iE "$FORBIDDEN" "$tmp" || true; } | grep -q .; then
+        note=" [incoming copy carries forbidden tokens — strip them while merging]"
+      fi
+      printf '  MANUAL   %s (%s local line(s) would be lost — merge by hand)%s\n' \
+        "$rel" "$at_risk" "$note"
+      manual=$((manual+1)); rm -f "$tmp"; continue
+    fi
   fi
 
   changed=$((changed+1))
@@ -214,8 +276,9 @@ for rel in "${written_files[@]}"; do
 done
 
 echo "---"
-printf 'mirror-to: %d file(s) mirrored (%d differ), %d excluded, %d stripped, %d dest-only.\n' \
-  "$copied" "$changed" "$skipped" "$stripped_files" "$extra"
+printf 'mirror-to: %d mirrored (%d differ), %d excluded, %d stripped, %d dest-only, %d MANUAL.\n' \
+  "$copied" "$changed" "$skipped" "$stripped_files" "$extra" "$manual"
+[ "$manual" -eq 0 ] || echo "NOTE: $manual file(s) diverge and were NOT written — merge those by hand."
 
 if [ "$leaks" -gt 0 ]; then
   echo "FAILED: $leaks file(s) still contain forbidden tokens (listed above)." >&2
