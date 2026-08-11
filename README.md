@@ -45,11 +45,11 @@ This is the part to memorise. Four steps, two of them yours:
 | **1. Describe the work** | `/new-project <description>` | Scaffolds a project folder with seed tasks, all marked `draft`. It asks a few questions (which repo? how autonomous? does it need a browser?) and nothing is dispatchable yet. |
 | **2. Let the PM sharpen it** | `/pm-loop` | The project-manager agent fills in acceptance criteria, and where it genuinely can't decide, writes down numbered **open questions** for you. |
 | **① Your first gate** | *`/answer`, then edit the task* | Answer its questions, then promote the task by changing `status: draft` to `status: ready` in the task file. **Only a human can do this.** Nothing gets built without it. |
-| **3. Let it run** | `/pm-loop 10m` | Each tick: dispatches `ready` tasks to role agents (which work in their own git worktrees, in the background), watches their PRs, reflects merges back, and refreshes the board. |
+| **3. Let it run** | `/pm-loop 10m` | Each tick: dispatches `ready` tasks to role agents (which work in their own git worktrees, in the background), watches their PRs, reflects merges back, and refreshes the awaiting-you queue. |
 | **② Your second gate** | *(merge on GitHub)* | You merge the PR — or, for a research project, approve the deliverable. **Only a human does this too** by default — unless you've explicitly delegated that gate for a project. |
 | **4. Wrap up** | `/close-project <slug>` | Consolidates what was learned into the knowledge base, logs the closeout, and deletes the project folder. Git history + the knowledge base are the record. |
 
-**The mindset: steer, don't watch.** You should mostly see *results and questions*, not every intermediate step. If you find yourself reading agent output line by line, you're using it wrong — run `/status` instead.
+**The mindset: steer, don't watch.** You should mostly see *results and questions*, not every intermediate step. If you find yourself reading agent output line by line, you're using it wrong — check `AWAITING.md` and get on with something else.
 
 ## The commands you'll actually use
 
@@ -57,7 +57,6 @@ All of these run from inside a control-panel instance (`cd` there, then `claude`
 
 | Command | What it does |
 | --- | --- |
-| **`/status`** | The board: 🔴 awaiting you · 🟡 in flight · 🟢 next · ⛔ blocked. Writes it to `DASHBOARD.md`. Read-only and safe anytime, even mid-loop. `/status mine` = just your queue. |
 | **`/pm-loop`** | One safe, idempotent tick of the loop — refine drafts, dispatch `ready` tasks, reflect merges. Add a gap (`/pm-loop 10m`) to keep looping. Say "DRY RUN" to see what it *would* do without spawning anything. |
 | **`/new-project <description>`** | Start work. Add `kind=research` for doc/deck/asset projects that produce deliverables instead of code. |
 | **`/answer`** | Answers all the PM's pending questions interactively in one batch, instead of editing each task file by hand. |
@@ -68,6 +67,8 @@ All of these run from inside a control-panel instance (`cd` there, then `claude`
 | **`/pr-review-request <filter>`** | Find related open, green PRs and draft a grouped review-request message. |
 
 Two `SessionStart` hooks mean that when you open Claude in an instance, it greets you with what's awaiting you and any open todos — you don't have to remember to ask.
+
+There is deliberately **no status command**. The one status artifact is `AWAITING.md`: a queue of just the items a human decision unblocks (✅ approve · ❓ answer · 🔀 merge · ⛔ unblock · 🏁 close), rewritten by each `/pm-loop` tick and injected at session start. In-flight and upcoming work is left out — it needs no decision from you, and a board you scroll past is a board you stop reading. It's **opt-in by presence**: the loop refreshes the file only if it exists and never creates it, so `rm AWAITING.md` turns the queue off for good and `touch AWAITING.md` turns it back on.
 
 ## Answering the PM's questions
 
@@ -119,7 +120,7 @@ _ai-bridge-<group>/
 ├── knowledge/        services, findings, runbooks, teams — what's been learned
 ├── todos.md          quick personal reminders
 ├── log.md            the durable event log
-└── DASHBOARD.md      the derived board (regenerated, never hand-edited)
+└── AWAITING.md       what needs a decision from you (derived; delete it to opt out)
 ```
 
 Projects come in two kinds:
@@ -269,7 +270,7 @@ And denies dangerous defaults: `git push --force …` and `git push -f …` (fla
 
 > **Note on deny patterns.** Mid-pattern wildcards (e.g. `git push * --force`) are documented but fragile — Anthropic's own docs warn that argument-constraint rules don't survive flag re-ordering, redirects, env-var substitution, or extra whitespace. So the deny rules above only catch flag-first force-push orderings (`git push --force origin main`, not `git push origin main --force`). If you need stronger coverage, add a `PreToolUse` hook in `settings.local.json` that inspects the full command line.
 
-Per-machine overrides go in `.claude/settings.local.json` (gitignored).
+It also ships a [status line](#status-line) (spend and context at a glance) and enables the plugins below. Per-machine overrides go in `.claude/settings.local.json` (gitignored) — that's also where you'd opt into an [output style](#output-styles-claudeoutput-styles).
 
 ## Plugins enabled by default
 
@@ -430,6 +431,46 @@ Two behaviors worth knowing before you rely on it:
 > { "permissions": { "ask": ["mcp__claude-in-chrome__*"] } }
 > ```
 
+## Status line
+
+`settings.json` ships a status line, because spend is the one thing Claude genuinely cannot report: ask it what a session cost and it will guess. The harness feeds the script real numbers instead.
+
+```
+Opus · 34% ctx · $1.62 · +212/-48 · 5h 24%
+```
+
+Model · context window used · estimated session cost · lines added/removed · share of your 5-hour rate limit burned. Every field is optional and gets dropped rather than faked — cost is `0` before any work, `rate_limits` only exists for Claude.ai Pro/Max subscribers, and context percentage is `null` before the first API call and right after `/compact`. On a fresh session you just see `Opus`.
+
+Needs [`jq`](https://jqlang.org/). Without it the line says so once, rather than vanishing and leaving you wondering. Malformed JSON and empty stdin both exit 0.
+
+To turn it off without editing the baseline, override the whole key in `.claude/settings.local.json`:
+
+```json
+{ "statusLine": { "type": "command", "command": "true" } }
+```
+
+Two caveats worth knowing. The status line only reaches you at all if `~/.claude/settings.json` is the repo's — `install.sh` links it when you had none, but never edits an existing one, so an established install needs the key copied across by hand. And `/statusline` rewrites whichever file currently defines `statusLine`; if that file *is* the symlink, it edits this repo. Prefer the local override above.
+
+## Output styles (`.claude/output-styles/`)
+
+An output style changes how Claude *talks*, not how it codes. This repo ships one, **off by default** — a reply format is a personal preference, and putting `outputStyle` in a team-shared baseline imposes yours on everyone.
+
+**`Brief`** — the outcome in line one, then a `Needs you:` section *only when something actually blocks*, written as numbered imperative steps with the URL or path inline. It also carries three rules worth having on their own:
+
+1. **Answer vs deliverable.** An answer says its point and stops; a doc, plan, spec, or PR body runs as long as the work needs. Trims the reply, never the reasoning.
+2. **Never invent state.** Unknown is "unknown". A fabricated status is worse than a missing one — and cost never goes in prose, because the status line has the real figure.
+3. **One structural emoji per line**, never decoration: ✅ approve · ❓ answer · 🔀 merge · ⛔ unblock · 🏁 close. Never in code, commits, or PR bodies.
+
+Turn it on per-machine in `.claude/settings.local.json`, or session-only via `/config` → *Output style*:
+
+```json
+{ "outputStyle": "Brief" }
+```
+
+Styles apply to the **main conversation only** — subagents run their own prompt, so chat formatting can't leak into a PR body an agent writes.
+
+Prior art: [attention-span](https://github.com/alexgreensh/attention-span) (AGPL-3.0), a nice collection of ADHD-friendly styles worth a look. `Brief` is written independently for this MIT repo — nothing vendored — but the *answer vs deliverable* split and the "emoji marks structure, never decorates" rule are theirs, and the credit is due.
+
 ## Hooks shipped in the baseline
 
 `settings.json` wires up one hook by default — anything narrower stays in opt-in `.example.json` files.
@@ -454,7 +495,7 @@ cd ~/path/to/ai-setup
 ./install.sh
 ```
 
-The script symlinks each tracked default (`agents/`, `commands/`, `skills/`, `hooks/`, `MEMORY.md`, `claude-defaults.md`) **into** your real `~/.claude`, rather than replacing `~/.claude` with one big symlink. Two reasons this matters:
+The script symlinks each tracked default (`agents/`, `commands/`, `skills/`, `hooks/`, `output-styles/`, `MEMORY.md`, `claude-defaults.md`) **into** your real `~/.claude`, rather than replacing `~/.claude` with one big symlink. Two reasons this matters:
 
 - **Your `~/.claude` keeps owning its runtime state** — `plugins/`, `sessions/`, `projects/`, `history.jsonl`, `settings.local.json`. A whole-directory symlink would either nest inside an existing `~/.claude` (a silent no-op) or relocate all that state into the repo, where it'd clutter the working tree.
 - **It auto-discovers what to link from `git ls-files`**, so a new top-level default added to the repo is picked up on the next run — there's no list to maintain. Re-running is idempotent; anything it would overwrite is backed up to `*.bak.<timestamp>`. Entries are linked whole, so if `~/.claude` already has a real `commands/`/`agents/`/`skills/` of your own, that directory is moved aside to `*.bak.<timestamp>` (recoverable) and replaced by the symlink — keep personal global commands per-project (`<project>/.claude/commands/`) instead, since `~/.claude/commands/` now points into this repo.

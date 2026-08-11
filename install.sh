@@ -39,7 +39,7 @@ EXCLUDE="README.md settings.json settings.local.json settings.plugins.example.js
 
 # Used only outside a git checkout (e.g. a tarball download), where tracked
 # entries can't be auto-discovered. Keep roughly in sync with the linkable set.
-FALLBACK_DEFAULTS="agents commands skills hooks scripts MEMORY.md claude-defaults.md"
+FALLBACK_DEFAULTS="agents commands skills hooks output-styles scripts MEMORY.md claude-defaults.md"
 # ---------------------------------------------------------------------------
 
 REPO_ROOT="$(cd "$(dirname "$0")" && pwd)"

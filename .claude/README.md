@@ -13,12 +13,15 @@ Defaults shipped by this repo. See the [top-level README](../README.md) for inst
   settings.local.json                 # per-machine overrides (gitignored, auto-created by Claude Code)
   settings.plugins.example.json       # opt-in MCP-backed plugins (github, linear, context7)
   settings.codex.example.json         # opt-in Codex failover (openai/codex-plugin-cc)
-  hooks/                              # executable hook scripts referenced from settings.json
+  hooks/                              # executable scripts referenced from settings.json
     format-on-write.sh                # PostToolUse Write|Edit: prettier/biome if declared in package.json
+    statusline.sh                     # statusLine: model · context% · session cost · lines · 5h limit
   scripts/                            # executable scripts the USER runs directly (not hooks, not commands)
     deepseek-session.sh               # opt-in: launch a session against DeepSeek instead of Anthropic
   agents/                             # subagents (one .md per agent, YAML frontmatter)
   commands/                           # slash commands (one .md per command, no frontmatter)
+  output-styles/                      # opt-in reply formats (one .md per style, YAML frontmatter)
+    brief.md                          # "Brief": outcome first, then Needs-you as numbered steps with URLs
   skills/                             # auto-invocable capabilities; see skills/README.md
 
 # Auto-created on first run by their respective commands (gitignored, never committed):
@@ -29,7 +32,7 @@ Defaults shipped by this repo. See the [top-level README](../README.md) for inst
 
 > Don't put a `README.md` inside `commands/` — Claude Code registers every `.md` there as a slash command, so a README becomes `/README`.
 
-> The `../ai-bridge/` control-panel template is a **separate subtree** — its role agents (`project-manager`, `software-engineer`, `devops-engineer`, `qa-reviewer`, `cataloguer`, `auditor`, `oncall-guide`) and its commands (`/status`, `/pm-loop`, `/new-project`, `/close-project`, `/answer`, `/audit`, `/pr-review-request`, `/todo`, `/fanout`) install into per-group *instances*, **not** into `~/.claude`, so they're intentionally absent from the inventories below. See [`../ai-bridge/README.md`](../ai-bridge/README.md).
+> The `../ai-bridge/` control-panel template is a **separate subtree** — its role agents (`project-manager`, `software-engineer`, `devops-engineer`, `qa-reviewer`, `cataloguer`, `auditor`, `oncall-guide`) and its commands (`/pm-loop`, `/new-project`, `/close-project`, `/answer`, `/audit`, `/pr-review-request`, `/todo`, `/fanout`) install into per-group *instances*, **not** into `~/.claude`, so they're intentionally absent from the inventories below. See [`../ai-bridge/README.md`](../ai-bridge/README.md).
 
 ## Agents
 
@@ -93,6 +96,21 @@ Ship hooks here only when they're **universally safe** — must no-op cleanly on
 | Hook                  | Event                  | What it does                                                                                                                                                            |
 | --------------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `format-on-write.sh`  | `PostToolUse` (Write\|Edit) | After Claude writes/edits a file, format it if the nearest `package.json` declares `@biomejs/biome` (preferred) or `prettier`. Uses `npx --no-install` so a missing or uninstalled formatter is a silent no-op. Skips unsupported extensions. |
+| `statusline.sh`       | `statusLine`           | One line: model · context used · session cost · lines changed · 5-hour rate-limit burn. Drops any field the harness didn't send (cost is 0 early; `rate_limits` is Pro/Max-only; `used_percentage` is null before the first call and after `/compact`), so it degrades to just the model name rather than printing `null`. Exits 0 on malformed JSON and empty stdin. Needs `jq` — says so once if missing instead of failing silently. |
+
+`statusLine` isn't a hook event, but the script lives in `hooks/` because that dir is defined by *"referenced from `settings.json`"*, which is exactly what it is — and it inherits the same absolute-path convention.
+
+## Output styles
+
+Output styles change how Claude *talks*, not how it codes (`keep-coding-instructions: true`). They apply to the **main conversation only** — subagents run their own prompt, which is why chat formatting never leaks into a PR body a role agent writes.
+
+| Style   | File              | What it does |
+| ------- | ----------------- | ------------ |
+| `Brief` | `output-styles/brief.md` | Outcome in line one. A `Needs you:` section — only when something actually blocks — as numbered, imperative steps with the URL or path inline. Enforces answer-vs-deliverable, "never invent state", and one structural emoji per line (✅ approve · ❓ answer · 🔀 merge · ⛔ unblock · 🏁 close). Delegates cost/token reporting to the status line, since a reply can only guess at it. |
+
+**Not on by default** — a reply format is a personal preference, so shipping `outputStyle` in the baseline would impose one on every consumer. Turn it on per-machine in `.claude/settings.local.json` (`{"outputStyle": "Brief"}`), or session-only via `/config` → *Output style*.
+
+Prior art: [attention-span](https://github.com/alexgreensh/attention-span) (AGPL-3.0). `Brief` is independently written for this MIT repo — no files vendored — but its *answer vs deliverable* split and its "emoji marks structure, never decorates" rule come from there and deserve the credit.
 
 ## Plugins
 

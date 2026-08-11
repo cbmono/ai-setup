@@ -232,14 +232,42 @@ state, and act only on deltas.
    This keeps loop provenance visible in `git log`. Never use the helper in target
    product repos.
 
-   **Refresh the dashboard.** Regenerate `DASHBOARD.md` at the bundle root — the
-   same status board `/status` renders: bucket every task by **🔴 awaiting you**
-   (approve / answer / merge / unblock / close a completed project), **🟡 in
-   flight**, **🟢 next**, **⛔ blocked** (see the `/status` command for the exact
-   layout). List any project whose tasks are all terminal as a 🔴 *close* item. `DASHBOARD.md` is **derived and
-   gitignored**, so rewrite it every tick but **do not stage or commit it** — it's a
-   view, not tracked state. A `SessionStart` hook surfaces its "awaiting you" items,
-   so keeping it fresh is what lets the human see what needs them without reading the loop.
+   **Refresh the awaiting-you queue — only if it already exists.** If `AWAITING.md`
+   is present at the bundle root, rewrite it with the layout below. If it is
+   **absent, skip this step entirely and never create it** — its absence is how a
+   human turns the queue off, so creating it would override that choice. The
+   `SessionStart` hook already no-ops when the file is missing.
+
+   The queue holds **only** what a human decision unblocks — never in-flight, next,
+   or blocked-but-progressing work. Those need no decision, and a human who has to
+   scroll past them stops reading the queue. One line per item, verb glyph first,
+   real links:
+
+   ```markdown
+   # Awaiting you
+
+   Derived and gitignored — **do not hand-edit**. Rewritten each `/pm-loop` tick
+   from `projects/*/tasks/*.md`. Delete this file to turn the queue off for good.
+   Last refreshed: <ISO 8601, from `date -u +%Y-%m-%dT%H:%M:%SZ`>.
+
+   ## 🔴 Awaiting you (<n>)
+   * ✅ **approve** — [<task title>](/projects/<slug>/tasks/<id>.md) · refined & clean, promote `draft → ready`
+   * ❓ **answer** — [<task title>](/projects/<slug>/tasks/<id>.md) · Q1: <question>; Q2: <question>
+   * 🔀 **merge** — [<task title>](/projects/<slug>/tasks/<id>.md) · [<repo>#<n>](<pr-url>)
+   * ⛔ **unblock** — [<task title>](/projects/<slug>/tasks/<id>.md) · <blocker reason>
+   * 🏁 **close** — [<project title>](/projects/<slug>/project.md) · all tasks terminal → `/close-project <slug>`
+   ```
+
+   Keep the `## 🔴 Awaiting you` heading and the `* ` bullets exactly as shown —
+   `show-awaiting.sh` greps for them, and reshaping either silently empties the
+   startup nudge. Render `_None._` under the heading when there is nothing, so the
+   shape stays stable. `AWAITING.md` is **derived and gitignored**: rewrite it, but
+   **never stage or commit it**.
+
+   **Never invent an item.** List only tasks you actually read this tick; if a
+   state is unclear, leave it off rather than guessing. A fabricated row sends the
+   human to approve or merge something that isn't there, which costs more trust
+   than a missing row costs time.
 
 9. **Leave for the human.** By default, do not act on a `draft` beyond surfacing it — it
    awaits the human's approval (a project that delegates promotion is the one exception,
@@ -263,6 +291,6 @@ human's merge, tasks moved to `done`, and what currently awaits the human
 link — `[<repo>#<n>](<url>)`, bare repo name (see the instance `CLAUDE.md`
 "Reporting progress" rule)** — and link other artifacts you reference (commits, CI
 runs) by URL, not just by name. (The `pr:` frontmatter still stores full URLs; the
-link form is for the human-facing report and `DASHBOARD.md`.) Follow this instance's
+link form is for the human-facing report and `AWAITING.md`.) Follow this instance's
 `CLAUDE.md` for data-handling, units, and where to route authoritative data
 questions.

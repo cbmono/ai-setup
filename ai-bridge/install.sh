@@ -87,7 +87,7 @@ if [ -d "$SEED_SRC" ]; then
         # placeholder; uncomment it with this instance's absolute path so every new
         # terminal in the workspace starts in the instance rather than the group
         # root — see the comment in seed/bridge.code-workspace for why the wrong
-        # cwd silently hides /status, /pm-loop and /new-project. Whole-line
+        # cwd silently hides /pm-loop, /new-project and /todo. Whole-line
         # replacement, so a marker that ever stops matching degrades to "no pin"
         # rather than to a broken workspace file. Escaped for sed's replacement
         # side ('&' means "the match", '\' escapes, '|' is our delimiter) so a path

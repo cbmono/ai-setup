@@ -13,6 +13,7 @@ tmp/
 !.claude/agents/
 !.claude/commands/
 !.claude/hooks/
+!.claude/output-styles/
 !.claude/scripts/
 !.claude/skills/
 

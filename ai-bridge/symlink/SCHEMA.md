@@ -318,7 +318,7 @@ A **project** has no lifecycle step of its own until its tasks finish. When
 **every** task in a project is terminal (`done` or `cancelled`), the project
 becomes a **close candidate**: the PM surfaces it under 🔴 *Awaiting you* and
 **proposes** closing it — it **never** closes a project autonomously. Closing
-removes work from the board and deletes the folder, so it is a human call, like
+removes work from the queue and deletes the folder, so it is a human call, like
 the two task gates.
 
 On the human's OK (in-session, or via `/close-project <slug>`), **closeout** runs

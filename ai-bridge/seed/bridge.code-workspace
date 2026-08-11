@@ -17,8 +17,8 @@
   // terminal.integrated.cwd pins every new terminal to the instance dir, whichever
   // pane is selected. A multi-root workspace chooses the terminal's folder
   // SEPARATELY from the editor's, so without this a terminal lands in the group
-  // root (`..`) — which has no instance `.claude/commands`, so /status, /pm-loop
-  // and /new-project silently aren't there. Launching Claude from an editor
+  // root (`..`) — which has no instance `.claude/commands`, so /pm-loop,
+  // /new-project and /todo silently aren't there. Launching Claude from an editor
   // integration doesn't hit this (it uses the first folder); a terminal launch
   // does, which is the only way to use a wrapper launcher (a script that sets up
   // the environment and then execs `claude`). install.sh uncomments the line below

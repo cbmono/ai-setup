@@ -2,19 +2,20 @@
 #
 # show-awaiting.sh — SessionStart hook (ai-bridge machinery).
 #
-# Surfaces the "🔴 Awaiting you" items from the generated DASHBOARD.md when a
+# Surfaces the "🔴 Awaiting you" items from the generated AWAITING.md when a
 # session starts, so the human sees what needs a decision (approve / answer /
-# merge / unblock) before anything else. Prints to stdout; Claude Code adds
-# SessionStart stdout to the session context.
+# merge / unblock / close) before anything else. Prints to stdout; Claude Code
+# adds SessionStart stdout to the session context.
 #
-# Self-detecting and safe to run anywhere: if there's no DASHBOARD.md (e.g. before
-# the first /status or /pm-loop tick has generated it), or the "Awaiting you"
-# section has no items, it exits 0 silently — so it no-ops cleanly in any non-bridge
-# project that happens to inherit this hook.
+# Absence is the off switch. No AWAITING.md — because no /pm-loop tick has run
+# yet, or because the human deleted it to stop the nudge — means exit 0 in
+# silence. The project-manager only refreshes the file when it already exists and
+# never recreates it, so a deletion sticks. That also makes this hook safe in any
+# non-bridge project that happens to inherit it.
 set -euo pipefail
 
 root="${CLAUDE_PROJECT_DIR:-$PWD}"
-file="$root/DASHBOARD.md"
+file="$root/AWAITING.md"
 [ -f "$file" ] || exit 0
 
 # Extract the block under the "Awaiting you" heading, up to the next "## " heading.
@@ -29,6 +30,6 @@ items="$(printf '%s\n' "$block" | grep -E '^[[:space:]]*\* ' || true)"
 [ -n "$items" ] || exit 0
 
 count="$(printf '%s\n' "$items" | grep -c .)"
-echo "🔔 ${count} item(s) need your input (DASHBOARD.md → Awaiting you):"
+echo "🔔 ${count} item(s) need your input (AWAITING.md):"
 printf '%s\n' "$items" | sed -E 's/^[[:space:]]*\*[[:space:]]*/  • /'
-echo "Surface these first. Refresh the board with /status; advance work with /pm-loop."
+echo "Surface these first. Advance work with /pm-loop."
