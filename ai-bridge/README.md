@@ -93,13 +93,32 @@ The next tick treats anything after the ` --- ` as your answer, folds it into th
 and clears the question; the `draft` becomes promotable once the list empties. (Answering
 in chat during a session works too.)
 
-**Monitor without driving:** `/status` renders a board of every task grouped by what
-it needs — 🔴 awaiting you (approve · answer · merge · unblock) · 🟡 in flight ·
-🟢 next · ⛔ blocked — and writes it to a **derived, gitignored `DASHBOARD.md`**.
-It's read-only (never dispatches/promotes/merges), safe to run even mid-loop; each
-`/pm-loop` tick refreshes the board too, and a `SessionStart` hook surfaces its
-"awaiting you" items when you launch Claude in the instance. Run **one `/pm-loop`
-per instance** at a time (the serial guarantee is per-session; see `pm-loop.md`).
+**What needs you:** `AWAITING.md` is the instance's one status artifact — a queue of
+just the items a human decision unblocks (✅ approve · ❓ answer · 🔀 merge ·
+⛔ unblock · 🏁 close), each with a real link. In-flight and upcoming work is
+deliberately excluded: it needs no decision, and a queue you scroll past is a queue
+you stop reading. Each `/pm-loop` tick rewrites it and a `SessionStart` hook injects
+its items at launch. **On by default, off by deletion** — `install.sh` creates the
+file on the **first stamp only**, and the loop thereafter refreshes it just when it
+already exists and never recreates it. So `rm AWAITING.md` turns the queue off for
+good (an installer re-run won't resurrect it: `FIRST_STAMP` gates that) and
+`touch AWAITING.md` turns it back on. This is the AUTONOMY.md pattern with the
+default flipped — absence still means off, with no flag threaded through the
+machinery, but a new instance ships with the nudge working instead of silently
+disabled until someone reads the docs. Derived and gitignored; never hand-edit. Run **one `/pm-loop` per instance** at a time (the serial guarantee
+is per-session; see `pm-loop.md`).
+
+<details>
+<summary>Migrating an instance created before <code>AWAITING.md</code></summary>
+
+The old `/status` command and `DASHBOARD.md` are gone. In each existing instance:
+
+1. Replace the `DASHBOARD.md` line in its `.gitignore` with `AWAITING.md` (that line
+   is seed content, so `install.sh` won't rewrite it for you).
+2. `rm DASHBOARD.md` — it's a derived, gitignored leftover that nothing reads now.
+3. `touch AWAITING.md` if you want the startup queue; skip it if you don't.
+
+</details>
 
 ## Projects: build & research
 Projects come in two `kind`s (see `symlink/SCHEMA.md`):
@@ -179,7 +198,7 @@ every product-repo session (telling them they're a control panel that commits to
   path at install time — pins **new terminals** to the instance. Without it a
   multi-root workspace picks the terminal's folder separately from the editor's and
   can land in the group root, where the instance's `.claude/commands` doesn't exist,
-  so `/status`, `/pm-loop` and `/new-project` are silently absent. Right-clicking a
+  so `/pm-loop`, `/new-project` and `/todo` are silently absent. Right-clicking a
   repo > *Open in Integrated Terminal* still overrides it, so per-repo terminals
   work. The setting ships **commented out** in `seed/bridge.code-workspace`, so an
   unstamped copy just loses the pin rather than pointing terminals at a directory

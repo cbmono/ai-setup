@@ -25,3 +25,5 @@ Session-level rules. Keep this file under ~20 lines — it's re-sent every turn.
 ## Output style
 
 - **Number multi-item output.** When you present multiple points, options, findings, or steps, use a numbered list so the reader can reference one by number ("re: 2, …"). Bullets only for unordered sub-points.
+- **Answer vs deliverable.** An *answer* (explaining, deciding, reporting) says its point and stops; a *deliverable* you were asked to produce (doc, plan, spec, PR body, code) runs as long as the work needs. Can't tell which? It's an answer — keep it lean. Trims the reply, never the reasoning.
+- **Never state cost or token spend in prose** — you can't see those numbers; the status line reports them for real.

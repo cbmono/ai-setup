@@ -39,7 +39,15 @@ EXCLUDE="README.md settings.json settings.local.json settings.plugins.example.js
 
 # Used only outside a git checkout (e.g. a tarball download), where tracked
 # entries can't be auto-discovered. Keep roughly in sync with the linkable set.
-FALLBACK_DEFAULTS="agents commands skills hooks scripts MEMORY.md claude-defaults.md"
+FALLBACK_DEFAULTS="agents commands skills hooks output-styles scripts MEMORY.md claude-defaults.md"
+
+# Baseline keys worth merging into a settings.json we must not replace (see
+# adopt_keys). Deliberately display-only: they change how Claude reports and
+# formats, so adding one can never widen what Claude is allowed to *do*. Never
+# put a permissions/env/plugin key here — those stay opt-in, since silently
+# granting a permission during an install is exactly the surprise this script
+# exists to avoid.
+ADOPTABLE_KEYS="statusLine outputStyle"
 # ---------------------------------------------------------------------------
 
 REPO_ROOT="$(cd "$(dirname "$0")" && pwd)"
@@ -84,6 +92,62 @@ list_entries() {
 
 excluded() {
   case " $EXCLUDE " in *" $1 "*) return 0 ;; *) return 1 ;; esac
+}
+
+# Merges the display-only baseline keys (ADOPTABLE_KEYS) into a REAL
+# ~/.claude/settings.json that we must not replace — otherwise the status line
+# and output style would only ever reach people who had no settings.json at all,
+# which is nobody with an established install.
+#
+# Two invariants: it only ever ADDS a key that is absent (your own value for one
+# of these always wins, so re-running can't revert a deliberate change), and it
+# backs the file up before writing. Needs jq — a line-based edit of someone's
+# real settings file is how you corrupt it, so without jq it prints the manual
+# step instead of guessing.
+adopt_keys() {
+  local target="$DEST/settings.json"
+
+  if ! command -v jq >/dev/null 2>&1; then
+    echo "      jq not found, so these were not merged for you. Install jq and re-run,"
+    echo "      or copy the \"statusLine\" and \"outputStyle\" keys across by hand:"
+    echo "        $REPO_CLAUDE/settings.json"
+    return 0
+  fi
+
+  local missing="" k
+  for k in $ADOPTABLE_KEYS; do
+    if ! jq -e --arg k "$k" 'has($k)' "$target" >/dev/null 2>&1; then
+      missing="$missing $k"
+    fi
+  done
+  # shellcheck disable=SC2086
+  set -- $missing
+  if [ "$#" -eq 0 ]; then
+    echo "      (its statusLine + outputStyle are already set — nothing to merge)"
+    return 0
+  fi
+
+  local keys_json tmp backup
+  keys_json="$(printf '%s\n' "$@" | jq -R . | jq -sc .)"
+  tmp="$(mktemp)"
+
+  # Take only the missing keys from the baseline; everything else in the user's
+  # file is preserved untouched. Both operands are parsed as JSON, so a comment
+  # or trailing comma in either file fails here rather than producing a broken
+  # settings.json.
+  if jq -s --argjson keys "$keys_json" '
+        .[0] + (.[1] | with_entries(select(.key as $k | $keys | index($k))))
+      ' "$target" "$REPO_CLAUDE/settings.json" > "$tmp" 2>/dev/null \
+     && jq -e . "$tmp" >/dev/null 2>&1; then
+    backup="$target.bak.$(date +%s)"
+    cp "$target" "$backup"
+    cat "$tmp" > "$target"
+    rm -f "$tmp"
+    echo "      merged$missing into it (backup: $(basename "$backup"))"
+  else
+    rm -f "$tmp"
+    echo "      could not merge$missing automatically (is it valid JSON?) — left untouched."
+  fi
 }
 
 # True only when ~/.claude/<name> is a symlink we created (points into this repo).
@@ -164,14 +228,25 @@ elif [ -L "$DEST/settings.json" ] && [ ! -e "$DEST/settings.json" ]; then
   echo "  relink settings.json (was dangling)"
 elif [ -e "$DEST/settings.json" ]; then
   echo
-  echo "note: $DEST/settings.json already exists and was left untouched. To adopt"
-  echo "      this repo's permission + plugin baseline, back it up and link it, moving"
-  echo "      any machine-specific plugins into settings.local.json (gitignored):"
+  echo "note: $DEST/settings.json already exists, so your permissions and plugins were"
+  echo "      left alone."
+  # The display-only keys are the exception: a status line and output style that
+  # never arrive are the same as not shipping them.
+  adopt_keys
+  echo "      To adopt this repo's full permission + plugin baseline, back yours up and"
+  echo "      link it, moving machine-specific plugins into settings.local.json (gitignored):"
   echo "        mv \"$DEST/settings.json\" \"$DEST/settings.json.bak.\$(date +%s)\""
   echo "        ln -s \"$REPO_CLAUDE/settings.json\" \"$DEST/settings.json\""
 else
   ln -s "$REPO_CLAUDE/settings.json" "$DEST/settings.json"
   echo "  link  settings.json"
+fi
+
+if ! command -v jq >/dev/null 2>&1; then
+  echo
+  echo "note: jq is not installed. The status line needs it to read the session JSON,"
+  echo "      so it will print a reminder instead of your cost and context until you"
+  echo "      install it (macOS: brew install jq · Debian/Ubuntu: apt install jq)."
 fi
 
 echo

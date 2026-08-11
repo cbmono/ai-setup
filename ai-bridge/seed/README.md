@@ -5,7 +5,7 @@ An [Open Knowledge Format](https://github.com/GoogleCloudPlatform/knowledge-cata
 background AI agents working on this group's product repositories.
 
 This is an **instance** of the `ai-bridge` template. The generic machinery
-(`SCHEMA.md`, `agents/`, `scripts/`, the role agents, the `/status`, `/pm-loop`,
+(`SCHEMA.md`, `agents/`, `scripts/`, the role agents, the `/pm-loop`,
 `/new-project`, `/close-project`, `/pr-review-request`, `/todo`, and `/fanout`
 commands, and the
 `SessionStart` hooks) is **symlinked in** from the template and gitignored; this
@@ -47,8 +47,8 @@ Objective ──► Project ──► Task ──► (PM refines) ──► (hum
 ```
 The spine you drive is **`/new-project` → approve `draft → ready` → `/pm-loop` → merge**.
 You set direction and approve at two gates; the PM and role agents do the rest in
-the background. **Steer, don't watch** — track state with the dashboard, not by
-reading each agent's steps.
+the background. **Steer, don't watch** — act on what `AWAITING.md` asks of you, not
+on each agent's steps.
 
 See `SCHEMA.md` for the types and lifecycle, and `CLAUDE.md` for the operational
 rules (two human gates, per-agent authorship, parallel-safety).
@@ -73,7 +73,7 @@ Other tokens: `objective=<slug>`, `--no-commit`. Everything lands `draft` — yo
 then promote `draft → ready`. (To hand-roll one instead, copy the shape in `SCHEMA.md`.)
 
 ## Finish a project
-When a project's tasks are all `done`/`cancelled`, the PM flags it on the board as
+When a project's tasks are all `done`/`cancelled`, the PM flags it in the awaiting-you queue as
 **ready to close** — it never closes one on its own. Close it with:
 ```
 /close-project <slug>
@@ -107,20 +107,27 @@ The next tick treats anything after the ` --- ` as your answer, folds it into th
 task, and clears the question; the `draft` becomes promotable once the list empties.
 (Answering in chat during a session works too.)
 
-## Monitor progress
-```
-/status            # full board
-/status mine       # only what's awaiting you
-/status <slug>     # one project
-```
-`/status` renders a board of every task grouped by what it needs — **🔴 awaiting
-you** (approve · answer · merge · unblock) · **🟡 in flight** · **🟢 next** ·
-**⛔ blocked** — and writes it to `DASHBOARD.md`. It's **read-only** (never
-dispatches, promotes, or merges), so it's safe to run anytime, even while a
-`/pm-loop` is running. Each PM tick refreshes `DASHBOARD.md` too, and a
-`SessionStart` hook surfaces its "awaiting you" items when you launch Claude here —
-so you see what needs a decision without reading the loop. `DASHBOARD.md` is a
-**derived view** (regenerated from the task docs, gitignored) — never hand-edit it.
+## What needs you
+`AWAITING.md` lists **only** what a human decision unblocks, one line per item with
+its verb and a real link:
+
+* ✅ **approve** — a refined `draft`, promote it `draft → ready`
+* ❓ **answer** — a `draft` with open questions
+* 🔀 **merge** — a PR in review
+* ⛔ **unblock** — a blocked task
+* 🏁 **close** — a project whose tasks are all terminal
+
+In-flight and upcoming work is deliberately **not** here: it needs no decision from
+you, and scrolling past it is how a queue stops getting read. Each `/pm-loop` tick
+rewrites the file, and a `SessionStart` hook injects these items when you launch
+Claude here — so you see what needs a decision without reading the loop.
+
+**On by default, off by deletion.** The template's installer created this file when
+it first stamped out the instance; from then on the loop refreshes it only if it
+already exists and never recreates it. So `rm AWAITING.md` turns the queue off for
+good — a later installer re-run won't resurrect it — and `touch AWAITING.md` turns
+it back on. Derived and gitignored — never hand-edit it. With it off, ask the
+assistant directly and it reads the task docs.
 
 ## Quick todos
 `/todo <text>` jots a reminder, `/todo` lists them, `/todo done <text>` closes one
