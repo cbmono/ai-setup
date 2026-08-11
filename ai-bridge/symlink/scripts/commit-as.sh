@@ -3,12 +3,25 @@
 # commit-as.sh — commit to THIS control-panel instance repo under a per-agent
 # author identity, for provenance in the autonomous PM loop.
 #
-#   Usage: scripts/commit-as.sh <role> "<commit message>" [extra git commit args...]
+#   Usage: scripts/commit-as.sh <role> "<commit message>" [git args...] -- <path>...
+#          scripts/commit-as.sh <role> "<commit message>" --all-staged [git args...]
 #
-# Stage your changes first (e.g. `git add -A`), then call this. The author NAME
-# is the role; the author EMAIL is shared so the host (e.g. GitHub) still links
-# commits to the human's account, while `git log --format=%an` /
-# `git shortlog -sn` separate work per agent.
+# The author NAME is the role; the author EMAIL is shared so the host (e.g.
+# GitHub) still links commits to the human's account, while `git log --format=%an`
+# / `git shortlog -sn` separate work per agent.
+#
+# NAME THE PATHS YOU ARE COMMITTING, after a `--`. Several agents run
+# concurrently against ONE working tree, so the index is shared state: a role that
+# commits "whatever is staged" silently absorbs whatever a sibling agent staged a
+# second earlier, and that sibling's work lands under the wrong author. This has
+# happened repeatedly in practice. Passing paths makes git commit only those,
+# leaving everyone else's staged changes staged and intact.
+#
+# So for every role except `human`, one of the two forms above is REQUIRED:
+#   - `-- <path>...`  commit exactly these paths (strongly preferred), or
+#   - `--all-staged`  commit the whole index, an explicit "I checked, it's all mine".
+# `human` is exempt: a person committing interactively can see the index.
+# Never `git add -A` in a shared instance — stage by explicit path.
 #
 # GENERIC TEMPLATE FILE — symlinked from the `ai-bridge` template; do not
 # edit per instance. The shared author email is resolved, in order, from:
@@ -23,7 +36,8 @@ set -euo pipefail
 VALID_ROLES=(project-manager software-engineer devops-engineer qa-reviewer cataloguer human)
 
 usage() {
-  echo "Usage: $(basename "$0") <role> \"<commit message>\" [extra git commit args...]" >&2
+  echo "Usage: $(basename "$0") <role> \"<commit message>\" [git args...] -- <path>..." >&2
+  echo "       $(basename "$0") <role> \"<commit message>\" --all-staged [git args...]" >&2
   echo "Roles: ${VALID_ROLES[*]}" >&2
   exit 2
 }
@@ -38,6 +52,35 @@ case " ${VALID_ROLES[*]} " in
 esac
 
 [ -n "$message" ] || { echo "error: empty commit message" >&2; usage; }
+
+# Split the remaining args into: git passthrough args, an --all-staged opt-out,
+# and the pathspecs after `--`. Everything after the first `--` is a path, which
+# is git's own convention, so callers need no new mental model.
+git_args=()
+paths=()
+all_staged=0
+seen_dashdash=0
+for arg in "$@"; do
+  if [ "$seen_dashdash" -eq 1 ]; then
+    paths+=("$arg")
+  elif [ "$arg" = "--" ]; then
+    seen_dashdash=1
+  elif [ "$arg" = "--all-staged" ]; then
+    all_staged=1
+  else
+    git_args+=("$arg")
+  fi
+done
+
+if [ "$seen_dashdash" -eq 1 ] && [ "${#paths[@]}" -eq 0 ]; then
+  echo "error: '--' given with no paths after it" >&2
+  usage
+fi
+
+if [ "$all_staged" -eq 1 ] && [ "${#paths[@]}" -gt 0 ]; then
+  echo "error: pass either --all-staged or '-- <path>...', not both" >&2
+  usage
+fi
 
 repo_root="$(git rev-parse --show-toplevel)"
 
@@ -54,6 +97,45 @@ AUTHOR_EMAIL="${CONTROL_PLANE_AUTHOR_EMAIL:-${config_email:-$(git config user.em
   echo "       instance.config.json, or run: git config user.email \"...\"" >&2
   exit 2
 }
+
+# Shared-index guard: an agent must say WHAT it is committing.
+#
+# Instances are worked by several concurrent agents against one clone, so the git
+# index is shared mutable state. `git add -A` (or any commit of "whatever is
+# staged") absorbs a sibling agent's in-progress files and commits them under the
+# wrong author — silently, since the result looks like a normal commit. The fix is
+# to commit pathspecs: `git commit -- <paths>` touches only those and leaves the
+# rest of the index alone.
+#
+# `human` is exempt (a person can inspect the index). Every other role must pass
+# `-- <path>...` or explicitly opt out with `--all-staged`.
+if [ "$role" != "human" ] && [ "${#paths[@]}" -eq 0 ] && [ "$all_staged" -eq 0 ]; then
+  if ! staged_all="$(git diff --cached --name-only)"; then
+    echo "error: could not list staged files (git diff failed) — refusing to commit" >&2
+    exit 3
+  fi
+  echo "error: role '$role' must name the paths it is committing." >&2
+  echo "       Several agents share this working tree, so committing the whole index" >&2
+  echo "       can absorb another agent's staged files under your authorship." >&2
+  echo >&2
+  if [ -n "$staged_all" ]; then
+    echo "       Currently staged:" >&2
+    # Read line by line: paths may contain spaces, so word-splitting would lie
+    # about which files are in the index.
+    while IFS= read -r staged_entry; do
+      [ -n "$staged_entry" ] || continue
+      printf '         %s\n' "$staged_entry" >&2
+    done <<EOF
+$staged_all
+EOF
+    echo >&2
+  fi
+  echo "       Commit only your own paths:" >&2
+  echo "         $(basename "$0") $role \"$message\" -- <path>..." >&2
+  echo "       Or, if you have checked that the entire index is yours:" >&2
+  echo "         $(basename "$0") $role \"$message\" --all-staged" >&2
+  exit 4
+fi
 
 # Two-human-authority guard (SCHEMA.md): draft→ready is the human's gate.
 #
@@ -79,7 +161,26 @@ if [ "$role" != "human" ]; then
   # Enumerate staged files under projects/ ONCE. Fail CLOSED if git itself errors
   # (corrupt index, disk error): refuse rather than proceed with an empty list, which
   # would let a promotion through unchecked — the one spot that would otherwise fail open.
-  if ! staged_list="$(git diff --cached --name-only -- projects)"; then
+  # When pathspecs are given, judge only what this commit will actually contain —
+  # a sibling agent's staged promotion is not this role's to answer for (and its
+  # own commit gets checked when it runs). Let git do the pathspec matching, then
+  # keep the `projects/` entries: same set the commit will include, no more.
+  if [ "${#paths[@]}" -gt 0 ]; then
+    if ! staged_in_paths="$(git diff --cached --name-only -- "${paths[@]}")"; then
+      echo "error: could not list staged files (git diff failed) — refusing to commit as" >&2
+      echo "       role '$role' (fail closed). Fix the repo state and retry." >&2
+      exit 3
+    fi
+    staged_list=""
+    while IFS= read -r candidate; do
+      case "$candidate" in
+        projects/*) staged_list="${staged_list}${candidate}
+" ;;
+      esac
+    done <<EOF
+$staged_in_paths
+EOF
+  elif ! staged_list="$(git diff --cached --name-only -- projects)"; then
     echo "error: could not list staged files (git diff failed) — refusing to commit as" >&2
     echo "       role '$role' (fail closed). Fix the repo state and retry." >&2
     exit 3
@@ -144,7 +245,18 @@ else
   author_name="$role"
 fi
 
-exec git \
-  -c "user.name=$author_name" \
-  -c "user.email=$AUTHOR_EMAIL" \
-  commit --author="$author_name <$AUTHOR_EMAIL>" -m "$message" "$@"
+# Pathspecs (when given) go last, after `--`, so git commits exactly those and
+# leaves any other staged change in the index for its own author to commit.
+if [ "${#paths[@]}" -gt 0 ]; then
+  exec git \
+    -c "user.name=$author_name" \
+    -c "user.email=$AUTHOR_EMAIL" \
+    commit --author="$author_name <$AUTHOR_EMAIL>" -m "$message" \
+    ${git_args[@]+"${git_args[@]}"} -- "${paths[@]}"
+else
+  exec git \
+    -c "user.name=$author_name" \
+    -c "user.email=$AUTHOR_EMAIL" \
+    commit --author="$author_name <$AUTHOR_EMAIL>" -m "$message" \
+    ${git_args[@]+"${git_args[@]}"}
+fi

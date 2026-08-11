@@ -141,7 +141,7 @@ If `$ARGUMENTS` has no description, **ask** for a one-line goal before doing any
    seed task titles. **Record the current `HEAD` sha before committing** — step 8 needs
    it as a review base. Then (unless `--no-commit`) stage and commit to this repo via
    the per-agent helper:
-   `scripts/commit-as.sh human "feat: add <slug> project"`.
+   `scripts/commit-as.sh human "feat: add <slug> project" -- projects/<slug>`.
    Remind the user of the next step: the PM refines the drafts, then **you** promote
    `draft → ready`. For **build**, the PM then dispatches to a role agent → PR →
    you merge. For **research**, *you* work each task in-session (Claude + any

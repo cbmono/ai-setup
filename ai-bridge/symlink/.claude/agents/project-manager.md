@@ -228,7 +228,9 @@ state, and act only on deltas.
 8. **Curate.** Keep `projects/<p>/project.md`, each project's `index.md`, and the
    `log.md` files current. Append a dated, one-line tick summary to the root
    `log.md`. Commit your changes to this repo under your own author identity:
-   `scripts/commit-as.sh project-manager "<conventional message>"` (stage first).
+   `scripts/commit-as.sh project-manager "<conventional message>" -- <path>...`
+   (stage by explicit path, then name those same paths — the helper refuses an
+   agent-role commit that doesn't say what it is committing).
    This keeps loop provenance visible in `git log`. Never use the helper in target
    product repos.
 

@@ -142,8 +142,11 @@ metric units, data-question routing) from this `CLAUDE.md`.
 - That global rule **still applies to the target product repos** under `reposRoot`
   — role agents always branch and open PRs there.
 - **Per-agent authorship (this repo only):** an agent committing here must do so
-  under its own author identity for provenance. Stage changes, then commit via
-  `scripts/commit-as.sh <role> "<message>"` (roles: `project-manager`,
+  under its own author identity for provenance. Stage changes **by explicit path**,
+  then commit via `scripts/commit-as.sh <role> "<message>" -- <path>...` — naming the
+  paths is **required** for every role but `human`, because concurrent agents share
+  this one working tree and a commit of "whatever is staged" absorbs a sibling's
+  in-progress files under the wrong author (roles: `project-manager`,
   `software-engineer`, `devops-engineer`, `qa-reviewer`, `cataloguer`; `human` for
   direct edits). It sets the author **name** to the role while keeping the shared
   `authorEmail` from `instance.config.json`, so the host still links to the human's
