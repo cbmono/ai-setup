@@ -258,7 +258,7 @@ state, and act only on deltas.
    * 🏁 **close** — [<project title>](/projects/<slug>/project.md) · all tasks terminal → `/close-project <slug>`
    ```
 
-   Keep the `## 🔴 Awaiting you` heading and the `* ` bullets exactly as shown —
+   Keep the `## 🔴 Awaiting you` heading and the `*` marker followed by one space exactly as shown —
    `show-awaiting.sh` greps for them, and reshaping either silently empties the
    startup nudge. Render `_None._` under the heading when there is nothing, so the
    shape stays stable. `AWAITING.md` is **derived and gitignored**: rewrite it, but

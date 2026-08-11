@@ -98,11 +98,14 @@ just the items a human decision unblocks (✅ approve · ❓ answer · 🔀 merg
 ⛔ unblock · 🏁 close), each with a real link. In-flight and upcoming work is
 deliberately excluded: it needs no decision, and a queue you scroll past is a queue
 you stop reading. Each `/pm-loop` tick rewrites it and a `SessionStart` hook injects
-its items at launch. **Opt-in by presence** — the loop refreshes the file only when
-it already exists and never creates it, so `rm AWAITING.md` turns the queue off for
-good and `touch AWAITING.md` turns it back on (the AUTONOMY.md pattern: absence is
-the safe default, no flag threaded through the machinery). Derived and gitignored;
-never hand-edit. Run **one `/pm-loop` per instance** at a time (the serial guarantee
+its items at launch. **On by default, off by deletion** — `install.sh` creates the
+file on the **first stamp only**, and the loop thereafter refreshes it just when it
+already exists and never recreates it. So `rm AWAITING.md` turns the queue off for
+good (an installer re-run won't resurrect it: `FIRST_STAMP` gates that) and
+`touch AWAITING.md` turns it back on. This is the AUTONOMY.md pattern with the
+default flipped — absence still means off, with no flag threaded through the
+machinery, but a new instance ships with the nudge working instead of silently
+disabled until someone reads the docs. Derived and gitignored; never hand-edit. Run **one `/pm-loop` per instance** at a time (the serial guarantee
 is per-session; see `pm-loop.md`).
 
 <details>

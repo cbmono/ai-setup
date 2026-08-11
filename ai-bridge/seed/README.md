@@ -122,10 +122,12 @@ you, and scrolling past it is how a queue stops getting read. Each `/pm-loop` ti
 rewrites the file, and a `SessionStart` hook injects these items when you launch
 Claude here — so you see what needs a decision without reading the loop.
 
-**It's opt-in, by presence.** The loop refreshes `AWAITING.md` only if it already
-exists and never creates it: `rm AWAITING.md` turns the queue off for good,
-`touch AWAITING.md` turns it back on. Derived and gitignored — never hand-edit it.
-With it off, ask the assistant directly and it reads the task docs.
+**On by default, off by deletion.** The template's installer created this file when
+it first stamped out the instance; from then on the loop refreshes it only if it
+already exists and never recreates it. So `rm AWAITING.md` turns the queue off for
+good — a later installer re-run won't resurrect it — and `touch AWAITING.md` turns
+it back on. Derived and gitignored — never hand-edit it. With it off, ask the
+assistant directly and it reads the task docs.
 
 ## Quick todos
 `/todo <text>` jots a reminder, `/todo` lists them, `/todo done <text>` closes one

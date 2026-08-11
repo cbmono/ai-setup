@@ -68,7 +68,7 @@ All of these run from inside a control-panel instance (`cd` there, then `claude`
 
 Two `SessionStart` hooks mean that when you open Claude in an instance, it greets you with what's awaiting you and any open todos — you don't have to remember to ask.
 
-There is deliberately **no status command**. The one status artifact is `AWAITING.md`: a queue of just the items a human decision unblocks (✅ approve · ❓ answer · 🔀 merge · ⛔ unblock · 🏁 close), rewritten by each `/pm-loop` tick and injected at session start. In-flight and upcoming work is left out — it needs no decision from you, and a board you scroll past is a board you stop reading. It's **opt-in by presence**: the loop refreshes the file only if it exists and never creates it, so `rm AWAITING.md` turns the queue off for good and `touch AWAITING.md` turns it back on.
+There is deliberately **no status command**. The one status artifact is `AWAITING.md`: a queue of just the items a human decision unblocks (✅ approve · ❓ answer · 🔀 merge · ⛔ unblock · 🏁 close), rewritten by each `/pm-loop` tick and injected at session start. In-flight and upcoming work is left out — it needs no decision from you, and a board you scroll past is a board you stop reading. It's **on by default and off by deletion**: `ai-bridge/install.sh` creates the file when it first stamps out an instance, and after that the loop refreshes it only if it exists and never recreates it. So `rm AWAITING.md` turns the queue off for good — even across installer re-runs — and `touch AWAITING.md` turns it back on.
 
 ## Answering the PM's questions
 
@@ -438,13 +438,13 @@ Two behaviors worth knowing before you rely on it:
 
 `settings.json` ships a status line, because spend is the one thing Claude genuinely cannot report: ask it what a session cost and it will guess. The harness feeds the script real numbers instead.
 
-```
+```text
 Opus · 34% ctx · $1.62 · +212/-48 · 5h 24%
 ```
 
 Model · context window used · estimated session cost · lines added/removed · share of your 5-hour rate limit burned. Every field is optional and gets dropped rather than faked — cost is `0` before any work, `rate_limits` only exists for Claude.ai Pro/Max subscribers, and context percentage is `null` before the first API call and right after `/compact`. On a fresh session you just see `Opus`.
 
-Needs [`jq`](https://jqlang.org/) — the one external dependency in this repo (`brew install jq`, or `apt install jq`). Without it the line says so once rather than vanishing, and `install.sh` warns you at the end. Malformed JSON and empty stdin both exit 0.
+Needs [`jq`](https://jqlang.org/) — the one external dependency in this repo (`brew install jq`, or `apt install jq`). Without it the line renders a one-line reminder in place of the stats rather than going blank, and `install.sh` warns you at the end. Malformed JSON and empty stdin both exit 0.
 
 To turn it off without editing the baseline, override the whole key in `.claude/settings.local.json`:
 
@@ -498,7 +498,7 @@ cd ~/path/to/ai-setup
 ./install.sh
 ```
 
-The script symlinks each tracked default (`agents/`, `commands/`, `skills/`, `hooks/`, `output-styles/`, `MEMORY.md`, `claude-defaults.md`) **into** your real `~/.claude`, rather than replacing `~/.claude` with one big symlink. Two reasons this matters:
+The script symlinks each tracked default (`agents/`, `commands/`, `skills/`, `hooks/`, `output-styles/`, `scripts/`, `MEMORY.md`, `claude-defaults.md`) **into** your real `~/.claude`, rather than replacing `~/.claude` with one big symlink. Two reasons this matters:
 
 - **Your `~/.claude` keeps owning its runtime state** — `plugins/`, `sessions/`, `projects/`, `history.jsonl`, `settings.local.json`. A whole-directory symlink would either nest inside an existing `~/.claude` (a silent no-op) or relocate all that state into the repo, where it'd clutter the working tree.
 - **It auto-discovers what to link from `git ls-files`**, so a new top-level default added to the repo is picked up on the next run — there's no list to maintain. Re-running is idempotent; anything it would overwrite is backed up to `*.bak.<timestamp>`. Entries are linked whole, so if `~/.claude` already has a real `commands/`/`agents/`/`skills/` of your own, that directory is moved aside to `*.bak.<timestamp>` (recoverable) and replaced by the symlink — keep personal global commands per-project (`<project>/.claude/commands/`) instead, since `~/.claude/commands/` now points into this repo.

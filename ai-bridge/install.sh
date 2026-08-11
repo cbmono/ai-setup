@@ -73,6 +73,12 @@ fi
 
 echo "Installing ai-bridge instance at $TARGET"
 
+# Is this the first stamp, or a refresh of an existing instance? Decided BEFORE
+# seeding, since seeding is what creates instance.config.json. Only the awaiting
+# queue below needs to know, and it needs to badly: see there for why.
+FIRST_STAMP=no
+[ -e "$TARGET/instance.config.json" ] || FIRST_STAMP=yes
+
 # 1. Seed content — copy only what's absent (never clobber instance data).
 if [ -d "$SEED_SRC" ]; then
   while IFS= read -r rel; do
@@ -121,6 +127,36 @@ if [ -d "$SEED_SRC" ]; then
   done <<EOF
 $(cd "$SEED_SRC" && find . -type f | sed 's#^\./##' | sort)
 EOF
+fi
+
+# 1b. The awaiting-you queue, created ONLY on the first stamp.
+#
+# AWAITING.md is opt-in by presence: the project-manager refreshes it only when
+# it exists and never creates it, so deleting it turns the startup nudge off for
+# good. That switch is the whole design — but it also means a brand-new instance
+# would start with the queue OFF, and the SessionStart nudge would never fire
+# until someone happened to read the docs and touch the file. So the installer
+# provides the initial file, exactly once.
+#
+# It must NOT run on a refresh: re-creating the file would silently undo a
+# deliberate `rm`, which is the one thing the off switch has to survive. That's
+# what FIRST_STAMP guards. It's also gitignored, so this never becomes tracked
+# state. Content is a valid empty queue, so show-awaiting.sh stays silent until
+# the first tick fills it in.
+if [ "$FIRST_STAMP" = yes ] && [ ! -e "$TARGET/AWAITING.md" ]; then
+  cat > "$TARGET/AWAITING.md" <<'AWAITING'
+# Awaiting you
+
+Derived and gitignored — **do not hand-edit**. Rewritten each `/pm-loop` tick
+from `projects/*/tasks/*.md`. Delete this file to turn the queue off for good;
+the loop never recreates it. Last refreshed: never (no tick has run yet).
+
+## 🔴 Awaiting you (0)
+_None._
+AWAITING
+  echo "  seed  AWAITING.md (queue on; delete it to turn the startup nudge off)"
+elif [ "$FIRST_STAMP" = no ] && [ ! -e "$TARGET/AWAITING.md" ]; then
+  echo "  skip  AWAITING.md (absent by choice — run 'touch AWAITING.md' to re-enable)"
 fi
 
 # 2. Machinery — symlink each file (absolute target), backing up real conflicts.

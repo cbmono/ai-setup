@@ -1,6 +1,6 @@
 ---
 name: Brief
-description: Answer-first briefings. What's done, then what needs you as numbered steps with URLs. Spend lives on the status line, never in prose.
+description: Answer-first briefings. What's done, then what needs you as numbered steps with URLs. Keep cost and token usage on the status line, never in prose.
 keep-coding-instructions: true
 ---
 
