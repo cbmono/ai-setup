@@ -102,13 +102,13 @@ Ship hooks here only when they're **universally safe** — must no-op cleanly on
 
 ## Output styles
 
-Output styles change how Claude *talks*, not how it codes (`keep-coding-instructions: true`). They apply to the **main conversation only** — subagents run their own prompt, which is why chat formatting never leaks into a PR body a role agent writes.
+Output styles change how Claude *talks*, not how it codes (`keep-coding-instructions: true` — note the field defaults to `false`, which would drop Claude Code's built-in engineering instructions, so never omit it here). They apply to the **main conversation only** — subagents run their own prompt, which is why chat formatting never leaks into a PR body a role agent writes. A fork is the exception; it inherits the parent's full system prompt.
 
 | Style   | File              | What it does |
 | ------- | ----------------- | ------------ |
 | `Brief` | `output-styles/brief.md` | Outcome in line one. A `Needs you:` section — only when something actually blocks — as numbered, imperative steps with the URL or path inline. Enforces answer-vs-deliverable, "never invent state", and one structural emoji per line (✅ approve · ❓ answer · 🔀 merge · ⛔ unblock · 🏁 close). Delegates cost/token reporting to the status line, since a reply can only guess at it. |
 
-**Not on by default** — a reply format is a personal preference, so shipping `outputStyle` in the baseline would impose one on every consumer. Turn it on per-machine in `.claude/settings.local.json` (`{"outputStyle": "Brief"}`), or session-only via `/config` → *Output style*.
+**On by default** via `"outputStyle": "Brief"` in `settings.json`. To get the stock voice back, set the built-in `Default` style in `settings.local.json` (`{"outputStyle": "Default"}`) or pick it in `/config` → *Output style* — no fork of the baseline needed. `install.sh` merges this key into an existing real `settings.json` (adding it only when absent, so your own choice always wins).
 
 Prior art: [attention-span](https://github.com/alexgreensh/attention-span) (AGPL-3.0). `Brief` is independently written for this MIT repo — no files vendored — but its *answer vs deliverable* split and its "emoji marks structure, never decorates" rule come from there and deserve the credit.
 

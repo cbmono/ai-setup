@@ -201,10 +201,13 @@ The everyday coding config the control panel runs on — and perfectly useful on
 The recommended setup is **user-wide**: run `install.sh` once, and every project picks up the agents, commands, skills, and defaults automatically.
 
 ```bash
+brew install jq   # or: apt install jq — the status line needs it
 git clone https://github.com/cbmono/ai-setup.git ~/path/to/ai-setup
 cd ~/path/to/ai-setup
 ./install.sh
 ```
+
+`jq` is the only external dependency, and only the [status line](#status-line) uses it. Skip it and everything else works; the status line just prints a reminder instead of your cost and context.
 
 `install.sh` symlinks this repo's tracked defaults **into** your existing `~/.claude` one entry at a time (not a whole-directory symlink), so your plugins, sessions, and `settings.local.json` stay put and Claude Code's runtime state never leaks into the repo. It's idempotent and auto-discovers what to link from what git tracks — re-run it after a `git pull` that adds a new top-level entry. See [Install](#install) for the details and the per-project alternative.
 
@@ -441,7 +444,7 @@ Opus · 34% ctx · $1.62 · +212/-48 · 5h 24%
 
 Model · context window used · estimated session cost · lines added/removed · share of your 5-hour rate limit burned. Every field is optional and gets dropped rather than faked — cost is `0` before any work, `rate_limits` only exists for Claude.ai Pro/Max subscribers, and context percentage is `null` before the first API call and right after `/compact`. On a fresh session you just see `Opus`.
 
-Needs [`jq`](https://jqlang.org/). Without it the line says so once, rather than vanishing and leaving you wondering. Malformed JSON and empty stdin both exit 0.
+Needs [`jq`](https://jqlang.org/) — the one external dependency in this repo (`brew install jq`, or `apt install jq`). Without it the line says so once rather than vanishing, and `install.sh` warns you at the end. Malformed JSON and empty stdin both exit 0.
 
 To turn it off without editing the baseline, override the whole key in `.claude/settings.local.json`:
 
@@ -449,11 +452,11 @@ To turn it off without editing the baseline, override the whole key in `.claude/
 { "statusLine": { "type": "command", "command": "true" } }
 ```
 
-Two caveats worth knowing. The status line only reaches you at all if `~/.claude/settings.json` is the repo's — `install.sh` links it when you had none, but never edits an existing one, so an established install needs the key copied across by hand. And `/statusline` rewrites whichever file currently defines `statusLine`; if that file *is* the symlink, it edits this repo. Prefer the local override above.
+One caveat: `/statusline` rewrites whichever settings file currently defines `statusLine`. If that file is the symlink into this repo, it edits the repo — so prefer the local override above.
 
 ## Output styles (`.claude/output-styles/`)
 
-An output style changes how Claude *talks*, not how it codes. This repo ships one, **off by default** — a reply format is a personal preference, and putting `outputStyle` in a team-shared baseline imposes yours on everyone.
+An output style changes how Claude *talks*, not how it codes. This repo ships one and **enables it by default**.
 
 **`Brief`** — the outcome in line one, then a `Needs you:` section *only when something actually blocks*, written as numbered imperative steps with the URL or path inline. It also carries three rules worth having on their own:
 
@@ -461,13 +464,13 @@ An output style changes how Claude *talks*, not how it codes. This repo ships on
 2. **Never invent state.** Unknown is "unknown". A fabricated status is worse than a missing one — and cost never goes in prose, because the status line has the real figure.
 3. **One structural emoji per line**, never decoration: ✅ approve · ❓ answer · 🔀 merge · ⛔ unblock · 🏁 close. Never in code, commits, or PR bodies.
 
-Turn it on per-machine in `.claude/settings.local.json`, or session-only via `/config` → *Output style*:
+**To get the stock Claude Code voice back**, set the built-in `Default` style in `.claude/settings.local.json` (project) or your own user settings — no need to fork the baseline. `/config` → *Output style* does the same thing and writes to the project's local settings.
 
 ```json
-{ "outputStyle": "Brief" }
+{ "outputStyle": "Default" }
 ```
 
-Styles apply to the **main conversation only** — subagents run their own prompt, so chat formatting can't leak into a PR body an agent writes.
+Styles apply to the **main conversation only** — subagents run their own prompt, so chat formatting can't leak into a PR body an agent writes. (A [fork](https://code.claude.com/docs/en/sub-agents) is the exception: it inherits the parent's whole system prompt.) The style body is ~450 tokens of input, added once per session and cached after the first request.
 
 Prior art: [attention-span](https://github.com/alexgreensh/attention-span) (AGPL-3.0), a nice collection of ADHD-friendly styles worth a look. `Brief` is written independently for this MIT repo — nothing vendored — but the *answer vs deliverable* split and the "emoji marks structure, never decorates" rule are theirs, and the credit is due.
 
@@ -500,7 +503,13 @@ The script symlinks each tracked default (`agents/`, `commands/`, `skills/`, `ho
 - **Your `~/.claude` keeps owning its runtime state** — `plugins/`, `sessions/`, `projects/`, `history.jsonl`, `settings.local.json`. A whole-directory symlink would either nest inside an existing `~/.claude` (a silent no-op) or relocate all that state into the repo, where it'd clutter the working tree.
 - **It auto-discovers what to link from `git ls-files`**, so a new top-level default added to the repo is picked up on the next run — there's no list to maintain. Re-running is idempotent; anything it would overwrite is backed up to `*.bak.<timestamp>`. Entries are linked whole, so if `~/.claude` already has a real `commands/`/`agents/`/`skills/` of your own, that directory is moved aside to `*.bak.<timestamp>` (recoverable) and replaced by the symlink — keep personal global commands per-project (`<project>/.claude/commands/`) instead, since `~/.claude/commands/` now points into this repo.
 
-`settings.json` is handled deliberately: if you don't already have one it's linked (so the repo's permission + plugin baseline applies user-wide); if you do, it's left untouched and the script prints how to adopt the baseline while keeping machine-specific plugins in `settings.local.json`.
+`settings.json` is handled deliberately. If you don't already have one it's linked, so the repo's permission + plugin baseline applies user-wide. If you do, **your permissions, env, and plugins are never touched** — the script prints how to adopt the full baseline and leaves the choice to you.
+
+The exception is the two **display-only** keys, `statusLine` and `outputStyle`, which the installer merges into your existing file — otherwise the status line and output style would only ever reach people who had no `settings.json` at all, which is nobody with an established install. That merge is narrow on purpose:
+
+- It only ever **adds a key that's absent**. If you've set your own `outputStyle`, yours wins and re-running never reverts it.
+- It **backs your file up** first (`settings.json.bak.<timestamp>`), and uses `jq` so the file is parsed as JSON rather than edited line-wise. Invalid JSON or no `jq` means it's left alone with a printed instruction instead.
+- **Only display keys are eligible.** Nothing that changes what Claude is *allowed to do* is ever merged in — silently granting a permission during an install is the surprise this script exists to avoid.
 
 Pull updates anytime with `git pull` — because the links are live, content changes and new files inside linked dirs apply immediately, no re-sync. To back out, `./install.sh --uninstall` removes only the symlinks it created, leaving your runtime state, real files, and backups untouched.
 

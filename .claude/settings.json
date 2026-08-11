@@ -119,6 +119,7 @@
     "type": "command",
     "command": "\"${CLAUDE_CONFIG_DIR:-$HOME/.claude}\"/hooks/statusline.sh"
   },
+  "outputStyle": "Brief",
   "enabledPlugins": {
     "superpowers@claude-plugins-official": true,
     "typescript-lsp@claude-plugins-official": true,
