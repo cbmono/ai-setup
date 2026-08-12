@@ -30,13 +30,26 @@ case "${1:-}" in
         cat "$FIX/pr_meta" ;;
       checks)
         if has --required "$@"; then
-          if [ -f "$FIX/platform_names" ]; then
-            if has --jq "$@"; then cat "$FIX/platform_names"
+          if [ -f "$FIX/platform_broken" ]; then
+            # A transient failure. Real gh puts errors on stderr, same as the
+            # no-required message — which is exactly why the two can't be told
+            # apart by stream or exit code, only by text.
+            echo "error connecting to api.github.com" >&2; exit 1
+          elif [ -f "$FIX/platform_garbage" ]; then
+            # Some other message entirely — a reworded gh, a proxy page, anything.
+            echo "could not resolve to a Repository" >&2; exit 1
+          elif [ -f "$FIX/platform_empty" ]; then
+            if has --jq "$@"; then :; else echo '[]'; fi
+          elif [ -f "$FIX/platform_names" ]; then
+            if has --jq "$@"; then
+              [ -f "$FIX/platform_enum_broken" ] && { echo "boom" >&2; exit 1; }
+              cat "$FIX/platform_names"
             else echo '[{"name":"stub","bucket":"pass"}]'; fi
           else
-            # Real gh: plain text on stdout, exit 1 — the case the script must not
-            # confuse with "a required check failed".
-            echo "no required checks reported on the 'topic' branch"; exit 1
+            # Real gh: this goes to STDERR and exits 1 (verified against a live repo
+            # with no protection). The script must not confuse it with a failing
+            # required check, nor with a query that errored.
+            echo "no required checks reported on the 'topic' branch" >&2; exit 1
           fi
         else
           cat "$FIX/checks" 2>/dev/null
@@ -159,6 +172,33 @@ platform "Build"
 checks "fail	Build"
 declared "Something that passes"           # must NOT rescue a failing platform check
 expect "platform check failing -> refuse, no fallback to declared" 1
+
+# An unreadable platform is NOT an unprotected one. Every case below has a declared
+# list that would clear — the gate must refuse anyway, because falling back here
+# would swap protection we failed to read for a list that may be weaker.
+setup
+: > "$FIX/platform_broken"
+checks "pass	Build"; declared "Build"
+expect "platform probe errors (no output) -> refuse, no fallback" 2
+
+setup
+: > "$FIX/platform_garbage"
+checks "pass	Build"; declared "Build"
+expect "platform probe answers something unrecognised -> refuse" 2
+says   "  ...and shows what it got" "could not resolve to a Repository"
+
+setup
+platform "Build"; : > "$FIX/platform_enum_broken"
+checks "pass	Build"; declared "Build"
+expect "protection answered but names unreadable -> refuse" 2
+
+# ...but an EMPTY required set is a real answer, not a failure: protection exists and
+# requires nothing, so the declared list is allowed to speak.
+setup
+: > "$FIX/platform_empty"
+checks "pass	Build"; declared "Build"
+expect "protection requires nothing -> declared list may answer" 0
+says   "  ...via the declared source" "source: declared"
 
 # --- head pinning -------------------------------------------------------------
 setup; checks "pass	Build"; declared "Build"

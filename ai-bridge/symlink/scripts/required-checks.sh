@@ -94,19 +94,48 @@ if [ -n "$want_head" ] && [ "$want_head" != "$head_sha" ]; then
 fi
 
 # --- source 1: platform-required set ----------------------------------------
-# With no protection configured, `gh pr checks --required` prints a plain-text
-# message ("no required checks reported on the '<branch>' branch") and exits 1 — so
-# classify on the payload, not the exit code: a genuinely FAILING required check
-# also exits non-zero, and must never be mistaken for "no protection".
+# Classify on the PAYLOAD, not the exit code: `gh pr checks --required` exits
+# non-zero both when a required check FAILS and when no protection exists, and those
+# two must never be confused. Three answers are recognised, and ONLY three:
+#
+#   JSON array         -> protection answered. An empty array means it requires
+#                         nothing, which legitimately falls through to source 2.
+#   the "no required
+#   checks" message    -> no protection on this branch; source 2 may answer.
+#   anything else      -> we do NOT know what the platform requires. Refuse (exit 2).
+#
+# That last arm is the point. A transient 5xx, an expired token or a rate limit all
+# produce some other text, and silently reading them as "nothing is required" would
+# hand the decision to a declared list that may be weaker than the protection we
+# just failed to read — failing open at exactly the moment we are least informed.
+#
+# The message lands on STDERR, while the JSON lands on stdout — so both streams are
+# captured, separately. Merging them would let a stray gh warning prefix the payload
+# and turn a good JSON answer into an unrecognised one.
 required=""
 source="platform"
-platform_raw="$(gh pr checks "$pr" ${R[@]+"${R[@]}"} --required --json name,bucket 2>/dev/null || true)"
-case "$platform_raw" in
+probe_err="$(mktemp)"
+trap 'rm -f "$probe_err"' EXIT
+platform_raw="$(gh pr checks "$pr" ${R[@]+"${R[@]}"} --required --json name,bucket 2>"$probe_err" || true)"
+platform_msg="$(cat "$probe_err")"
+case "$platform_raw$platform_msg" in
   '['*)
-    required="$(gh pr checks "$pr" ${R[@]+"${R[@]}"} --required --json name \
-                --jq '.[].name' 2>/dev/null || true)"
+    # Enumerate separately so a failure here is also an error, not an empty set.
+    if ! required="$(gh pr checks "$pr" ${R[@]+"${R[@]}"} --required --json name \
+                     --jq '.[].name' 2>/dev/null)"; then
+      echo "error: protection reported a required set but it could not be read —" >&2
+      echo "       refusing rather than falling back to the declared list." >&2
+      exit 2
+    fi
     ;;
-  *) required="" ;;
+  *"no required checks"*) required="" ;;
+  *)
+    echo "error: unrecognised answer from 'gh pr checks --required' for PR $pr." >&2
+    echo "       Cannot tell 'nothing is required' from 'the query failed', so the" >&2
+    echo "       required set is unknown and this refuses (fail closed)." >&2
+    echo "       Got: ${platform_raw:-}${platform_msg:+ }${platform_msg:-}" >&2
+    [ -n "$platform_raw$platform_msg" ] || echo "       (no output on either stream)" >&2
+    exit 2 ;;
 esac
 
 # --- source 2: declared list on the base branch ------------------------------
