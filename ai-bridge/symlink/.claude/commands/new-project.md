@@ -140,8 +140,11 @@ If `$ARGUMENTS` has no description, **ask** for a one-line goal before doing any
 7. **Show & commit.** Print the created tree, the `project.md` frontmatter, and the
    seed task titles. **Record the current `HEAD` sha before committing** — step 8 needs
    it as a review base. Then (unless `--no-commit`) stage and commit to this repo via
-   the per-agent helper:
-   `scripts/commit-as.sh human "feat: add <slug> project" -- projects/<slug>`.
+   the per-agent helper, naming **every** path steps 5 and 6 touched — the scaffold
+   and its registration belong in one commit, or the tree records a project that
+   nothing links to:
+   `scripts/commit-as.sh human "feat: add <slug> project" -- projects/<slug> index.md log.md objectives/<objective>.md`
+   (drop `objectives/<objective>.md` only if step 3 left it untouched).
    Remind the user of the next step: the PM refines the drafts, then **you** promote
    `draft → ready`. For **build**, the PM then dispatches to a role agent → PR →
    you merge. For **research**, *you* work each task in-session (Claude + any

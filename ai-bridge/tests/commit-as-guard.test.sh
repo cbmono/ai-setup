@@ -176,5 +176,50 @@ git add projects/gated-proj/tasks/t1.md >/dev/null
 raw "promotion inside my own pathspec is still blocked" block project-manager -- projects/gated-proj/tasks/t1.md
 
 echo
+echo "== named paths commit the STAGED blob, not the working tree =="
+
+# `git commit -- <paths>` (git's pathspec form) would commit the working-tree
+# content of each named path, silently replacing what was staged. These cases pin
+# the staged blob as the thing that lands.
+eq() { # <name> <expected> <actual>
+  if [ "$2" = "$3" ]; then
+    printf '  PASS  %-52s (%s)\n' "$1" "$3"; pass=$((pass+1))
+  else
+    printf '  FAIL  %-52s expected [%s] got [%s]\n' "$1" "$2" "$3"; fail=$((fail+1))
+  fi
+}
+
+setup
+printf 'staged\n' > mine.txt; git add mine.txt >/dev/null
+printf 'working-tree\n' > mine.txt          # drifts AFTER the add
+"$SCRIPT" software-engineer "test: staged blob wins" -- mine.txt >/dev/null 2>&1
+eq "committed content is the staged version" "staged" "$(git show HEAD:mine.txt)"
+eq "the later working-tree edit stays uncommitted" " M mine.txt" "$(git status --short mine.txt)"
+
+# The security case: the promotion gate must judge the blob that lands. A gated
+# `status: ready` in the working tree must not slip past a `draft` index.
+setup
+task projects/gated-proj/tasks/t1.md build draft
+git add projects/gated-proj/tasks/t1.md >/dev/null
+task projects/gated-proj/tasks/t1.md build ready    # working tree only, not staged
+"$SCRIPT" project-manager "test: gate judges the committed blob" \
+  -- projects/gated-proj/tasks/t1.md >/dev/null 2>&1
+eq "unstaged 'ready' cannot ride in past the gate" \
+  "status: draft" "$(git show HEAD:projects/gated-proj/tasks/t1.md | grep '^status:')"
+
+# The close-project flow: a whole project directory staged for removal.
+setup
+git rm -qr projects/gated-proj >/dev/null
+raw "staged directory removal commits as a deletion" allow project-manager -- projects/gated-proj
+eq "the removed directory is gone from HEAD" \
+  "" "$(git ls-tree -r --name-only HEAD -- projects/gated-proj)"
+
+# A forgotten `git add` is a caller error worth naming: git's own message would
+# describe the shared working tree instead, which is confusing here.
+setup
+printf 'edited but never staged\n' > mine.txt
+raw "nothing staged under the named paths -> refused" block project-manager -- mine.txt
+
+echo
 echo "pass=$pass fail=$fail"
 [ "$fail" -eq 0 ]

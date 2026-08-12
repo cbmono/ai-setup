@@ -14,8 +14,12 @@
 # concurrently against ONE working tree, so the index is shared state: a role that
 # commits "whatever is staged" silently absorbs whatever a sibling agent staged a
 # second earlier, and that sibling's work lands under the wrong author. This has
-# happened repeatedly in practice. Passing paths makes git commit only those,
-# leaving everyone else's staged changes staged and intact.
+# happened repeatedly in practice. Naming paths commits only those, leaving
+# everyone else's staged changes staged and intact.
+#
+# What gets committed for a named path is the STAGED content — `git add` it first.
+# A working-tree edit made after that `git add` is not committed and stays a
+# working-tree edit.
 #
 # So for every role except `human`, one of the two forms above is REQUIRED:
 #   - `-- <path>...`  commit exactly these paths (strongly preferred), or
@@ -137,6 +141,84 @@ EOF
   exit 4
 fi
 
+# Build the SELECTED INDEX: HEAD, plus exactly the staged entries for the named
+# paths. This is deliberately NOT `git commit -- <paths>`, git's pathspec commit
+# form, for two reasons:
+#
+#   1. That form commits the WORKING TREE content of each named path, ignoring what
+#      was staged for it. A file edited after its `git add` would be committed
+#      unreviewed, and the staged version silently overwritten.
+#   2. The promotion guard below reads the index. If the commit took its content
+#      from the working tree instead, the guard would judge a different blob than
+#      the one that lands — a `status: draft` index passing the gate while a
+#      `status: ready` working tree gets committed.
+#
+# One temporary index, used for BOTH the guard and the commit, closes both: what is
+# validated is byte-for-byte what lands. The shared index is never written, so a
+# sibling agent's staged work survives untouched.
+selected_index=""
+has_head=0
+git rev-parse --verify -q HEAD >/dev/null 2>&1 && has_head=1
+
+if [ "${#paths[@]}" -gt 0 ]; then
+  selected_index="$(mktemp "${TMPDIR:-/tmp}/commit-as-index.XXXXXX")"
+  trap 'rm -f "$selected_index"' EXIT
+
+  # Seed from HEAD (empty on an unborn branch) so unselected paths keep the
+  # committed state and no sibling's staged change can leak in.
+  if [ "$has_head" -eq 1 ]; then seed=HEAD; else seed=--empty; fi
+  if ! GIT_INDEX_FILE="$selected_index" git read-tree "$seed"; then
+    echo "error: could not seed a temporary index from HEAD — refusing to commit" >&2
+    exit 3
+  fi
+
+  # Copy the staged entries (exact blob + mode) for the named paths. Piped, not
+  # captured: `git ls-files -z` output is NUL-separated and command substitution
+  # drops NUL bytes, which would join paths containing spaces into one bad entry.
+  if ! git ls-files --stage -z -- "${paths[@]}" \
+       | GIT_INDEX_FILE="$selected_index" git update-index -z --index-info; then
+    echo "error: could not copy the staged entries for the named paths — refusing" >&2
+    echo "       to commit as role '$role' (fail closed)." >&2
+    exit 3
+  fi
+
+  # A path staged for DELETION is absent from the index, so the copy above left
+  # HEAD's version in place; drop those explicitly or the commit would keep the file.
+  if [ "$has_head" -eq 1 ] \
+     && ! git diff --cached --name-only -z --diff-filter=D -- "${paths[@]}" \
+          | GIT_INDEX_FILE="$selected_index" git update-index -z --force-remove --stdin; then
+    echo "error: could not stage the deletions for the named paths — refusing to" >&2
+    echo "       commit as role '$role' (fail closed)." >&2
+    exit 3
+  fi
+
+  # Nothing staged under the named paths. Say so plainly: git's own message would
+  # describe the shared WORKING TREE ("nothing added to commit…"), which is both
+  # confusing and wrong here — the usual cause is a forgotten `git add`.
+  allow_empty=0
+  for arg in ${git_args[@]+"${git_args[@]}"}; do
+    [ "$arg" = "--allow-empty" ] && allow_empty=1
+  done
+  if [ "$allow_empty" -eq 0 ] && [ "$has_head" -eq 1 ] \
+     && GIT_INDEX_FILE="$selected_index" git diff --cached --quiet HEAD; then
+    echo "error: nothing staged under the named path(s):" >&2
+    for p in "${paths[@]}"; do printf '         %s\n' "$p" >&2; done
+    echo "       Stage your changes by explicit path first, then commit those same paths:" >&2
+    echo "         git add -- <path>...   # never 'git add -A' in a shared instance" >&2
+    exit 4
+  fi
+fi
+
+# Read the index the commit will actually use: the selected index when we built
+# one, the shared index otherwise.
+gitx() {
+  if [ -n "$selected_index" ]; then
+    GIT_INDEX_FILE="$selected_index" git "$@"
+  else
+    git "$@"
+  fi
+}
+
 # Two-human-authority guard (SCHEMA.md): draft→ready is the human's gate.
 #
 # A project may DELEGATE that gate to the loop via `autonomy:` in its project.md —
@@ -161,26 +243,11 @@ if [ "$role" != "human" ]; then
   # Enumerate staged files under projects/ ONCE. Fail CLOSED if git itself errors
   # (corrupt index, disk error): refuse rather than proceed with an empty list, which
   # would let a promotion through unchecked — the one spot that would otherwise fail open.
-  # When pathspecs are given, judge only what this commit will actually contain —
-  # a sibling agent's staged promotion is not this role's to answer for (and its
-  # own commit gets checked when it runs). Let git do the pathspec matching, then
-  # keep the `projects/` entries: same set the commit will include, no more.
-  if [ "${#paths[@]}" -gt 0 ]; then
-    if ! staged_in_paths="$(git diff --cached --name-only -- "${paths[@]}")"; then
-      echo "error: could not list staged files (git diff failed) — refusing to commit as" >&2
-      echo "       role '$role' (fail closed). Fix the repo state and retry." >&2
-      exit 3
-    fi
-    staged_list=""
-    while IFS= read -r candidate; do
-      case "$candidate" in
-        projects/*) staged_list="${staged_list}${candidate}
-" ;;
-      esac
-    done <<EOF
-$staged_in_paths
-EOF
-  elif ! staged_list="$(git diff --cached --name-only -- projects)"; then
+  # Read through the selected index (when one was built), so this judges exactly
+  # what the commit will contain and nothing else: a sibling agent's staged
+  # promotion is not this role's to answer for, and its own commit gets checked
+  # when it runs. A promotion inside this role's own paths is still refused.
+  if ! staged_list="$(gitx diff --cached --name-only -- projects)"; then
     echo "error: could not list staged files (git diff failed) — refusing to commit as" >&2
     echo "       role '$role' (fail closed). Fix the repo state and retry." >&2
     exit 3
@@ -190,7 +257,7 @@ EOF
     [ -n "$staged_file" ] || continue
 
     # Only files whose staged diff ADDS a `status: ready` line.
-    if ! git diff --cached -U0 -- "$staged_file" \
+    if ! gitx diff --cached -U0 -- "$staged_file" \
          | grep -qiE '^\+status:[[:space:]]*ready[[:space:]]*$'; then
       continue
     fi
@@ -198,18 +265,19 @@ EOF
     # Owning project slug from projects/<slug>/...
     slug="$(printf '%s\n' "$staged_file" | sed -n 's#^projects/\([^/][^/]*\)/.*#\1#p')"
 
-    # Read autonomy from the STAGED blob (index), not the working tree — same source as
-    # `kind` below, so the check is consistent with exactly what's being committed (no
-    # working-tree/staged TOCTOU). Missing/unparseable → stays `gated` (fail closed).
+    # Read autonomy from the blob the commit will contain, not the working tree —
+    # same source as `kind` below, so the check is consistent with exactly what's
+    # being committed (no working-tree/staged TOCTOU). Missing/unparseable → stays
+    # `gated` (fail closed).
     autonomy="gated"
     if [ -n "$slug" ]; then
-      parsed="$(git show ":projects/$slug/project.md" 2>/dev/null \
+      parsed="$(gitx show ":projects/$slug/project.md" 2>/dev/null \
                 | sed -n 's/^autonomy:[[:space:]]*\([A-Za-z][A-Za-z-]*\)[[:space:]]*$/\1/p' | head -n1)"
       [ -n "$parsed" ] && autonomy="$parsed"
     fi
 
-    # Task kind read from the STAGED blob — what is actually being committed.
-    kind="$(git show ":$staged_file" 2>/dev/null \
+    # Task kind read from the same blob — what is actually being committed.
+    kind="$(gitx show ":$staged_file" 2>/dev/null \
             | sed -n 's/^kind:[[:space:]]*\([A-Za-z][A-Za-z-]*\)[[:space:]]*$/\1/p' | head -n1)"
     [ -n "$kind" ] || kind="unset"
 
@@ -245,14 +313,16 @@ else
   author_name="$role"
 fi
 
-# Pathspecs (when given) go last, after `--`, so git commits exactly those and
-# leaves any other staged change in the index for its own author to commit.
-if [ "${#paths[@]}" -gt 0 ]; then
-  exec git \
+# Commit the selected index when we built one — the same tree the guard above
+# judged. The shared index is left alone, so any other staged change stays staged
+# for its own author to commit. No `exec` here: the EXIT trap has to run to remove
+# the temporary index.
+if [ -n "$selected_index" ]; then
+  GIT_INDEX_FILE="$selected_index" git \
     -c "user.name=$author_name" \
     -c "user.email=$AUTHOR_EMAIL" \
     commit --author="$author_name <$AUTHOR_EMAIL>" -m "$message" \
-    ${git_args[@]+"${git_args[@]}"} -- "${paths[@]}"
+    ${git_args[@]+"${git_args[@]}"}
 else
   exec git \
     -c "user.name=$author_name" \
