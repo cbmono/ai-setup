@@ -9,8 +9,8 @@ each its own git repo.
 ai-setup/ai-bridge/        # this template (lives in the ai-setup repo)
 ├── install.sh                    # stamp out / refresh an instance
 ├── symlink/                      # generic machinery → symlinked into instances (gitignored there)
-│   ├── SCHEMA.md  AUTONOMY.md  agents/index.md  scripts/commit-as.sh
-│   └── .claude/{agents/*, commands/{status,pm-loop,new-project,pr-review-request,todo,fanout}.md, hooks/{show-awaiting,show-todos}.sh, settings.json}
+│   ├── SCHEMA.md  AUTONOMY.md  agents/index.md  scripts/*.sh
+│   └── .claude/{agents/*, commands/{pm-loop,new-project,close-project,pr-review-request,answer,audit,todo,fanout}.md, hooks/{show-awaiting,show-todos}.sh, settings.json}
 └── seed/                         # starting content → copied into an instance once (then yours)
     ├── instance.config.json  CLAUDE.md  README.md  index.md  log.md  .gitignore
     ├── bridge.code-workspace     # multi-root editor view; install.sh seeds it as <group>.code-workspace
@@ -85,6 +85,17 @@ also permits browser writes. There is no partial variant on purpose. Pair it wit
 autonomous loop for drift — and note the **preflight**: with a single `gh` identity and no
 external reviewer, or with no required status checks, the merge authority can't be
 exercised at all, so the loop says so once and keeps surfacing PRs for you.
+
+**Required checks, where the host won't enforce them.** The merge gate's first
+precondition is `scripts/required-checks.sh <pr>`, which reads the required set from
+branch protection and, failing that, from **`.github/required-checks.txt` on the PR's base
+branch** (one check name per line). The fallback is for hosts that can't enforce
+protection — a private GitHub repo on a free plan answers 403 from both the
+branch-protection and rulesets APIs, which would otherwise make `yolo` merges
+unexercisable by construction. Declare only checks that **always run**: missing, pending
+and *skipped* all refuse, and a PR that edits the list is never auto-merged. Configuring
+real branch protection later needs no change — the script prefers it automatically, and
+the gate then binds human merges too.
 
 **Answering the PM's questions:** when a `draft` is blocked it lists numbered
 `open_questions` (`Q1:`, `Q2:`, …). Answer one **in the task doc** by appending
