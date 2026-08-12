@@ -60,7 +60,7 @@ candidates) and ask which to close.
 
 6. **Remove & commit.** Unless `--dry-run`: `git rm -r projects/<slug>/`, stage the
    `index.md` / `log.md` / objective / KB edits by explicit path, and commit via
-   `scripts/commit-as.sh human "chore: close <slug> project"`. Print the closing
+   `scripts/commit-as.sh human "chore: close <slug> project" -- <path>...`. Print the closing
    commit SHA and the `log.md` entry. Remind the user the full record stays
    recoverable via `git log -- projects/<slug>/`.
 

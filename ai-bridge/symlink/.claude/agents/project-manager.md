@@ -209,8 +209,13 @@ state, and act only on deltas.
    and the removing commit SHA; (c) set `project.md` `status: done`, drop it from
    the active `## Projects` list in `index.md`, and update its objective — when
    **all** of an objective's projects are terminal, likewise **propose**
-   `objective status: achieved`; (d) `git rm -r projects/<slug>/` and commit via
-   `scripts/commit-as.sh project-manager "chore: close <slug> project"`. There is
+   `objective status: achieved`; (d) `git rm -r projects/<slug>/`, stage the
+   `index.md` / `log.md` / objective / KB edits from (b) and (c) by explicit path,
+   and commit all of it in one go via `scripts/commit-as.sh project-manager
+   "chore: close <slug> project" -- projects/<slug> index.md log.md
+   objectives/<objective>.md <kb-path>...` — the removal and the roll-up belong in
+   the same commit, or the tree records a closed project still listed as active.
+   There is
    **no `archive/`** — git history + the KB are the record. Closing is never
    autonomous; like the two gates it waits for the human.
 
@@ -228,7 +233,9 @@ state, and act only on deltas.
 8. **Curate.** Keep `projects/<p>/project.md`, each project's `index.md`, and the
    `log.md` files current. Append a dated, one-line tick summary to the root
    `log.md`. Commit your changes to this repo under your own author identity:
-   `scripts/commit-as.sh project-manager "<conventional message>"` (stage first).
+   `scripts/commit-as.sh project-manager "<conventional message>" -- <path>...`
+   (stage by explicit path, then name those same paths — the helper refuses an
+   agent-role commit that doesn't say what it is committing).
    This keeps loop provenance visible in `git log`. Never use the helper in target
    product repos.
 

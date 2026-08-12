@@ -86,7 +86,9 @@ ticks, regardless of how long a tick runs.
   **counts toward the `maxAgentsInFlight` cap**, is **throttled to one per tick**, and (like every
   tick action) **never promotes or merges**. Skipped on idle/docs-only/trivial ticks.
 - Commit hygiene in this repo: stage only your own changed files by explicit path
-  (never `git add -A`); commit via `scripts/commit-as.sh project-manager "<msg>"`;
+  (never `git add -A`); commit via
+  `scripts/commit-as.sh project-manager "<msg>" -- <path>...` — naming the paths is
+  required for agent roles, so a sibling agent's staged files can't land under yours;
   never `--no-verify` in target repos.
 - **Worktree hygiene.** Reclaim finished worktrees with `scripts/prune-worktrees.sh`
   (≤ once per tick) — it removes only worktrees whose PR is merged/closed (or whose
