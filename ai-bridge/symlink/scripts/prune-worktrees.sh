@@ -8,6 +8,13 @@
 #   · PR open              → keep     (in flight)
 #   · no PR / gh offline   → remove only if the branch is already merged into the
 #                            repo's default branch; otherwise keep.
+# It CANNOT see a live agent inside a worktree. A tree an agent is working in right
+# now, whose PR has just merged or closed, is clean and finished by every signal
+# available here, so it is removed — deleting that agent's working directory
+# mid-run. No check can be added for it either; liveness isn't visible from the
+# filesystem or from `gh`. Callers must not run this while role agents are in
+# flight (see the project-manager agent's "Reclaim the worktree").
+#
 # Dirty worktrees are always kept — only they risk losing uncommitted work. The
 # clean check uses `git status --porcelain` (no --ignored), so it flags tracked
 # modifications and untracked NON-ignored files, but not ignored build artifacts
@@ -34,8 +41,10 @@ if [[ ! -f "$CONFIG" ]]; then
 fi
 
 # reposRoot from config; expand a leading ~ to $HOME.
+# `|| true`: with `set -o pipefail`, grep finding no reposRoot key would abort here
+# and exit 1 with no output at all, instead of reaching the explanation below.
 REPOS_ROOT=$(grep -o '"reposRoot"[[:space:]]*:[[:space:]]*"[^"]*"' "$CONFIG" \
-  | sed 's/.*:[[:space:]]*"//; s/"$//')
+  | sed 's/.*:[[:space:]]*"//; s/"$//' || true)
 REPOS_ROOT=${REPOS_ROOT/#\~/$HOME}
 if [[ -z "$REPOS_ROOT" || ! -d "$REPOS_ROOT" ]]; then
   echo "prune-worktrees: reposRoot ('$REPOS_ROOT') not found — check $CONFIG." >&2
