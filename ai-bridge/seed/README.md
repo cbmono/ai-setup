@@ -87,6 +87,12 @@ full trail anytime with `git log -- projects/<slug>/`. Finished build worktrees
 under `<reposRoot>/_wt/` are reclaimed automatically (also each PM tick, via
 `scripts/prune-worktrees.sh`).
 
+## See the group's repos from in here
+`repos/<name>` is a symlink to each clone under `reposRoot`, so `cd repos/<name>`
+works without the repos ever being nested inside this instance. Run
+`scripts/link-repos.sh` after cloning a new one (the installer does it too). It's
+gitignored and safe to delete.
+
 ## Run the Project Manager
 From a fresh session **in this instance directory** (so the role agents, the
 clones, and `gh` are available):

@@ -216,8 +216,23 @@ every product-repo session (telling them they're a control panel that commits to
   that doesn't exist (which blocks terminal launch outright).
 - **Zed** (no workspace-file support) — open the **group folder**; the instance's
   `_`-prefix already sorts it to the top.
+- **Any editor, and the terminal** — the instance carries **`repos/`**, one symlink
+  per repo pointing into `reposRoot`, so `ls repos/`, `cd repos/<name>` and
+  single-folder editors reach the group's repos from inside the instance. Created
+  and refreshed by **`scripts/link-repos.sh`** (run by `install.sh`; run it again on
+  its own after cloning a repo — no full refresh needed). It links every directory
+  under `reposRoot` that has a `.git` and whose name doesn't start with `_`, which
+  skips sibling instances and the `_wt/` worktree root, and it never links the
+  instance holding the view — that would recurse. Stale links are pruned, real
+  files there are never touched, and `--remove` tears the view down (as
+  `install.sh --uninstall` does). It's **gitignored**: symlinks into a
+  machine-local path, so committing them would dangle on every other machine. The
+  seeded workspace file sets `search.followSymlinks: false` so editor search
+  doesn't report every hit twice, once per route.
 
-It only changes the editor display; nothing moves on disk. **Regardless of editor,
+None of this moves a repo: the workspace file only changes the display, and `repos/`
+adds symlinks beside the instance's own files. The repos stay physical peers either
+way. **Regardless of editor,
 launch Claude by `cd`-ing into the instance dir and running `claude` there** — the
 editor's open folder doesn't affect which `.claude/` loads; the working directory
 does. Instances created before the `terminal.integrated.cwd` line existed keep

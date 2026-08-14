@@ -37,8 +37,15 @@
     { "name": "AI Bridge", "path": "." },
     { "name": "repositories", "path": ".." }
   ],
+  // search.followSymlinks is off because the instance also carries `repos/`, a
+  // symlink-per-repo view of the same repos (scripts/link-repos.sh). With it on —
+  // the editor default — every hit in a product repo is reported twice: once
+  // through the "repositories" folder above and once through `repos/<name>`.
+  // Turning it off costs nothing here, since that folder opens the group
+  // directly rather than through a link.
   "settings": {
     // "terminal.integrated.cwd": "__BRIDGE_DIR__",
+    "search.followSymlinks": false,
     "files.exclude": {
       "_ai-bridge-*": true
     }
