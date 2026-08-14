@@ -1,7 +1,20 @@
 #!/usr/bin/env bash
-# prune-worktrees.sh — safely reclaim finished git worktrees under <reposRoot>/_wt.
+# prune-worktrees.sh — safely reclaim finished git worktrees.
 #
-# For each worktree under _wt whose tree is CLEAN (nothing uncommitted), decide by
+# WHERE IT LOOKS. Two roots, both scanned, because a worktree may sit in either:
+#   · `worktreeRoot` from instance.config.json (a leading ~ is expanded) — where
+#     agent worktrees live now, deliberately OUTSIDE any synced folder. Worktrees
+#     must not live under a Dropbox/iCloud path: sync rewrites and deletes files
+#     inside them mid-run, which has produced phantom test failures and a phantom
+#     review blocker. `worktreeRoot` is the single source of truth for the path —
+#     the dispatch briefs name the config key, not a literal.
+#   · <reposRoot>/_wt — the legacy root, still scanned so nothing stranded there
+#     is orphaned. `reposRoot` is typically inside the synced folder, which is
+#     exactly why worktrees moved out of it.
+# An instance with no `worktreeRoot` key keeps the old behaviour (legacy root
+# only), so this is safe to ship ahead of the config change.
+#
+# For each worktree under a scan root whose tree is CLEAN (nothing uncommitted), decide by
 # its branch's PR state (via `gh`, falling back to git when gh is absent/offline):
 #   · PR merged            → remove   (task done)
 #   · PR closed (unmerged) → remove   (task abandoned/superseded)
@@ -33,24 +46,64 @@ if [[ ! -f "$CONFIG" ]]; then
   exit 1
 fi
 
-# reposRoot from config; expand a leading ~ to $HOME.
-REPOS_ROOT=$(grep -o '"reposRoot"[[:space:]]*:[[:space:]]*"[^"]*"' "$CONFIG" \
-  | sed 's/.*:[[:space:]]*"//; s/"$//')
-REPOS_ROOT=${REPOS_ROOT/#\~/$HOME}
+# A string value from the flat config, with a leading ~ expanded to $HOME.
+config_path() { # <key>
+  local v
+  v=$(grep -o "\"$1\"[[:space:]]*:[[:space:]]*\"[^\"]*\"" "$CONFIG" 2>/dev/null \
+    | head -1 | sed 's/.*:[[:space:]]*"//; s/"$//') || true
+  printf '%s' "${v/#\~/$HOME}"
+}
+
+# Canonicalize (resolve symlinks) so path matching lines up with the resolved
+# paths `git worktree list --porcelain` emits — otherwise a symlinked root makes
+# the "$root"/* match miss every worktree and the prune becomes a silent no-op.
+# ($TMPDIR is symlinked on macOS, so this also bites the fixture harness.)
+canon() { ( cd "$1" 2>/dev/null && pwd -P ); }
+
+REPOS_ROOT=$(config_path reposRoot)
 if [[ -z "$REPOS_ROOT" || ! -d "$REPOS_ROOT" ]]; then
   echo "prune-worktrees: reposRoot ('$REPOS_ROOT') not found — check $CONFIG." >&2
   exit 1
 fi
-# Canonicalize (resolve symlinks) so path matching lines up with the resolved
-# paths `git worktree list --porcelain` emits — otherwise a symlinked reposRoot
-# makes the "$WT_ROOT"/* match miss every worktree and the prune becomes a no-op.
-REPOS_ROOT=$(cd "$REPOS_ROOT" && pwd -P)
+REPOS_ROOT=$(canon "$REPOS_ROOT")
 
-WT_ROOT="$REPOS_ROOT/_wt"
-if [[ ! -d "$WT_ROOT" ]]; then
-  echo "prune-worktrees: no $WT_ROOT — nothing to do."
+# Scan roots, in order: the configured worktreeRoot, then the legacy <reposRoot>/_wt.
+ROOTS=(); ROOT_LABELS=()
+add_root() { # <path> <label>
+  local p=$1 r
+  [[ -n "$p" && -d "$p" ]] || return 0
+  r=$(canon "$p"); [[ -n "$r" ]] || return 0
+  local existing
+  for existing in ${ROOTS+"${ROOTS[@]}"}; do [[ "$existing" == "$r" ]] && return 0; done
+  ROOTS+=("$r"); ROOT_LABELS+=("$2")
+}
+
+WT_CONFIGURED=$(config_path worktreeRoot)
+if [[ -n "$WT_CONFIGURED" && ! -d "$WT_CONFIGURED" ]]; then
+  echo "prune-worktrees: worktreeRoot ('$WT_CONFIGURED') does not exist — skipping it." >&2
+fi
+add_root "$WT_CONFIGURED" worktreeRoot
+add_root "$REPOS_ROOT/_wt" legacy
+if [[ ${#ROOTS[@]} -eq 0 ]]; then
+  echo "prune-worktrees: no worktree root exists (worktreeRoot in $CONFIG, or $REPOS_ROOT/_wt) — nothing to do."
   exit 0
 fi
+for i in "${!ROOTS[@]}"; do
+  printf 'prune-worktrees: scan root  %s  (%s)\n' "${ROOTS[i]}" "${ROOT_LABELS[i]}"
+done
+
+# Is a path inside one of the scan roots?
+in_scan_root() {
+  local p=$1 r
+  for r in "${ROOTS[@]}"; do case "$p" in "$r"/*) return 0 ;; esac; done
+  return 1
+}
+# Is a path itself a scan root (so: never a candidate repo)?
+is_scan_root() {
+  local p=$1 r
+  for r in "${ROOTS[@]}"; do [[ "$p" == "$r" ]] && return 0; done
+  return 1
+}
 
 HAVE_GH=0; command -v gh >/dev/null 2>&1 && HAVE_GH=1
 
@@ -86,7 +139,7 @@ removed=0; kept=0
 
 for repo in "$REPOS_ROOT"/*/; do
   repo=${repo%/}
-  [[ "$repo" == "$WT_ROOT" ]] && continue
+  is_scan_root "$repo" && continue
   [[ -e "$repo/.git" ]] || continue
 
   def=$(default_branch "$repo")
@@ -100,7 +153,7 @@ for repo in "$REPOS_ROOT"/*/; do
   while IFS= read -r line; do
     [[ "$line" == "worktree "* ]] || continue
     wt=${line#worktree }
-    case "$wt" in "$WT_ROOT"/*) ;; *) continue ;; esac
+    in_scan_root "$wt" || continue
     [[ -d "$wt" ]] || continue
 
     br=$(git -C "$wt" rev-parse --abbrev-ref HEAD 2>/dev/null || echo '?')
