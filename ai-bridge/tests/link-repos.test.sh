@@ -27,7 +27,9 @@ setup() { # [instance-dir-name]
   local inst_name="${1:-bridge}"
   rm -rf "$TMP/group"
   mkdir -p "$TMP/group"
-  for r in repo1 repo2; do mkdir -p "$TMP/group/$r/.git"; done
+  # `.github` stands in for the real case of a DOT-NAMED repo: an org's `.github`
+  # repo is ordinary to clone, and a plain `*` glob cannot see it.
+  for r in repo1 repo2 .github; do mkdir -p "$TMP/group/$r/.git"; done
   mkdir -p "$TMP/group/not-a-repo"                 # no .git
   mkdir -p "$TMP/group/_wt/some-worktree/.git"     # agent worktree root
   mkdir -p "$TMP/group/_ai-bridge-other/.git"      # a sibling instance
@@ -38,13 +40,16 @@ setup() { # [instance-dir-name]
 
 run() { ( cd "$INST" && bash "$SCRIPT" "$@" 2>&1 ); }
 
-# Names of entries in the view, sorted and comma-joined.
-view() { ( cd "$INST/repos" 2>/dev/null && ls -A | sort | paste -sd, - ) 2>/dev/null; }
+# Names of entries in the view, sorted and comma-joined. LC_ALL=C so a dot-named
+# entry sorts predictably rather than by the runner's locale collation.
+view() { ( cd "$INST/repos" 2>/dev/null && LC_ALL=C ls -A | LC_ALL=C sort | paste -sd, - ) 2>/dev/null; }
 
 # --- what gets linked, and what must not -----------------------------------
 setup
 out="$(run)"
-ok "links every git repo under reposRoot" "$(view)" "repo1,repo2"
+ok "links every git repo under reposRoot" "$(view)" ".github,repo1,repo2"
+ok "a dot-named repo is linked (needs dotglob)" \
+  "$([ -L "$INST/repos/.github" ] && echo linked || echo MISSED)" linked
 # Compared against the CANONICAL path: the script resolves reposRoot with `pwd -P`
 # so the instance-identity check compares like with like (on macOS /var is a
 # symlink to /private/var, and an unresolved path would defeat that check).
@@ -63,16 +68,22 @@ ok "never links the instance that holds the view" \
 # --- idempotence and pruning ----------------------------------------------
 out="$(run)"
 ok "second run relinks nothing" "$(printf '%s' "$out" | grep -c '^  link' || true)" "0"
-ok "second run leaves the view identical" "$(view)" "repo1,repo2"
+ok "second run leaves the view identical" "$(view)" ".github,repo1,repo2"
 
 mv "$TMP/group/repo2" "$TMP/group/repo2-renamed"
 out="$(run)"
 ok "a renamed repo is relinked under its new name" \
-  "$(view)" "repo1,repo2-renamed"
+  "$(view)" ".github,repo1,repo2-renamed"
 
 rm -rf "$TMP/group/repo1"
 run >/dev/null
-ok "a deleted repo's link is pruned" "$(view)" "repo2-renamed"
+ok "a deleted repo's link is pruned" "$(view)" ".github,repo2-renamed"
+
+# Pruning must see a dot-named link too, or a removed `.github` clone leaves a
+# dangling one behind forever.
+rm -rf "$TMP/group/.github"
+run >/dev/null
+ok "a deleted dot-named repo's link is pruned" "$(view)" "repo2-renamed"
 
 # --- never clobber anything that isn't ours -------------------------------
 setup
@@ -90,7 +101,7 @@ out="$(run --dry-run)"
 ok "dry-run creates no view" \
   "$([ -e "$INST/repos" ] && echo created || echo none)" none
 ok "dry-run still reports what it would link" \
-  "$(printf '%s' "$out" | grep -c 'would   link' || true)" "2"
+  "$(printf '%s' "$out" | grep -c 'would   link' || true)" "3"
 
 # --- --remove tears it down, sparing real entries -------------------------
 setup
@@ -106,6 +117,17 @@ setup
 run >/dev/null
 run --remove >/dev/null
 ok "--remove drops the empty dir entirely" \
+  "$([ -e "$INST/repos" ] && echo left || echo gone)" gone
+
+# --remove is the one mode that must work on a half-torn-down instance: the config
+# is often already gone by then (install.sh --uninstall calls this), and refusing
+# would leave the links dangling with nothing left to clean them up.
+setup
+run >/dev/null
+rm "$INST/instance.config.json"
+run --remove >/dev/null 2>&1
+ok "--remove works with the config deleted" "$?" "0"
+ok "--remove with no config still cleared the view" \
   "$([ -e "$INST/repos" ] && echo left || echo gone)" gone
 
 # --- unconfigured reposRoot must be a clean skip, not a failure -----------

@@ -25,12 +25,19 @@
 # `repos/`; a real file or directory there is reported and left alone.
 #
 # Run from a control-panel instance root (reads `reposRoot` from
-# instance.config.json). Generic: no org/repo/path literals.
+# instance.config.json). `--remove` is the one mode that needs neither, so a
+# half-torn-down instance can still be cleaned up. Generic: no org/repo/path
+# literals.
 #
 # Usage:  scripts/link-repos.sh [--dry-run|-n] [--remove]
 #           --remove   delete the links and the (then empty) repos/ dir
 set -euo pipefail
-shopt -s nullglob
+# dotglob as well as nullglob: a repo name may legitimately start with a dot (an
+# org's `.github` repo is the common one), and without it such a clone is invisible
+# to all three loops — never linked, and an existing link never pruned or removed.
+# Neither option makes `*` match `.` or `..`, and the `.git` requirement below
+# still filters out dot-directories that aren't repos.
+shopt -s nullglob dotglob
 
 DRY_RUN=0; REMOVE=0
 for arg in "$@"; do
@@ -42,11 +49,6 @@ for arg in "$@"; do
 done
 
 CONFIG=instance.config.json
-if [[ ! -f "$CONFIG" ]]; then
-  echo "link-repos: run from a control-panel instance root (no $CONFIG here)." >&2
-  exit 1
-fi
-
 INSTANCE=$(pwd -P)
 VIEW="$INSTANCE/repos"
 
@@ -56,8 +58,14 @@ link_target() {
   case "$tgt" in /*) printf '%s' "$tgt" ;; *) printf '%s' "$VIEW/$tgt" ;; esac
 }
 
-# --- --remove: tear the view down (needs no reposRoot, so it still works when
-# --- the config is gone or broken). Only symlinks go; anything real is kept.
+# --- --remove: tear the view down. Deliberately BEFORE the instance-root check
+# below, and it reads no config: the case that needs it most is a half-torn-down
+# instance whose instance.config.json is already gone, where refusing would leave
+# the links dangling forever (install.sh --uninstall calls this). Safe unguarded
+# because of what it will and won't touch: only symlinks placed DIRECTLY inside
+# ./repos, never a real file or directory, never recursing, and never the link
+# targets — so the worst it can do in the wrong directory is unlink, which loses no
+# content. Linking, which writes, keeps the strict check.
 if [[ $REMOVE -eq 1 ]]; then
   if [[ ! -d "$VIEW" ]]; then
     echo "link-repos: no repos/ view here — nothing to remove."
@@ -78,6 +86,11 @@ if [[ $REMOVE -eq 1 ]]; then
   printf 'link-repos: %d link(s) removed.%s\n' "$gone" \
     "$([[ $DRY_RUN -eq 1 ]] && echo ' (dry-run — nothing changed)')"
   exit 0
+fi
+
+if [[ ! -f "$CONFIG" ]]; then
+  echo "link-repos: run from a control-panel instance root (no $CONFIG here)." >&2
+  exit 1
 fi
 
 # reposRoot from config; expand a leading ~ to $HOME (same idiom as
