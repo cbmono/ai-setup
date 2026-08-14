@@ -383,17 +383,20 @@ for repo in "$REPOS_ROOT"/*/; do
   [[ $DRY_RUN -eq 1 ]] || git -C "$repo" worktree prune 2>/dev/null || true
 done
 
-# Directories sitting in a scan root that are NOT registered worktrees. Reported
-# only, never touched: they are usually a rescued or hand-copied tree, and the
-# permission classifier will not let an agent rm -rf them anyway. Without this
-# they are invisible — 13 had accumulated on the opensc instance unnoticed.
+# Directories sitting in a scan root that are NOT registered worktrees of any repo
+# under reposRoot. Reported only, never touched: they are usually a rescued or
+# hand-copied tree, or a private cache dir. Without this they are invisible — 13
+# had accumulated on the opensc instance unnoticed.
+# NOTE it also catches a live worktree of a repo OUTSIDE reposRoot (this script
+# only enumerates repos under reposRoot), so the line says "inspect" and not
+# "delete", and deliberately does not act.
 unregistered=0
 for root in "${ROOTS[@]}"; do
   for d in "$root"/*/; do
     d=${d%/}
     [[ -d "$d" ]] || continue
     case "$SEEN_WT" in *$'\n'"$d"$'\n'*) continue ;; esac
-    printf 'UNREGISTERED      %s  (not a registered worktree — inspect, then remove by hand)\n' "$d"
+    printf 'UNREGISTERED      %s  (no worktree of any repo under reposRoot — may be a cache dir, a rescued tree, or a worktree of a repo elsewhere; inspect by hand)\n' "$d"
     unregistered=$((unregistered+1))
   done
 done
