@@ -19,6 +19,13 @@
 #      This is asserted as a blanket property over the whole matrix, not just
 #      per case, because that is the class whose commits removal destroys with
 #      no ref left pointing at them.
+#   5. NO worktree holding untracked scaffolding is ever auto-removed. Also a
+#      blanket property: the scaffolding allowlist is a name heuristic, and the
+#      thing that bounds its blast radius to a report line is precisely that a
+#      recognised name can never reach REMOVE on its own.
+#   6. NO worktree with zero commits of its own is ever removed, under any flag.
+#      That is a fresh dispatch — the shape that destroyed three running agents'
+#      worktrees on 2026-08-04 — and it stays that shape as its base goes stale.
 #
 # `gh` is stubbed (a fake `gh` first on PATH) so PR state is a fixture rather
 # than a live network call. The stub answers the two invocations the pruner
@@ -65,7 +72,10 @@ FIXTURES="$TMP/gh-fixtures"
 
 mkdir -p "$REPOS" "$LEGACY" "$WTROOT" "$INSTANCE" "$TMP/bin"
 
-cat > "$INSTANCE/instance.config.json" <<JSON
+# One definition, used by every scenario that needs the full config back after
+# scenario D replaces it — so the two can never drift apart.
+write_config() {
+  cat > "$INSTANCE/instance.config.json" <<JSON
 {
   "org": "fixture-org",
   "reposRoot": "$REPOS",
@@ -73,6 +83,8 @@ cat > "$INSTANCE/instance.config.json" <<JSON
   "authorEmail": "fixture@example.com"
 }
 JSON
+}
+write_config
 
 # --- the upstream + clone -----------------------------------------------------
 g() { git -C "$REPO" "$@"; }
@@ -127,6 +139,33 @@ commit_in() { # <path> <file> <msg>
 # --- the decision-class fixtures ---------------------------------------------
 # Names are the assertion keys; keep them non-substrings of one another.
 declare -a DETACHED=()
+declare -a SCAFFOLDING=()
+declare -a ZERO_COMMIT=()
+
+# 0. THE STALE-BASE DISPATCH — built first, so the default branch can be advanced
+#    beneath it. On a branch, ZERO commits of its own, clean, NO PR, and its base
+#    one commit behind origin/main. This is the 2026-08-04 shape a few minutes
+#    later, once anything at all has merged, and it is exactly what a SHA-EQUALITY
+#    guard stops recognising: head no longer equals origin/main, so the guard
+#    misses, the ancestor test says "merged into main" (a commit is its own
+#    ancestor), the tree is clean — and a running agent's worktree is removed.
+#    Must be KEPT under every flag. Fixture 7 keeps the equality case covered.
+wt_branch "$WTROOT/branch-stale-base" feat/stalebase
+ZERO_COMMIT+=("$WTROOT/branch-stale-base")
+printf 'three\n' >> "$REPO/tracked.txt"
+g commit -qam 'c3: the default branch moves on beneath the stale-base worktree'
+g push -q origin main
+MAIN_SHA="$(g rev-parse origin/main)"
+
+# From here on the LOCAL default branch is deliberately left BEHIND origin/main.
+# The guard must measure against `origin/<default>` — what a worktree is created
+# from — and not against a local branch, which is stale in any clone that has not
+# pulled. In a fixture where the two are equal the difference is invisible, and a
+# pruner measuring against the local ref would judge a fresh dispatch to have
+# commits of its own and remove it. Detach first so the branch ref can move
+# without a reset and the tree stays clean.
+git -C "$REPO" checkout -q --detach
+git -C "$REPO" update-ref refs/heads/main "$C1"
 
 # 1. detached at a squash-merged PR head (PR MERGED, sha on no ref, not an
 #    ancestor of main). The false negative that kept oscos-qa-28 forever.
@@ -146,6 +185,7 @@ S_SCAFFOLD="$(orphan_sha "$WTROOT/detached-scaffolding" 'scaffolding holder')"
 printf 'probe\n' > "$WTROOT/detached-scaffolding/probe-viewof.ts"
 printf '{}\n'    > "$WTROOT/detached-scaffolding/baseline-chart.json"
 DETACHED+=("$WTROOT/detached-scaffolding")
+SCAFFOLDING+=("$WTROOT/detached-scaffolding")
 
 # 4. on a branch with a merged PR, but a TRACKED file modified: real uncommitted
 #    work. Must be kept under every flag.
@@ -157,16 +197,27 @@ printf 'local edit\n' >> "$WTROOT/branch-dirty-tracked/tracked.txt"
 wt_branch "$WTROOT/branch-open-pr" feat/open-pr
 commit_in "$WTROOT/branch-open-pr" feature.txt 'in-flight work'
 
-# 6. on a branch already merged into the default branch, no PR. The one class
-#    the git-only fallback may remove on its own.
+# 6. on a branch that is an ancestor of the default branch, no PR — the case the
+#    git-only fallback calls "merged into main". It is INDISTINGUISHABLE from
+#    fixture 0: a branch is an ancestor of the default branch exactly when it has
+#    no commits of its own, whether that is because its commits were
+#    fast-forwarded in or because it never made any. Git offers no discriminator,
+#    so the zero-commit guard wins the tie and this is KEPT. The cost is bounded
+#    and one-directional (a fast-forward-merged worktree is reported, not
+#    reclaimed); the alternative cost is deleting a running agent's directory.
+#    A squash-merging repo is unaffected: its merged branches keep their own
+#    commits and are removed on PR evidence (fixture 8).
 git -C "$REPO" branch -q feat/ff "$C1"
-git -C "$REPO" worktree add -q "$WTROOT/branch-merged-into-default" feat/ff >/dev/null
+git -C "$REPO" worktree add -q "$WTROOT/branch-ancestor-no-pr" feat/ff >/dev/null
+ZERO_COMMIT+=("$WTROOT/branch-ancestor-no-pr")
 
-# 7. fresh dispatch: on a branch, zero commits, HEAD still at origin/main. This
-#    is the case that removed oscos-af-001/002/003 while their agents were
-#    running — a commit is its own ancestor, so a brand-new branch is trivially
-#    "merged into main".
+# 7. fresh dispatch: on a branch, zero commits, HEAD still exactly at
+#    origin/main. This is the case that removed oscos-af-001/002/003 while their
+#    agents were running — a commit is its own ancestor, so a brand-new branch is
+#    trivially "merged into main". Fixture 0 is the same worktree a few minutes
+#    later; both must be kept, and only a COUNTING guard covers both.
 wt_branch "$WTROOT/branch-fresh-dispatch" feat/fresh
+ZERO_COMMIT+=("$WTROOT/branch-fresh-dispatch")
 
 # 8. on a branch with a merged PR, fully clean: the provably-safe auto-remove.
 wt_branch "$WTROOT/branch-merged-pr" feat/merged-pr
@@ -179,6 +230,20 @@ wt_branch "$WTROOT/branch-untracked-work" feat/untracked-work
 commit_in "$WTROOT/branch-untracked-work" feature.txt 'landed work'
 printf 'corrections a human has not committed yet\n' \
   > "$WTROOT/branch-untracked-work/README-corrections.md"
+
+# 9b. on a branch, merged PR, clean tracked files, and untracked SCAFFOLDING
+#     only. The one combination that reaches the scaffolding hold on its own: it
+#     satisfies every auto-removal condition except a fully clean tree, so it is
+#     the only fixture that can tell "scaffolding is held back" from "something
+#     else held it back". Without it, deleting the scaffolding hold from the
+#     pruner changes no assertion at all — the detached cases are already held by
+#     being detached, and `branch-untracked-work` is held by being work. That
+#     mutant survived the round-1 harness (M4, 35/35 still green).
+wt_branch "$WTROOT/branch-scaffolding" feat/scaff
+commit_in "$WTROOT/branch-scaffolding" feature.txt 'landed work, probes left behind'
+printf 'probe\n' > "$WTROOT/branch-scaffolding/probe-run.log"
+printf '{}\n'    > "$WTROOT/branch-scaffolding/baseline-out.json"
+SCAFFOLDING+=("$WTROOT/branch-scaffolding")
 
 # 10. explicitly locked: an agent's opt-out must be honoured.
 wt_branch "$WTROOT/branch-locked" feat/locked
@@ -197,10 +262,36 @@ commit_in "$LEGACY/legacy-branch-merged-pr" feature.txt 'legacy landed work'
 #     through to the ancestor test, and removed the worktree with --force, which
 #     also cleared the ignored scaffolding. Kept in the LEGACY root so the
 #     pre-fix script (which scanned only <reposRoot>/_wt) sees it too.
+#     Since the fix it is ALSO a zero-commit worktree (an ancestor SHA carries no
+#     commits of its own), so it is now kept outright rather than reported — the
+#     strongest possible contrast with the pre-fix `WOULD REMOVE` above.
 git -C "$REPO" worktree add -q --detach "$LEGACY/legacy-detached-ancestor" "$C1" >/dev/null
 mkdir -p "$LEGACY/legacy-detached-ancestor/probe-ignored"
 printf 'probe\n' > "$LEGACY/legacy-detached-ancestor/probe-ignored/run.log"
 DETACHED+=("$LEGACY/legacy-detached-ancestor")
+ZERO_COMMIT+=("$LEGACY/legacy-detached-ancestor")
+
+# 13b. RECURSIVE LIVENESS. On a branch, merged PR, fully clean — so removable in
+#      the decision matrix — but with an old worktree ROOT mtime and a tracked
+#      file two directories down that was touched seconds ago. An agent edits
+#      `src/**`, which never changes the root's mtime, so a root-only liveness
+#      check calls this idle and removes a worktree that is being worked in right
+#      now. Only a recursive check sees it. Aged in scenario E, so scenarios A-D
+#      see an ordinary removable worktree.
+NESTED="$WTROOT/branch-nested-activity"
+wt_branch "$NESTED" feat/nested
+mkdir -p "$NESTED/src/deep"
+printf 'live\n' > "$NESTED/src/deep/live.ts"
+git -C "$NESTED" add src/deep/live.ts
+git -C "$NESTED" commit -qm 'landed work, with a file below the root'
+
+# Make the root and every top-level entry look old, leaving anything deeper
+# alone: the exact shape a root-only mtime check cannot see through.
+age_root() { # <worktree>
+  local wt=$1 e
+  for e in "$wt"/* "$wt"/.[!.]*; do [[ -e "$e" ]] && touch -t 200001010000 "$e"; done
+  touch -t 200001010000 "$wt"
+}
 
 # 14. a plain directory that is not a registered worktree — the stranded-dir
 #     hygiene gap. Reportable, never actionable.
@@ -243,6 +334,8 @@ branch feat/dirty MERGED
 branch feat/open-pr OPEN
 branch feat/merged-pr MERGED
 branch feat/untracked-work MERGED
+branch feat/scaff MERGED
+branch feat/nested MERGED
 branch feat/locked MERGED
 branch feat/legacy MERGED
 sha $S_MERGED MERGED
@@ -309,26 +402,42 @@ expect "$WTROOT/detached-unpushed"            '^KEEP'
 expect "$WTROOT/detached-scaffolding"         '^RECLAIMABLE'
 expect "$WTROOT/branch-dirty-tracked"         '^KEEP \(uncommitted work\)'
 expect "$WTROOT/branch-open-pr"               '^KEEP \(pr open\)'
-expect "$WTROOT/branch-merged-into-default"   '^WOULD REMOVE'
+expect "$WTROOT/branch-ancestor-no-pr"        '^KEEP \(no commits yet\)'
+expect "$WTROOT/branch-stale-base"            '^KEEP \(no commits yet\)'
 expect "$WTROOT/branch-fresh-dispatch"        '^KEEP \(no commits yet\)'
 expect "$WTROOT/branch-merged-pr"             '^WOULD REMOVE'
 expect "$WTROOT/branch-untracked-work"        '^KEEP \(uncommitted work\)'
+expect "$WTROOT/branch-scaffolding"           '^RECLAIMABLE'
+expect "$WTROOT/branch-nested-activity"       '^WOULD REMOVE'
 expect "$WTROOT/branch-locked"                '^KEEP \(locked\)'
 expect "$LEGACY/legacy-detached-merged"       '^RECLAIMABLE'
 expect "$LEGACY/legacy-branch-merged-pr"      '^WOULD REMOVE'
-expect "$LEGACY/legacy-detached-ancestor"     '^RECLAIMABLE'
+expect "$LEGACY/legacy-detached-ancestor"     '^KEEP \(no commits yet\)'
 expect "$WTROOT/stranded-plain-dir"           '^UNREGISTERED'
 
-# The blanket property (owner decision, 2026-08-14): detached HEAD is never
-# auto-removed, however confidently the SHA->PR lookup classifies it.
-bad=""
-for d in "${DETACHED[@]}"; do
-  if printf '%s\n' "$OUT" | grep -F -- "$d" | grep -Eq '^(WOULD REMOVE|REMOVED)'; then
-    bad="$bad $d"
-  fi
-done
-assert "no detached worktree is removable without --reclaim" "$([[ -z "$bad" ]] && echo 0 || echo 1)"
-[[ -z "$bad" ]] || printf '        offending:%s\n' "$bad"
+# --- blanket properties, over the whole matrix rather than per case -----------
+# A per-case expectation only proves the case it names; these say the pruner has
+# no path at all to the outcome, which is what makes deleting a guard loud.
+never_auto_removed() { # <label> <path>...
+  local label=$1 bad="" d; shift
+  for d in "$@"; do
+    if printf '%s\n' "$OUT" | grep -F -- "$d" | grep -v -F -- "$d/" \
+         | grep -Eq '^(WOULD REMOVE|REMOVED)'; then
+      bad="$bad $d"
+    fi
+  done
+  assert "$label" "$([[ -z "$bad" ]] && echo 0 || echo 1)"
+  [[ -z "$bad" ]] || printf '        offending:%s\n' "$bad"
+}
+
+# (owner decision, 2026-08-14): detached HEAD is never auto-removed, however
+# confidently the SHA->PR lookup classifies it.
+never_auto_removed "no detached worktree is removable without --reclaim" "${DETACHED[@]}"
+# AC5's other half: a recognised scaffolding name can cost a report line, never a
+# deletion. This is what bounds the allowlist's blast radius.
+never_auto_removed "no worktree holding scaffolding is auto-removable" "${SCAFFOLDING[@]}"
+# The 2026-08-04 class: nothing that has committed nothing of its own is removed.
+never_auto_removed "no zero-commit worktree is auto-removable" "${ZERO_COMMIT[@]}"
 
 # Isolation: every scan root the pruner reported is inside the fixture tree, and
 # nothing outside it is mentioned.
@@ -348,16 +457,24 @@ OUT="$(run_pruner --reclaim)"
 
 expect "$WTROOT/detached-squash-merged"   '^WOULD REMOVE'
 expect "$WTROOT/detached-scaffolding"     '^WOULD REMOVE'
+expect "$WTROOT/branch-scaffolding"       '^WOULD REMOVE'
 expect "$LEGACY/legacy-detached-merged"   '^WOULD REMOVE'
-expect "$LEGACY/legacy-detached-ancestor" '^WOULD REMOVE'
 # Still protected even when the human asks for a sweep: no ref points at these
 # commits, and no merged/closed PR accounts for them.
 expect "$WTROOT/detached-unpushed"        '^KEEP'
 expect "$WTROOT/branch-dirty-tracked"     '^KEEP \(uncommitted work\)'
 expect "$WTROOT/branch-untracked-work"    '^KEEP \(uncommitted work\)'
-expect "$WTROOT/branch-fresh-dispatch"    '^KEEP \(no commits yet\)'
 expect "$WTROOT/branch-open-pr"           '^KEEP \(pr open\)'
 expect "$WTROOT/branch-locked"            '^KEEP \(locked\)'
+# A worktree that has committed nothing of its own is kept even under a human
+# sweep: there is nothing finished in it to reclaim, and the shape is exactly a
+# live dispatch's. `--reclaim` is the manual sweep, and a manual sweep is what
+# the attribution found removing reviewers' worktrees.
+expect "$WTROOT/branch-fresh-dispatch"    '^KEEP \(no commits yet\)'
+expect "$WTROOT/branch-stale-base"        '^KEEP \(no commits yet\)'
+expect "$WTROOT/branch-ancestor-no-pr"    '^KEEP \(no commits yet\)'
+expect "$LEGACY/legacy-detached-ancestor" '^KEEP \(no commits yet\)'
+never_auto_removed "no zero-commit worktree is removed even under --reclaim" "${ZERO_COMMIT[@]}"
 
 # ---- scenario C: the liveness veto, with the default window -----------------
 # Every fixture is seconds old, so with the default PRUNE_ACTIVE_MINUTES nothing
@@ -382,6 +499,20 @@ assert "legacy-only config still scans <reposRoot>/_wt" \
   "$(printf '%s\n' "$OUT" | grep -q 'scan root' && echo 0 || echo 1)"
 assert "worktrees under the unconfigured root are left alone" \
   "$(printf '%s\n' "$OUT" | grep -F -- "$WTROOT/" | grep -Eq '^(WOULD REMOVE|REMOVED)' && echo 1 || echo 0)"
+
+# ---- scenario E: the liveness veto reaches below the worktree root -----------
+# Restore the full config first (scenario D replaced it), then age the nested
+# fixture's root so the ONLY recent mtime in it is two directories down. A
+# root-only check reports it idle and removes it (it is branch-backed, clean and
+# PR-merged); a recursive one keeps it. The 120-minute window is not the guard
+# it looks like if an agent can age out of it by working in src/.
+echo "== scenario E: liveness is recursive (activity below the worktree root) =="
+write_config
+age_root "$NESTED"
+assert "the aged worktree's own root looks idle (fixture is still meaningful)" \
+  "$([[ -z "$(find "$NESTED" -maxdepth 1 -mmin -120 2>/dev/null | head -1)" ]] && echo 0 || echo 1)"
+OUT="$(ACTIVE_MINUTES=120 run_pruner --reclaim)"
+expect "$NESTED" '^KEEP \(recently active\)'
 
 # ---- verdict ----------------------------------------------------------------
 echo "---"

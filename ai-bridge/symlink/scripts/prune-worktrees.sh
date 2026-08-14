@@ -18,7 +18,10 @@
 #   REMOVE       done automatically, on a PM tick. Permitted ONLY for a worktree
 #                that is all of: on a real branch, tree fully clean, and its PR
 #                merged/closed (or its branch already merged into the default
-#                branch).
+#                branch — but see the `no commits yet` guard below: "merged into
+#                the default branch" is indistinguishable from "created from the
+#                default branch and has not committed yet", so in practice a
+#                merged/closed PR is the only evidence that reaches REMOVE).
 #   RECLAIMABLE  finished as far as can be told, but NOT removed automatically —
 #                reported so the PM can surface it, and removed only when a human
 #                runs `--reclaim`.
@@ -51,15 +54,34 @@
 #     count as work; recognised scaffolding (probe/baseline files) makes a
 #     worktree RECLAIMABLE at most, never auto-removable — so a misclassified
 #     name can cost a report line, never a deletion.
-#   · no commits yet — HEAD still at origin/<default>. A worktree created the
+#   · no commits yet — HEAD carries no commit the default branch lacks
+#     (`rev-list --count origin/<default>..HEAD` == 0). A worktree created the
 #     standard way is trivially "merged into the default branch", because a commit
 #     is its own ancestor. On 2026-08-04 that removed three running agents'
 #     worktrees minutes after they were created.
+#     COUNT, NEVER COMPARE. The 2026-08-04 fix (commit 58e368a in this repo, lost
+#     to a branch switch and never shipped) tested `HEAD == origin/<default>` —
+#     exact SHA equality — which stops recognising a dispatch the moment anything
+#     merges to the default branch, i.e. within minutes on an active repo. That
+#     leaves the destructive case wide open on a stale base, which is the normal
+#     state of every worktree older than the last merge.
+#     NOTE the guard and the "merged into the default branch" test below describe
+#     the SAME set: a HEAD is an ancestor of origin/<default> exactly when it has
+#     no commits of its own. Git cannot tell a fresh dispatch from a branch whose
+#     commits were fast-forwarded into the default branch, so the guard runs first
+#     and the tie goes to KEEP, per this script's governing rule: bloat is
+#     recoverable, a running agent's uncommitted work is not. A finished worktree
+#     is still auto-removed on positive PR evidence (merged/closed), which is how
+#     a squash-merging repo — every instance here — reclaims its worktrees.
 #   · recently active — anything touched within PRUNE_ACTIVE_MINUTES (default 120)
 #     is assumed to have a live agent in it. A clean tree is NOT evidence of an
 #     idle worktree: an agent that has not written a file yet is indistinguishable
 #     from an abandoned checkout, and that is exactly the window the 2026-08-04
-#     dispatches were destroyed in. Set PRUNE_ACTIVE_MINUTES=0 to disable.
+#     dispatches were destroyed in. The scan is RECURSIVE (heavy caches pruned):
+#     an agent working only inside subdirectories never refreshes the worktree
+#     root's mtime, so a root-only check ages a live agent out of the window.
+#     Set PRUNE_ACTIVE_MINUTES=0 to disable — which also disables the only
+#     liveness signal there is, so do it deliberately.
 #   · unrecoverable commits — a detached HEAD whose commits are on no ref, and
 #     which no merged/closed PR accounts for, is kept even under `--reclaim`.
 #     Rescue it to a branch first (`git branch <name> <sha>`).
@@ -243,13 +265,54 @@ tree_state() {
 # Has anything in the worktree been touched in the last PRUNE_ACTIVE_MINUTES?
 # A liveness signal, because reachability and cleanliness are not one: an agent
 # that has not written a file yet looks exactly like an abandoned checkout.
-# Deliberately non-recursive — a recursive find over node_modules costs seconds
-# per worktree, and a live agent touches the root or a top-level file anyway.
+#
+# RECURSIVE, deliberately. This was a root-only check, which misses the common
+# case: an agent editing `src/foo/bar.ts` never changes the mtime of the worktree
+# root, so a live worktree ages out of the window while work is going on in it.
+# The heavy caches are pruned so the walk stays cheap (they are also the
+# directories most likely to be freshly written by an install and to claim
+# liveness that no agent is providing).
+#
+# The prune list below is deliberately short, and only names that are
+# unambiguously a cache or a generated store: pruning a directory means activity
+# inside it does NOT protect the worktree, so every name added here is a small
+# step back toward removing a live tree. `dist`, `build`, `target` and `vendor`
+# are deliberately absent — they are tracked source in some repos.
+LIVENESS_PRUNE=( node_modules .git '.pnpm-store*' '.bun-cache*' .venv venv
+                 __pycache__ .pytest_cache .mypy_cache .next .nuxt .turbo
+                 .cache .gradle )
 recently_active() {
-  local wt=$1 mins=${PRUNE_ACTIVE_MINUTES:-120}
+  local wt=$1 mins=${PRUNE_ACTIVE_MINUTES:-120} args=() n
   [[ "$mins" =~ ^[0-9]+$ ]] || mins=120
   [[ "$mins" -gt 0 ]] || return 1
-  [[ -n "$(find "$wt" -maxdepth 1 -mmin "-$mins" 2>/dev/null | head -1)" ]]
+  # The root's own mtime, checked separately so that a worktree whose directory
+  # happens to be NAMED like a cache is not pruned out of its own liveness test.
+  if [[ -n "$(find "$wt" -maxdepth 0 -mmin "-$mins" 2>/dev/null)" ]]; then return 0; fi
+  for n in "${LIVENESS_PRUNE[@]}"; do args+=( -name "$n" -o ); done
+  args+=( -false )
+  [[ -n "$(find "$wt" -mindepth 1 \( "${args[@]}" \) -prune -o -mmin "-$mins" -print 2>/dev/null | head -1)" ]]
+}
+
+# Does this HEAD carry any commit the default branch does not already have?
+#
+# COUNTING is the load-bearing part, and the reason this is not the one-liner it
+# looks like. The obvious test — `head == origin/<default>` — recognises only a
+# dispatch whose base is still the current tip of the default branch, so a single
+# merge anywhere in the repo re-arms the deletion this guard exists to prevent.
+# On an active repo that window closes in minutes. `rev-list --count A..B` == 0
+# asks the question that actually matters: has this worktree committed anything
+# of its own that would be lost.
+#
+# Any failure to establish the answer (missing origin ref, unknown sha, empty
+# HEAD) fires the guard rather than skipping it: an error must never be what
+# authorises a removal, per this script's rule that every unknown degrades to
+# KEEP. In practice the path is unreachable — default_branch() only returns a
+# name whose remote-tracking ref exists — so it is a backstop, not a behaviour.
+no_own_commits() { # <repo> <sha> <default-branch>
+  local n
+  [[ -n "$2" && -n "$3" ]] || return 0
+  n=$(git -C "$1" rev-list --count "origin/$3..$2" 2>/dev/null) || return 0
+  [[ "$n" == 0 ]]
 }
 
 # Is this SHA reachable from any ref (branch, remote-tracking, tag)? If not, the
@@ -265,7 +328,7 @@ removed=0; reclaimable=0; kept=0; stale=0
 SEEN_WT=$'\n'
 
 # Decide and act on one worktree. Reads the porcelain record vars set by the loop
-# below (wt/head/ref/detached/locked/prunable) plus repo/def/def_sha.
+# below (wt/head/ref/detached/locked/prunable) plus repo/def.
 classify() {
   [[ -n "$wt" ]] || return 0
   in_scan_root "$wt" || return 0
@@ -284,9 +347,12 @@ classify() {
   local tree; tree=$(tree_state "$wt")
   if [[ "$tree" == work ]]; then keep "uncommitted work" "$label"; return 0; fi
   if recently_active "$wt"; then keep "recently active" "$label"; return 0; fi
-  # A worktree still at origin/<default> has committed nothing, so it cannot be
-  # finished work — however trivially "merged" the ancestor test finds it.
-  if [[ -n "$def_sha" && "$head" == "$def_sha" ]]; then keep "no commits yet" "$label"; return 0; fi
+  # A worktree that has committed nothing of its own cannot be finished work —
+  # however trivially "merged" the ancestor test below finds it. This runs BEFORE
+  # the PR lookup on purpose: `gh pr list --head <branch>` matches by branch NAME,
+  # so a recycled branch name can return a merged PR for a dispatch created
+  # minutes ago, and the two together would remove a live agent's worktree.
+  if no_own_commits "$repo" "$head" "$def"; then keep "no commits yet" "$label"; return 0; fi
 
   local state
   if [[ $detached -eq 1 ]]; then state=$(pr_state_for_sha "$repo" "$head")
@@ -298,6 +364,12 @@ classify() {
     merged) finished=1; why="pr merged" ;;
     closed) finished=1; why="pr closed" ;;
     none|unknown)
+      # The git-only fallback, for a repo with no gh or no PR. Kept as a backstop
+      # and NOT the primary signal: it is true exactly when `no_own_commits`
+      # above is true, so the guard pre-empts it by construction and this arm can
+      # only be reached if that guard is removed or errors. That is deliberate —
+      # deleting the guard must change a decision loudly (the harness asserts it),
+      # not silently fall through to the test that caused the incident.
       if [[ -n "$head" ]] && git -C "$repo" merge-base --is-ancestor "$head" "origin/$def" 2>/dev/null; then
         finished=1; why="merged into $def"
       fi ;;
@@ -356,12 +428,11 @@ for repo in "$REPOS_ROOT"/*/; do
   def=$(default_branch "$repo")
   [[ -n "$def" ]] || { echo "SKIP repo (no default branch): $repo" >&2; continue; }
 
-  # The git-only fallback (below) tests against origin/$def; refresh it so a stale
-  # local ref doesn't misreport merged branches as unmerged. Only when there's no
-  # gh (the only time that fallback runs) — offline, this just no-ops.
+  # The zero-commit guard and the git-only fallback both measure against
+  # origin/$def; refresh it so a stale local ref doesn't misreport merged
+  # branches as unmerged. Only when there's no gh (the only time that fallback
+  # runs) — offline, this just no-ops.
   [[ $HAVE_GH -eq 0 ]] && git -C "$repo" fetch --prune origin "$def" 2>/dev/null || true
-
-  def_sha=$(git -C "$repo" rev-parse "origin/$def" 2>/dev/null || echo '')
 
   # Parse `worktree list --porcelain` records rather than asking the worktree what
   # branch it is on: the porcelain reports `detached` explicitly, where
