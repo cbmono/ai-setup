@@ -140,7 +140,15 @@ state, and act only on deltas.
    eligible to merge; the implementing agent's own "it's done" never counts. **Each
    tick, for every PR on an `in-review` task whose *current head SHA* isn't yet
    verified** — a task may fan out to several PRs, so verify each, not only the first
-   transition to `in-review`:
+   transition to `in-review`. **"Isn't yet verified" is a check you run before
+   dispatching, not an assumption**: read it from the PR's `okf-verdict` trailer and
+   the verified-SHA record in the task `# Notes` (below). A verdict already at the
+   current head is reused, never re-earned — re-reviewing an unchanged head reaches
+   the same verdict by construction and costs a full reviewer session, the same
+   economics as the "one review per PR" rule the role agents follow. Only tasks
+   actually at `in-review` are eligible: an `in-progress` one still has a live agent
+   that may advance the head, and a worktree that is clean with nothing unpushed is
+   the implementer's *claim* to be finished, not its report.
    - **Check the acceptance_criteria travelled with the PR — and that they're ticked.**
      Role agents embed the task's `acceptance_criteria` (a checklist) in the PR body so
      the reviewer evaluates against them (see the role-agent conventions). If a PR is
@@ -194,7 +202,13 @@ state, and act only on deltas.
    is merged/closed (or whose branch is merged into the default branch) **and**
    whose tree is clean; it never touches a dirty one, and removing a clean worktree
    keeps the branch + commits (only the working dir goes). Run it at most once per
-   tick; report anything it kept as still-active.
+   tick; report anything it kept as still-active. **Run it only when you have no
+   role agents in flight.** A worktree whose PR is still open is kept, but one whose
+   PR merged or closed while an agent is *still working in it* is clean, finished by
+   every signal the script can read, and removed — deleting that agent's working
+   directory mid-run. Nothing in the script can detect a live run; the in-flight
+   count you already track is the only guard, so defer the prune to a later tick
+   rather than pruning beside live agents.
 
 6. **Close completed projects (propose only — human-gated).** For each project
    whose tasks are **all** terminal (`done`/`cancelled`), do **not** close it

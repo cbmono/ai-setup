@@ -53,6 +53,10 @@ assembled from task docs that carry human questions, tool output, and PR metadat
 - Target repos are cloned locally under `reposRoot` (see `instance.config.json`)
   and pushed to `github.com/<org>/<repo>` (`org` from the same file). Default
   branches vary (`main`/`master`/`next`) — always detect the default branch.
+- `repos/<name>` here is a **symlink view** of those clones (`scripts/link-repos.sh`),
+  for reading and browsing. It is not a work location: build work happens in a
+  worktree under `<reposRoot>/_wt/`, and repo paths you record in docs use the real
+  `reposRoot` path, never the `repos/` route.
 - This bundle's structure and the task lifecycle are defined in `SCHEMA.md`.
 - The agent roster and routing rules are in `agents/index.md`.
 

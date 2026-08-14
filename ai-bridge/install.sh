@@ -7,12 +7,17 @@
 #     install.sh --uninstall [TARGET]  # remove only the symlinks this script created
 #     install.sh --help
 #
-# It does two things, mirroring how the parent ai-setup repo provisions ~/.claude:
+# It does three things, mirroring how the parent ai-setup repo provisions ~/.claude:
 #   1. SYMLINKS the generic machinery in `symlink/` into TARGET (file granularity,
 #      absolute targets). Updates to the template propagate to every instance.
 #      These paths are gitignored in the instance (managed block in .gitignore).
 #   2. COPIES the `seed/` content into TARGET *only if absent* — never clobbering
 #      instance data (objectives/projects/knowledge/log/config/CLAUDE.md).
+#   3. LINKS the group's product repos into TARGET/repos/ — one symlink each, via
+#      scripts/link-repos.sh — so the peer repos are reachable from inside the
+#      instance without ever being nested in it. Gitignored, and skipped while
+#      reposRoot is still the seeded placeholder. Re-run that script on its own
+#      after cloning a repo; you don't need a full refresh for it.
 #
 # Idempotent: re-running relinks cleanly and reports already-linked entries.
 # Backs up any conflicting real file as <name>.bak.<epoch> before linking.
@@ -30,7 +35,9 @@ for arg in "$@"; do
   case "$arg" in
     --uninstall) MODE="uninstall" ;;
     --help|-h)
-      sed -n '3,20p' "$0" | sed 's/^# \{0,1\}//'
+      # Range must cover the whole header block above (through the "Backs up…"
+      # line) — extend it when you add lines there, or --help truncates silently.
+      sed -n '3,23p' "$0" | sed 's/^# \{0,1\}//'
       exit 0 ;;
     -*) echo "error: unknown flag '$arg'" >&2; exit 2 ;;
     *)
@@ -61,6 +68,10 @@ ours() {  # is TARGET/$1 a symlink we created (points into this template)?
 
 if [ "$MODE" = "uninstall" ]; then
   echo "Removing ai-bridge machinery symlinks from $TARGET"
+  # The repos/ view first, and via the TEMPLATE's copy of the script rather than
+  # the installed symlink — the loop below is about to delete that symlink, and
+  # running the template copy also works if it was already removed by hand.
+  ( cd "$TARGET" && bash "$SYMLINK_SRC/scripts/link-repos.sh" --remove ) || true
   while IFS= read -r rel; do
     [ -n "$rel" ] || continue
     if ours "$rel"; then rm "$TARGET/$rel"; echo "  unlinked $rel"; fi
@@ -189,5 +200,27 @@ awk -v b="$BEGIN_MARK" -v e="$END_MARK" -v mlist="$mlist" '
 ' "$gi" > "$tmp" && mv "$tmp" "$gi"
 rm -f "$mlist"
 
+# The repos/ view is derived, so it must be ignored too — but OUTSIDE the managed
+# block, which is regenerated from the machinery file list and would drop any line
+# that isn't a machinery path. Appended once; a hand-written `repos/` also counts.
+if ! grep -qE '^/?repos/?$' "$gi"; then
+  cat >> "$gi" <<'GI'
+
+# Derived view of the group's product repos (scripts/link-repos.sh) — symlinks
+# into reposRoot, never content, and machine-local like the rest. Delete it
+# freely; the next install or `scripts/link-repos.sh` run recreates it.
+/repos/
+GI
+fi
+
+# 4. Product-repo view — one symlink per repo under TARGET/repos/, so the peer
+# repos are reachable from inside the instance without being nested in it.
+# Best-effort by design: a fresh instance still has the placeholder reposRoot, and
+# the script exits 0 with an explanation in that case rather than failing the
+# install. Template copy, for the same reason as in --uninstall.
+( cd "$TARGET" && bash "$SYMLINK_SRC/scripts/link-repos.sh" ) \
+  || echo "  warn  repos/ view not refreshed; run scripts/link-repos.sh by hand" >&2
+
 echo "Done. Machinery symlinked & gitignored; seed content in place."
 echo "Next: edit instance.config.json, then run /pm-loop from this directory."
+echo "      (Set reposRoot first, then 'scripts/link-repos.sh' fills in repos/.)"

@@ -11,6 +11,11 @@ node_modules/
 # itself to turn the queue off (the loop never recreates it).
 AWAITING.md
 
+# Derived view of the group's product repos (scripts/link-repos.sh) — one symlink
+# per repo into reposRoot, never content, and machine-local like the machinery
+# below. Delete it freely; install.sh or that script recreates it.
+/repos/
+
 # Generic machinery is symlinked in from the ai-bridge template by
 # install.sh and must NOT be committed here (it dangles on other machines).
 # install.sh manages the list between the markers below — do not edit by hand.

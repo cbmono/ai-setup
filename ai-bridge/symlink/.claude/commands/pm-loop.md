@@ -24,6 +24,15 @@ to the control panel's `main`). **Run at most one active `/pm-loop` per instance
 at a time** — that's a human responsibility, not something the loop can enforce.
 Before starting, make sure no other session is already looping this instance.
 
+**Diagnosing it: suspect your own second tick first.** Interleaved writers on one
+control panel read like another session in the bundle, and usually aren't — a tick
+dispatched after misreading step 2's signal produces the same symptoms from inside
+one session. Two things that look like evidence and are not: **author names**
+(`commit-as.sh` sets the role per commit, so one process batching commits leaves
+three roles at the same second), and a **tick's own account of a collision it is
+part of** — check `git reflog show main`, which is per-clone and therefore answers
+whether `main` actually moved backwards, before reporting corruption.
+
 ## Preconditions
 
 1. Must run from a **control-panel instance root**, so the `.claude/agents` role
@@ -53,14 +62,22 @@ Parse `$ARGUMENTS` as the inter-tick **gap** (default **10m**). Then:
    the `cataloguer` to refresh `knowledge/` from the merged work (throttled to one
    per tick; skipped on idle/trivial ticks).
 2. **Wait for it to finish.** Do **not** start another tick while one is in
-   flight. The agent's completion arrives as a `<task-notification>`.
+   flight. **That tick's `<task-notification>` is the only valid "finished"
+   signal** — no tool listing and no amount of elapsed time substitutes for it. A
+   tick that reads as complete or idle in a status listing may still be running:
+   the agent resumes and the same task-id notifies again, so one that has looked
+   done for *hours* is not done until its notification arrives. Don't poll for a
+   verdict; a quiet repo proves nothing either (a tick holding for its own
+   subagents is quiet by definition).
 3. **On completion**, schedule the next tick after the gap: call `ScheduleWakeup`
    with `delaySeconds` = the gap, and `prompt` = `/pm-loop <gap>` so this skill
    re-enters and dispatches the next tick. (If gap is `0m`, dispatch the next
    tick immediately instead of scheduling.)
-4. **When `/pm-loop` re-fires from that wakeup:** if a tick is somehow still in
-   flight, just reschedule the gap and skip (never overlap); otherwise dispatch
-   the next tick (step 1) and repeat.
+4. **When `/pm-loop` re-fires from that wakeup:** "still in flight" means **this
+   session dispatched a tick and has not yet seen its notification** — that is the
+   whole check, and it is answered from this session's own history, never by
+   querying a tool. If one is still in flight, just reschedule the gap and skip
+   (never overlap); otherwise dispatch the next tick (step 1) and repeat.
 5. **Stop** when the user says so (e.g. "stop the PM loop"): dispatch no further
    ticks and cancel any pending wakeup. There is no cron to delete.
 
@@ -93,7 +110,11 @@ ticks, regardless of how long a tick runs.
 - **Worktree hygiene.** Reclaim finished worktrees with `scripts/prune-worktrees.sh`
   (≤ once per tick) — it removes only worktrees whose PR is merged/closed (or whose
   branch is merged into the default branch) **and** whose tree is clean, and reports
-  (never deletes) dirty ones. `_wt` must not grow unbounded.
+  (never deletes) dirty ones. `_wt` must not grow unbounded. **Prune only when your
+  in-flight count is zero.** An open PR is kept, but a worktree whose PR has just
+  merged or closed with a clean tree is removed — and no check the script makes can
+  see an agent working inside it, so pruning with agents live can delete the tree
+  out from under one.
 - **Project close is human-gated.** The PM only *proposes* closing a project (all
   tasks terminal) via the 🔴 board; the human confirms (or runs `/close-project`).
   Closeout removes the folder (`git rm -r`) — git history + KB are the record, there
