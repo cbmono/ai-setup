@@ -39,7 +39,7 @@ folder, beside that group's product repos:
 mkdir -p ~/workspace/<group>/_ai-bridge-<group>
 ai-setup/ai-bridge/install.sh ~/workspace/<group>/_ai-bridge-<group>
 cd ~/workspace/<group>/_ai-bridge-<group>
-$EDITOR instance.config.json          # set org, reposRoot, authorEmail
+$EDITOR instance.config.json          # set org, reposRoot, worktreeRoot, authorEmail
 git init && git add -A && git commit -m "chore: bootstrap control panel"
 # create a uniquely-named private remote — keep the leading underscore so a fresh
 # `git clone` lands a `_ai-bridge-<group>/` dir that matches this convention:

@@ -23,7 +23,7 @@ merging, writing `# Result` + setting `status`, no PII/secrets, and capturing
 1. **Read the task** (frontmatter + `# Context` + `acceptance_criteria`). Set its
    `status: in-progress`.
 2. **Locate + isolate** the repo at `<reposRoot>/<repo>` per the shared conventions
-   (own worktree under `<reposRoot>/_wt/`, private package store).
+   (own worktree under the instance's `worktreeRoot`, private package store).
 3. **Understand before editing.** Read the surrounding code and match its style,
    naming, and patterns. Make the **smallest change** that satisfies the
    acceptance criteria. For a genuinely *wide* change — the same independent edit across

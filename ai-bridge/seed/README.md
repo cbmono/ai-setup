@@ -84,8 +84,9 @@ removing commit), rolls the project to `status: done`, and then **removes the
 project folder**. There is **no `archive/`** — git history + the KB are the record,
 and a done folder left live would only cost context on every PM tick. Recover the
 full trail anytime with `git log -- projects/<slug>/`. Finished build worktrees
-under `<reposRoot>/_wt/` are reclaimed automatically (also each PM tick, via
-`scripts/prune-worktrees.sh`).
+under `worktreeRoot` are reclaimed automatically (also each PM tick, via
+`scripts/prune-worktrees.sh`) — except detached-HEAD ones, which are only ever
+reported, since their commits are on no branch ref.
 
 ## Run the Project Manager
 From a fresh session **in this instance directory** (so the role agents, the

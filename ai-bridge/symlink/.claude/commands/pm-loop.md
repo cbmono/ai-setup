@@ -78,7 +78,8 @@ ticks, regardless of how long a tick runs.
 - Reconcile doc `status:` against live `gh`/`git` before acting; act only on deltas.
 - Concurrency cap: **at most `maxAgentsInFlight` role agents in flight** (from
   `instance.config.json`; fall back to 5 if the key is absent), and each must use its own
-  worktree under `<reposRoot>/_wt/` + a **private package store** (e.g.
+  worktree under the instance's `worktreeRoot` (from `instance.config.json`, never
+  inside the synced `reposRoot`) + a **private package store** (e.g.
   `pnpm install --store-dir <worktree>/.pnpm-store`) and **push early** — never two
   installs against the shared store at once (see `.claude/agents/project-manager.md`).
 - A LIVE tick may also dispatch the **`cataloguer`** to refresh the KB after
@@ -90,8 +91,11 @@ ticks, regardless of how long a tick runs.
   never `--no-verify` in target repos.
 - **Worktree hygiene.** Reclaim finished worktrees with `scripts/prune-worktrees.sh`
   (≤ once per tick) — it removes only worktrees whose PR is merged/closed (or whose
-  branch is merged into the default branch) **and** whose tree is clean, and reports
-  (never deletes) dirty ones. `_wt` must not grow unbounded.
+  branch is merged into the default branch) **and** whose tree is fully clean **and**
+  which are on a real branch, and reports (never deletes) dirty ones and every
+  detached-HEAD worktree. It scans `worktreeRoot` plus the legacy `<reposRoot>/_wt`.
+  The worktree root must not grow unbounded — surface its `RECLAIMABLE` set on the
+  board rather than removing it yourself (`--reclaim` is the human's).
 - **Project close is human-gated.** The PM only *proposes* closing a project (all
   tasks terminal) via the 🔴 board; the human confirms (or runs `/close-project`).
   Closeout removes the folder (`git rm -r`) — git history + KB are the record, there

@@ -97,7 +97,9 @@ state, and act only on deltas.
    **Isolation (required for parallel safety).** If the product repos are a *single
    shared clone over one package store*, concurrent agents otherwise corrupt each
    other's worktrees (source + `.git` link wiped mid-run). In every dispatch,
-   instruct the agent to (a) work in its own worktree under `<reposRoot>/_wt/`,
+   instruct the agent to (a) work in its own worktree under the instance's
+   `worktreeRoot` (from `instance.config.json` — **never** a path inside the synced
+   `reposRoot`),
    (b) run installs against a **private store** (e.g. `pnpm install --store-dir
    <worktree>/.pnpm-store`), and (c) **push early**. Two agents must never run a
    package install against the shared store at the same time — if two `ready`
@@ -188,12 +190,15 @@ state, and act only on deltas.
    has no effect: surface, don't merge.
 
    **Reclaim the worktree.** When you move a build task to `done` (all PRs merged)
-   or `cancelled`, its worktree under `<reposRoot>/_wt/` is no longer needed — run
+   or `cancelled`, its worktree under `worktreeRoot` is no longer needed — run
    `scripts/prune-worktrees.sh` to reclaim it (and any other finished worktrees) so
-   `_wt` doesn't grow without bound. The script removes **only** worktrees whose PR
-   is merged/closed (or whose branch is merged into the default branch) **and**
-   whose tree is clean; it never touches a dirty one, and removing a clean worktree
-   keeps the branch + commits (only the working dir goes). Run it at most once per
+   the worktree root doesn't grow without bound. It scans `worktreeRoot` **and** the
+   legacy `<reposRoot>/_wt`. It removes **only** worktrees that are on a real branch
+   **and** whose PR is merged/closed (or whose branch is merged into the default
+   branch) **and** whose tree is fully clean. **A detached-HEAD worktree is never
+   removed automatically** — its commits are on no branch ref, so removal destroys
+   them; those are reported as `RECLAIMABLE` for you to surface on the board, and a
+   human removes them with `--reclaim`. It never touches a dirty one. Run it at most once per
    tick; report anything it kept as still-active.
 
 6. **Close completed projects (propose only — human-gated).** For each project
