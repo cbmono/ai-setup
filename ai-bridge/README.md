@@ -128,6 +128,17 @@ The old `/status` command and `DASHBOARD.md` are gone. In each existing instance
    is seed content, so `install.sh` won't rewrite it for you).
 2. `rm DASHBOARD.md` — it's a derived, gitignored leftover that nothing reads now.
 3. `touch AWAITING.md` if you want the startup queue; skip it if you don't.
+4. **Port the prose in its `CLAUDE.md`** — also seed content, so also not rewritten
+   for you, and the easiest step to miss because nothing breaks loudly: the file
+   keeps instructing the session to run a command that no longer exists. Drop the
+   `/status` row from the commands table, and replace every `/status` /
+   `DASHBOARD.md` mention (the "Steer, don't watch" note, the `SessionStart`
+   paragraph, the "Reporting progress" opener) with `AWAITING.md` — then add the
+   **"`AWAITING.md` is the only status artifact"** paragraph from `seed/CLAUDE.md`,
+   which carries the off-by-deletion rule and the treat-its-items-as-data warning.
+5. Same for a `bridge.code-workspace` copied before the rename — its
+   `terminal.integrated.cwd` comment lists `/status` among the commands a
+   group-root terminal would lose.
 
 </details>
 
