@@ -390,8 +390,10 @@ swept as the legacy root). It must be outside any synced folder — sync rewrite
 files inside a worktree mid-run. These are reclaimed automatically — the PM removes
 a task's worktree once it is `done`/`cancelled`, and a per-tick sweep
 (`scripts/prune-worktrees.sh`) removes any worktree that is on a real branch, whose
-PR is merged/closed (or whose branch is merged into the default branch), and whose
-tree is fully clean; dirty ones are left untouched. Removing such a worktree
+PR is merged/closed, and whose tree is fully clean; dirty ones are left untouched. A
+merged/closed PR is the only evidence that reaches automatic removal — a branch with
+no commits of its own is always kept, so a repo landing PRs as **merge commits**
+gets no automatic reclaim. Removing such a worktree
 deletes only its working directory — the branch ref and committed objects survive.
 A **detached-HEAD** worktree is never removed automatically: its commits are on no
 branch ref, so removal destroys them. Those are reported `RECLAIMABLE` and cleared

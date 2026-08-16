@@ -110,10 +110,12 @@ ticks, regardless of how long a tick runs.
   required for agent roles, so a sibling agent's staged files can't land under yours;
   never `--no-verify` in target repos.
 - **Worktree hygiene.** Reclaim finished worktrees with `scripts/prune-worktrees.sh`
-  (≤ once per tick) — it removes only worktrees whose PR is merged/closed (or whose
-  branch is merged into the default branch) **and** whose tree is fully clean **and**
-  which are on a real branch, and reports (never deletes) dirty ones and every
-  detached-HEAD worktree. It scans `worktreeRoot` plus the legacy `<reposRoot>/_wt`.
+  (≤ once per tick) — it removes only worktrees whose PR is merged/closed **and**
+  whose tree is fully clean **and** which are on a real branch, and reports (never
+  deletes) dirty ones and every detached-HEAD worktree. A merged/closed PR is the
+  only evidence that reaches removal — a branch with no commits of its own is always
+  kept, so a repo landing PRs as merge commits gets no automatic reclaim.
+  It scans `worktreeRoot` plus the legacy `<reposRoot>/_wt`.
   The worktree root must not grow unbounded —
   surface its `RECLAIMABLE` set on the board rather than removing it yourself
   (`--reclaim` is the human's). **Prune only when your in-flight count is zero.**

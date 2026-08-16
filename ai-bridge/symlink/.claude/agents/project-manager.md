@@ -203,8 +203,11 @@ state, and act only on deltas.
    `scripts/prune-worktrees.sh` to reclaim it (and any other finished worktrees) so
    the worktree root doesn't grow without bound. It scans `worktreeRoot` **and** the
    legacy `<reposRoot>/_wt`. It removes **only** worktrees that are on a real branch
-   **and** whose PR is merged/closed (or whose branch is merged into the default
-   branch) **and** whose tree is fully clean. **A detached-HEAD worktree is never
+   **and** whose PR is merged/closed **and** whose tree is fully clean — a merged or
+   closed PR is the *only* evidence that reaches automatic removal, because a branch
+   carrying no commits of its own is always kept. A repo that lands PRs as **merge
+   commits** therefore gets no automatic reclaim at all, and those worktrees are not
+   reported `RECLAIMABLE` either. **A detached-HEAD worktree is never
    removed automatically** — its commits are on no branch ref, so removal destroys
    them; those are reported as `RECLAIMABLE` for you to surface on the board, and a
    human removes them with `--reclaim`. It never touches a dirty one. Run it at most
