@@ -384,7 +384,9 @@ permissions**; opting in per project = this field. Nothing to configure in this 
    any log or console output, or the KB. Describe the shape of what you saw, not the
    records.
 
-**Worktrees.** Build tasks run in git worktrees under `<reposRoot>/_wt/`. These are
+**Worktrees.** Build tasks run in git worktrees under the instance's `worktreeRoot`
+(`instance.config.json`; the legacy `<reposRoot>/_wt` is still swept). It must be
+outside any synced folder — sync rewrites files inside a worktree mid-run. These are
 reclaimed automatically — the PM removes a task's worktree once it is `done`/
 `cancelled`, and a per-tick sweep (`scripts/prune-worktrees.sh`) removes any
 worktree whose PR is merged/closed (or whose branch is merged into the default

@@ -1,38 +1,130 @@
 #!/usr/bin/env bash
-# prune-worktrees.sh — safely reclaim finished git worktrees under <reposRoot>/_wt.
+# prune-worktrees.sh — safely reclaim finished git worktrees.
 #
-# For each worktree under _wt whose tree is CLEAN (nothing uncommitted), decide by
-# its branch's PR state (via `gh`, falling back to git when gh is absent/offline):
-#   · PR merged            → remove   (task done)
-#   · PR closed (unmerged) → remove   (task abandoned/superseded)
-#   · PR open              → keep     (in flight)
-#   · no PR / gh offline   → remove only if the branch is already merged into the
-#                            repo's default branch; otherwise keep.
-# It CANNOT see a live agent inside a worktree. A tree an agent is working in right
-# now, whose PR has just merged or closed, is clean and finished by every signal
-# available here, so it is removed — deleting that agent's working directory
-# mid-run. No check can be added for it either; liveness isn't visible from the
-# filesystem or from `gh`. Callers must not run this while role agents are in
-# flight (see the project-manager agent's "Reclaim the worktree").
+# WHERE IT LOOKS. Two roots, both scanned, because a worktree may sit in either:
+#   · `worktreeRoot` from instance.config.json (a leading ~ is expanded) — where
+#     agent worktrees live now, deliberately OUTSIDE any synced folder. Worktrees
+#     must not live under a Dropbox/iCloud path: sync rewrites and deletes files
+#     inside them mid-run, which has produced phantom test failures and a phantom
+#     review blocker. `worktreeRoot` is the single source of truth for the path —
+#     the dispatch briefs name the config key, not a literal.
+#   · <reposRoot>/_wt — the legacy root, still scanned so nothing stranded there
+#     is orphaned. `reposRoot` is typically inside the synced folder, which is
+#     exactly why worktrees moved out of it.
+# An instance with no `worktreeRoot` key keeps the old behaviour (legacy root
+# only), so this is safe to ship ahead of the config change.
 #
-# Dirty worktrees are always kept — only they risk losing uncommitted work. The
-# clean check uses `git status --porcelain` (no --ignored), so it flags tracked
-# modifications and untracked NON-ignored files, but not ignored build artifacts
-# (node_modules/, dist/, .pnpm-store). Removal therefore uses `--force`: at that
-# point the tree is verified clean of real changes, and --force only lets git
-# clear those ignored artifacts (some git versions refuse otherwise).
-# Removing a clean worktree deletes just its working directory + build artifacts;
-# the branch ref and every committed object survive in the repo (re-checkout with
-# `git worktree add` if ever needed), so this can never lose committed work.
+# WHAT IT DECIDES. Three outcomes, not two:
+#   REMOVE       done automatically, on a PM tick. Permitted ONLY for a worktree
+#                that is all of: on a real branch, tree fully clean, and its PR
+#                merged/closed (or its branch already merged into the default
+#                branch — but see the `no commits yet` guard below: "merged into
+#                the default branch" is indistinguishable from "created from the
+#                default branch and has not committed yet", so in practice a
+#                merged/closed PR is the only evidence that reaches REMOVE).
+#   RECLAIMABLE  finished as far as can be told, but NOT removed automatically —
+#                reported so the PM can surface it, and removed only when a human
+#                runs `--reclaim`.
+#   KEEP         left alone, under every flag.
 #
-# Run from a control-panel instance root (reads `reposRoot` from
-# instance.config.json). Generic: no org/repo/path literals.
+# LIVENESS, AND WHY THE CALLER STILL HAS A RULE. An earlier version of this header
+# said the pruner "CANNOT see a live agent inside a worktree" and that "no check
+# can be added for it either; liveness isn't visible from the filesystem". The
+# second half of that is no longer true: the `recently active` guard below walks
+# the worktree recursively for a recent mtime (39 ms on a 664 MB repo), which is
+# exactly such a check. But it is a BEST-EFFORT BACKSTOP with a real window — an
+# agent that is thinking, waiting on a review, or running a long command writes
+# nothing for longer than PRUNE_ACTIVE_MINUTES (default 120) and then looks idle,
+# and nothing in the filesystem distinguishes that from an abandoned checkout.
+# So the caller-side rule survives as defence in depth, and remains the PRIMARY
+# guard: run this only when your own in-flight count is zero (see the
+# project-manager agent's "Reclaim the worktree"). The mtime veto catches the
+# dispatch you forgot about; your in-flight count is what you actually rely on.
 #
-# Usage:  scripts/prune-worktrees.sh [--dry-run|-n]
+# WHY A DETACHED HEAD IS NEVER AUTO-REMOVED  ← read this before widening the script
+# This header used to claim removal "can never lose committed work" because "the
+# branch ref and every committed object survive". That is true only for a worktree
+# ON A BRANCH. A detached-HEAD worktree has no branch ref: commits made in it are
+# reachable only from that worktree's own HEAD and its per-worktree reflog, and
+# `git worktree remove` deletes both — after which nothing points at them. So the
+# one class the script cannot classify from a branch name is also the one class
+# whose commits it can destroy irrecoverably. Detached worktrees are therefore
+# report-only, unconditionally, however confidently the SHA→PR lookup below
+# classifies them (owner decision, 2026-08-14). The lookup's job is to stop the
+# false NEGATIVE — a squash-merged PR's head SHA is never an ancestor of the
+# default branch, so the ancestor test alone kept such worktrees forever — and to
+# make the board report accurate, NOT to widen what gets deleted unattended.
+#
+# PR state comes from `gh`, by branch where there is one and by SHA where there is
+# not (`gh api repos/{owner}/{repo}/commits/<sha>/pulls`, falling back to a PR
+# search). With no gh, or offline, it falls back to git: is HEAD already merged
+# into the default branch. Every unknown degrades to KEEP.
+#
+# THE GUARDS, each one paid for by an incident:
+#   · uncommitted work — any tracked modification, or any untracked file that is
+#     not recognised review scaffolding, keeps the worktree under every flag. A
+#     manual sweep once found 88 lines of uncommitted README work in a "finished"
+#     worktree. Ignored build artifacts (node_modules/, dist/, .pnpm-store) never
+#     count as work; recognised scaffolding (probe/baseline files) makes a
+#     worktree RECLAIMABLE at most, never auto-removable — so a misclassified
+#     name can cost a report line, never a deletion.
+#   · no commits yet — HEAD carries no commit the default branch lacks
+#     (`rev-list --count origin/<default>..HEAD` == 0). A worktree created the
+#     standard way is trivially "merged into the default branch", because a commit
+#     is its own ancestor. On 2026-08-04 that removed three running agents'
+#     worktrees minutes after they were created.
+#     COUNT, NEVER COMPARE. The 2026-08-04 fix (commit 58e368a in this repo, lost
+#     to a branch switch and never shipped) tested `HEAD == origin/<default>` —
+#     exact SHA equality — which stops recognising a dispatch the moment anything
+#     merges to the default branch, i.e. within minutes on an active repo. That
+#     leaves the destructive case wide open on a stale base, which is the normal
+#     state of every worktree older than the last merge.
+#     NOTE the guard and the "merged into the default branch" test below describe
+#     the SAME set: a HEAD is an ancestor of origin/<default> exactly when it has
+#     no commits of its own. Git cannot tell a fresh dispatch from a branch whose
+#     commits were fast-forwarded into the default branch, so the guard runs first
+#     and the tie goes to KEEP, per this script's governing rule: bloat is
+#     recoverable, a running agent's uncommitted work is not. A finished worktree
+#     is still auto-removed on positive PR evidence (merged/closed), which is how
+#     a squash-merging repo — every instance here — reclaims its worktrees.
+#   · recently active — anything touched within PRUNE_ACTIVE_MINUTES (default 120)
+#     is assumed to have a live agent in it. A clean tree is NOT evidence of an
+#     idle worktree: an agent that has not written a file yet is indistinguishable
+#     from an abandoned checkout, and that is exactly the window the 2026-08-04
+#     dispatches were destroyed in. The scan is RECURSIVE (heavy caches pruned):
+#     an agent working only inside subdirectories never refreshes the worktree
+#     root's mtime, so a root-only check ages a live agent out of the window.
+#     Set PRUNE_ACTIVE_MINUTES=0 to disable — which also disables the only
+#     liveness signal there is, so do it deliberately.
+#   · unrecoverable commits — a detached HEAD whose commits are on no ref, and
+#     which no merged/closed PR accounts for, is kept even under `--reclaim`.
+#     Rescue it to a branch first (`git branch <name> <sha>`).
+#   · locked — `git worktree lock` is honoured as an explicit "do not touch".
+#
+# Removal uses `--force`: the tree is verified clean of real changes first, and
+# --force only lets git clear ignored artifacts (some git versions refuse
+# otherwise). Note that it also clears ignored review scaffolding.
+#
+# Run from a control-panel instance root (reads `reposRoot` and `worktreeRoot`
+# from instance.config.json). Generic: no org/repo/path literals.
+#
+# Usage:  scripts/prune-worktrees.sh [--dry-run|-n] [--reclaim]
+#
+# Verified by scripts/test-prune-worktrees.sh, which builds one throwaway
+# worktree per decision class and asserts every outcome. Run it after any change
+# here — this script cannot be exercised safely by hand.
 set -euo pipefail
 
-DRY_RUN=0
-case "${1:-}" in --dry-run|-n) DRY_RUN=1 ;; "") ;; *) echo "usage: $0 [--dry-run|-n]" >&2; exit 2 ;; esac
+DRY_RUN=0; RECLAIM=0
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --dry-run|-n) DRY_RUN=1 ;;
+    --reclaim)    RECLAIM=1 ;;
+    -h|--help)    sed -n '2,/^set -euo/p' "$0" | sed 's/^# \{0,1\}//; $d'; exit 0 ;;
+    *) echo "usage: $0 [--dry-run|-n] [--reclaim]" >&2; exit 2 ;;
+  esac
+  shift
+done
 
 CONFIG=instance.config.json
 if [[ ! -f "$CONFIG" ]]; then
@@ -40,26 +132,66 @@ if [[ ! -f "$CONFIG" ]]; then
   exit 1
 fi
 
-# reposRoot from config; expand a leading ~ to $HOME.
-# `|| true`: with `set -o pipefail`, grep finding no reposRoot key would abort here
-# and exit 1 with no output at all, instead of reaching the explanation below.
-REPOS_ROOT=$(grep -o '"reposRoot"[[:space:]]*:[[:space:]]*"[^"]*"' "$CONFIG" \
-  | sed 's/.*:[[:space:]]*"//; s/"$//' || true)
-REPOS_ROOT=${REPOS_ROOT/#\~/$HOME}
+# A string value from the flat config, with a leading ~ expanded to $HOME.
+# `|| true`: with `set -o pipefail`, grep finding no such key would abort the
+# script here with no output at all, instead of reaching the explanation below.
+config_path() { # <key>
+  local v
+  v=$(grep -o "\"$1\"[[:space:]]*:[[:space:]]*\"[^\"]*\"" "$CONFIG" 2>/dev/null \
+    | head -1 | sed 's/.*:[[:space:]]*"//; s/"$//') || true
+  printf '%s' "${v/#\~/$HOME}"
+}
+
+# Canonicalize (resolve symlinks) so path matching lines up with the resolved
+# paths `git worktree list --porcelain` emits — otherwise a symlinked root makes
+# the "$root"/* match miss every worktree and the prune becomes a silent no-op.
+# ($TMPDIR is symlinked on macOS, so this also bites the fixture harness.)
+canon() { ( cd "$1" 2>/dev/null && pwd -P ); }
+
+REPOS_ROOT=$(config_path reposRoot)
 if [[ -z "$REPOS_ROOT" || ! -d "$REPOS_ROOT" ]]; then
   echo "prune-worktrees: reposRoot ('$REPOS_ROOT') not found — check $CONFIG." >&2
   exit 1
 fi
-# Canonicalize (resolve symlinks) so path matching lines up with the resolved
-# paths `git worktree list --porcelain` emits — otherwise a symlinked reposRoot
-# makes the "$WT_ROOT"/* match miss every worktree and the prune becomes a no-op.
-REPOS_ROOT=$(cd "$REPOS_ROOT" && pwd -P)
+REPOS_ROOT=$(canon "$REPOS_ROOT")
 
-WT_ROOT="$REPOS_ROOT/_wt"
-if [[ ! -d "$WT_ROOT" ]]; then
-  echo "prune-worktrees: no $WT_ROOT — nothing to do."
+# Scan roots, in order: the configured worktreeRoot, then the legacy <reposRoot>/_wt.
+ROOTS=(); ROOT_LABELS=()
+add_root() { # <path> <label>
+  local p=$1 r
+  [[ -n "$p" && -d "$p" ]] || return 0
+  r=$(canon "$p"); [[ -n "$r" ]] || return 0
+  local existing
+  for existing in ${ROOTS+"${ROOTS[@]}"}; do [[ "$existing" == "$r" ]] && return 0; done
+  ROOTS+=("$r"); ROOT_LABELS+=("$2")
+}
+
+WT_CONFIGURED=$(config_path worktreeRoot)
+if [[ -n "$WT_CONFIGURED" && ! -d "$WT_CONFIGURED" ]]; then
+  echo "prune-worktrees: worktreeRoot ('$WT_CONFIGURED') does not exist — skipping it." >&2
+fi
+add_root "$WT_CONFIGURED" worktreeRoot
+add_root "$REPOS_ROOT/_wt" legacy
+if [[ ${#ROOTS[@]} -eq 0 ]]; then
+  echo "prune-worktrees: no worktree root exists (worktreeRoot in $CONFIG, or $REPOS_ROOT/_wt) — nothing to do."
   exit 0
 fi
+for i in "${!ROOTS[@]}"; do
+  printf 'prune-worktrees: scan root  %s  (%s)\n' "${ROOTS[i]}" "${ROOT_LABELS[i]}"
+done
+
+# Is a path inside one of the scan roots?
+in_scan_root() {
+  local p=$1 r
+  for r in "${ROOTS[@]}"; do case "$p" in "$r"/*) return 0 ;; esac; done
+  return 1
+}
+# Is a path itself a scan root (so: never a candidate repo)?
+is_scan_root() {
+  local p=$1 r
+  for r in "${ROOTS[@]}"; do [[ "$p" == "$r" ]] && return 0; done
+  return 1
+}
 
 HAVE_GH=0; command -v gh >/dev/null 2>&1 && HAVE_GH=1
 
@@ -76,14 +208,10 @@ default_branch() {
   printf '%s' "$def"
 }
 
-# PR state for a branch: prints merged|closed|open|none|unknown.
-# open wins over merged wins over closed when a branch has several PRs.
-pr_state() {
-  local repo=$1 br=$2 states
-  [[ $HAVE_GH -eq 1 ]] || { printf unknown; return; }
-  states=$( (cd "$repo" && gh pr list --head "$br" --state all --json state --jq '[.[].state]|join(" ")') 2>/dev/null ) || { printf unknown; return; }
-  [[ -z "$states" ]] && { printf none; return; }
-  case " $states " in
+# Reduce a space-separated list of PR states to one verdict:
+# open wins over merged wins over closed when several PRs match.
+rank_states() {
+  case " ${1:-} " in
     *OPEN*)   printf open ;;
     *MERGED*) printf merged ;;
     *CLOSED*) printf closed ;;
@@ -91,70 +219,281 @@ pr_state() {
   esac
 }
 
-removed=0; kept=0
+# PR state for a BRANCH: merged|closed|open|none|unknown.
+pr_state_for_branch() {
+  local repo=$1 br=$2 states
+  [[ $HAVE_GH -eq 1 && -n "$br" ]] || { printf unknown; return; }
+  states=$( (cd "$repo" && gh pr list --head "$br" --state all --json state \
+    --jq '[.[].state]|join(" ")') 2>/dev/null ) || { printf unknown; return; }
+  rank_states "$states"
+}
+
+# PR state for a SHA — the capability a detached HEAD needs and `--head` cannot
+# give: `gh pr list --head HEAD` looks up a branch literally named "HEAD" and
+# always matches nothing, which is how every detached worktree used to reach the
+# ancestor-only fallback. `commits/<sha>/pulls` associates a commit with its PR
+# even after a squash merge, when the SHA is on no ref at all. Falls back to a
+# PR search, then to unknown (which degrades to KEEP).
+pr_state_for_sha() {
+  local repo=$1 sha=$2 states
+  [[ $HAVE_GH -eq 1 && -n "$sha" ]] || { printf unknown; return; }
+  states=$( (cd "$repo" && gh api "repos/{owner}/{repo}/commits/$sha/pulls" \
+    --jq '[.[] | if .merged_at then "MERGED" elif .state == "open" then "OPEN" else "CLOSED" end] | join(" ")') 2>/dev/null ) \
+    || states=$( (cd "$repo" && gh pr list --search "$sha" --state all --json state \
+         --jq '[.[].state]|join(" ")') 2>/dev/null ) \
+    || { printf unknown; return; }
+  rank_states "$states"
+}
+
+# Is this untracked path recognised review scaffolding rather than work? Kept
+# deliberately narrow, and note the blast radius: a name matching here can only
+# move a worktree from KEEP to RECLAIMABLE (report-only), never to an automatic
+# removal, because auto-removal separately requires a fully clean tree.
+is_scaffolding() {
+  local b; b=$(basename "${1%/}")
+  case "$b" in
+    probe|probe-*|probe.*|probe_*) return 0 ;;
+    baseline|baseline-*|baseline.*|baseline_*) return 0 ;;
+    mutant|mutant-*|mutants|*.orig|*.rej|*.log|*.tmp|*~) return 0 ;;
+    .DS_Store|.bun-cache*|.pnpm-store*|node_modules|__pycache__) return 0 ;;
+    .venv|.venv-*|venv|venv-*) return 0 ;;
+  esac
+  return 1
+}
+
+# clean | scaffolding | work.  `git status --porcelain` (no --ignored) already
+# hides ignored build artifacts; of what remains, only untracked entries can ever
+# be scaffolding — a modification to a TRACKED file is always work.
+tree_state() {
+  local wt=$1 st line path
+  st=$(git -C "$wt" status --porcelain 2>/dev/null) || { printf work; return; }
+  [[ -n "$st" ]] || { printf clean; return; }
+  while IFS= read -r line; do
+    [[ -n "$line" ]] || continue
+    [[ "${line:0:2}" == '??' ]] || { printf work; return; }
+    path=${line:3}
+    path=${path%\"}; path=${path#\"}
+    is_scaffolding "$path" || { printf work; return; }
+  done <<< "$st"
+  printf scaffolding
+}
+
+# Has anything in the worktree been touched in the last PRUNE_ACTIVE_MINUTES?
+# A liveness signal, because reachability and cleanliness are not one: an agent
+# that has not written a file yet looks exactly like an abandoned checkout.
+#
+# RECURSIVE, deliberately. This was a root-only check, which misses the common
+# case: an agent editing `src/foo/bar.ts` never changes the mtime of the worktree
+# root, so a live worktree ages out of the window while work is going on in it.
+# The heavy caches are pruned so the walk stays cheap (they are also the
+# directories most likely to be freshly written by an install and to claim
+# liveness that no agent is providing).
+#
+# The prune list below is deliberately short, and only names that are
+# unambiguously a cache or a generated store: pruning a directory means activity
+# inside it does NOT protect the worktree, so every name added here is a small
+# step back toward removing a live tree. `dist`, `build`, `target` and `vendor`
+# are deliberately absent — they are tracked source in some repos.
+LIVENESS_PRUNE=( node_modules .git '.pnpm-store*' '.bun-cache*' .venv venv
+                 __pycache__ .pytest_cache .mypy_cache .next .nuxt .turbo
+                 .cache .gradle )
+recently_active() {
+  local wt=$1 mins=${PRUNE_ACTIVE_MINUTES:-120} args=() n
+  [[ "$mins" =~ ^[0-9]+$ ]] || mins=120
+  [[ "$mins" -gt 0 ]] || return 1
+  # The root's own mtime, checked separately so that a worktree whose directory
+  # happens to be NAMED like a cache is not pruned out of its own liveness test.
+  if [[ -n "$(find "$wt" -maxdepth 0 -mmin "-$mins" 2>/dev/null)" ]]; then return 0; fi
+  for n in "${LIVENESS_PRUNE[@]}"; do args+=( -name "$n" -o ); done
+  args+=( -false )
+  [[ -n "$(find "$wt" -mindepth 1 \( "${args[@]}" \) -prune -o -mmin "-$mins" -print 2>/dev/null | head -1)" ]]
+}
+
+# Does this HEAD carry any commit the default branch does not already have?
+#
+# COUNTING is the load-bearing part, and the reason this is not the one-liner it
+# looks like. The obvious test — `head == origin/<default>` — recognises only a
+# dispatch whose base is still the current tip of the default branch, so a single
+# merge anywhere in the repo re-arms the deletion this guard exists to prevent.
+# On an active repo that window closes in minutes. `rev-list --count A..B` == 0
+# asks the question that actually matters: has this worktree committed anything
+# of its own that would be lost.
+#
+# Any failure to establish the answer (missing origin ref, unknown sha, empty
+# HEAD) fires the guard rather than skipping it: an error must never be what
+# authorises a removal, per this script's rule that every unknown degrades to
+# KEEP. In practice the path is unreachable — default_branch() only returns a
+# name whose remote-tracking ref exists — so it is a backstop, not a behaviour.
+no_own_commits() { # <repo> <sha> <default-branch>
+  local n
+  [[ -n "$2" && -n "$3" ]] || return 0
+  n=$(git -C "$1" rev-list --count "origin/$3..$2" 2>/dev/null) || return 0
+  [[ "$n" == 0 ]]
+}
+
+# Is this SHA reachable from any ref (branch, remote-tracking, tag)? If not, the
+# only thing pointing at it is the worktree's own HEAD, and removing the worktree
+# leaves nothing that can find it again.
+on_some_ref() {
+  local repo=$1 sha=$2
+  [[ -n "$sha" ]] || return 1
+  [[ -n "$(git -C "$repo" for-each-ref --contains "$sha" --count=1 --format='%(refname)' 2>/dev/null)" ]]
+}
+
+removed=0; reclaimable=0; kept=0; stale=0
+SEEN_WT=$'\n'
+
+# Decide and act on one worktree. Reads the porcelain record vars set by the loop
+# below (wt/head/ref/detached/locked/prunable) plus repo/def.
+classify() {
+  [[ -n "$wt" ]] || return 0
+  in_scan_root "$wt" || return 0
+  SEEN_WT+="$wt"$'\n'
+
+  local label; if [[ $detached -eq 1 ]]; then label="detached@${head:0:8}"; else label="$ref"; fi
+
+  # Registered but its directory is gone: nothing to remove, and `worktree prune`
+  # below clears the administrative entry.
+  if [[ $prunable -eq 1 || ! -d "$wt" ]]; then
+    printf 'STALE             %s  [%s]  (directory gone — worktree prune clears it)\n' "$wt" "$label"
+    stale=$((stale+1)); return 0
+  fi
+  if [[ $locked -eq 1 ]]; then keep locked "$label"; return 0; fi
+
+  local tree; tree=$(tree_state "$wt")
+  if [[ "$tree" == work ]]; then keep "uncommitted work" "$label"; return 0; fi
+  if recently_active "$wt"; then keep "recently active" "$label"; return 0; fi
+  # A worktree that has committed nothing of its own cannot be finished work —
+  # however trivially "merged" the ancestor test below finds it. This runs BEFORE
+  # the PR lookup on purpose: `gh pr list --head <branch>` matches by branch NAME,
+  # so a recycled branch name can return a merged PR for a dispatch created
+  # minutes ago, and the two together would remove a live agent's worktree.
+  if no_own_commits "$repo" "$head" "$def"; then keep "no commits yet" "$label"; return 0; fi
+
+  local state
+  if [[ $detached -eq 1 ]]; then state=$(pr_state_for_sha "$repo" "$head")
+  else state=$(pr_state_for_branch "$repo" "$ref"); fi
+
+  local finished=0 why=""
+  case "$state" in
+    open)   keep "pr open" "$label"; return 0 ;;
+    merged) finished=1; why="pr merged" ;;
+    closed) finished=1; why="pr closed" ;;
+    none|unknown)
+      # The git-only fallback, for a repo with no gh or no PR. Kept as a backstop
+      # and NOT the primary signal: it is true exactly when `no_own_commits`
+      # above is true, so the guard pre-empts it by construction and this arm can
+      # only be reached if that guard is removed or errors. That is deliberate —
+      # deleting the guard must change a decision loudly (the harness asserts it),
+      # not silently fall through to the test that caused the incident.
+      if [[ -n "$head" ]] && git -C "$repo" merge-base --is-ancestor "$head" "origin/$def" 2>/dev/null; then
+        finished=1; why="merged into $def"
+      fi ;;
+  esac
+
+  if [[ $finished -eq 0 ]]; then
+    if [[ $detached -eq 1 ]] && ! on_some_ref "$repo" "$head"; then
+      # The irrecoverable class: detached, commits on no ref, no PR accounting for
+      # them. Kept even under --reclaim; rescue to a branch first.
+      keep "unmerged; commits on NO ref — rescue with: git -C $repo branch <name> $head" "$label"
+    else
+      keep unmerged "$label"
+    fi
+    return 0
+  fi
+
+  # Finished. Auto-removal needs all three: a real branch, a fully clean tree,
+  # and the finished verdict above. Anything else is report-only.
+  local hold=""
+  [[ $detached -eq 1 ]] && hold="detached HEAD"
+  [[ "$tree" == scaffolding ]] && hold="${hold:+$hold, }untracked scaffolding"
+  if [[ -z "$hold" ]]; then
+    remove "$why" "$label"
+  elif [[ $RECLAIM -eq 1 ]]; then
+    remove "$why; $hold" "$label"
+  else
+    local note="$why; $hold"
+    if [[ $detached -eq 1 ]] && ! on_some_ref "$repo" "$head"; then
+      note="$note, commits on no ref"
+    fi
+    printf 'RECLAIMABLE       %s  [%s]  (%s — report-only; rerun with --reclaim)\n' "$wt" "$label" "$note"
+    reclaimable=$((reclaimable+1))
+  fi
+}
+
+keep() { printf 'KEEP (%s)  %s  [%s]\n' "$1" "$wt" "$2"; kept=$((kept+1)); }
+
+remove() { # <why> <label>
+  if [[ $DRY_RUN -eq 1 ]]; then
+    printf 'WOULD REMOVE      %s  [%s]  (%s)\n' "$wt" "$2" "$1"; removed=$((removed+1))
+  # --force is safe here: the tree is verified clean of real changes above, so it
+  # only lets git clear ignored artifacts (node_modules/, dist/) it would else
+  # refuse — and, deliberately under --reclaim, ignored review scaffolding.
+  elif git -C "$repo" worktree remove --force "$wt"; then
+    printf 'REMOVED           %s  [%s]  (%s)\n' "$wt" "$2" "$1"; removed=$((removed+1))
+  else
+    printf 'FAILED to remove  %s  [%s]  (%s)\n' "$wt" "$2" "$1" >&2; kept=$((kept+1))
+  fi
+}
 
 for repo in "$REPOS_ROOT"/*/; do
   repo=${repo%/}
-  [[ "$repo" == "$WT_ROOT" ]] && continue
+  is_scan_root "$repo" && continue
   [[ -e "$repo/.git" ]] || continue
 
   def=$(default_branch "$repo")
   [[ -n "$def" ]] || { echo "SKIP repo (no default branch): $repo" >&2; continue; }
 
-  # The git-only fallback (below) tests against origin/$def; refresh it so a stale
-  # local ref doesn't misreport merged branches as unmerged. Only when there's no
-  # gh (the only time that fallback runs) — offline, this just no-ops.
+  # The zero-commit guard and the git-only fallback both measure against
+  # origin/$def; refresh it so a stale local ref doesn't misreport merged
+  # branches as unmerged. Only when there's no gh (the only time that fallback
+  # runs) — offline, this just no-ops.
   [[ $HAVE_GH -eq 0 ]] && git -C "$repo" fetch --prune origin "$def" 2>/dev/null || true
 
+  # Parse `worktree list --porcelain` records rather than asking the worktree what
+  # branch it is on: the porcelain reports `detached` explicitly, where
+  # `rev-parse --abbrev-ref HEAD` returns the literal string "HEAD" and invites
+  # exactly the branch-shaped lookup that never matches.
+  wt=""; head=""; ref=""; detached=0; locked=0; prunable=0
   while IFS= read -r line; do
-    [[ "$line" == "worktree "* ]] || continue
-    wt=${line#worktree }
-    case "$wt" in "$WT_ROOT"/*) ;; *) continue ;; esac
-    [[ -d "$wt" ]] || continue
-
-    br=$(git -C "$wt" rev-parse --abbrev-ref HEAD 2>/dev/null || echo '?')
-
-    # Dirty tree → never touch (only uncommitted changes are unrecoverable).
-    if [[ -n "$(git -C "$wt" status --porcelain 2>/dev/null)" ]]; then
-      echo "KEEP (dirty)      $wt  [$br]"; kept=$((kept+1)); continue
-    fi
-
-    decision=keep; why=unmerged
-    case "$(pr_state "$repo" "$br")" in
-      open)   decision=keep;   why="pr open" ;;
-      merged) decision=remove; why="pr merged" ;;
-      closed) decision=remove; why="pr closed" ;;
-      none|unknown)
-        # git-only fallback (gh absent/offline): remove only if HEAD is already
-        # merged into the repo's default branch. Anything else is kept — we do no
-        # upstream-gone/unpushed guessing here: once remote-tracking refs are
-        # pruned, `@{u}` no longer resolves, so that heuristic is unreliable.
-        sha=$(git -C "$wt" rev-parse HEAD 2>/dev/null || echo '')
-        if [[ -n "$sha" ]] && git -C "$repo" merge-base --is-ancestor "$sha" "origin/$def" 2>/dev/null; then
-          decision=remove; why="merged into $def"
-        fi
-        ;;
+    case "$line" in
+      "worktree "*) wt=${line#worktree }; head=""; ref=""; detached=0; locked=0; prunable=0 ;;
+      "HEAD "*)     head=${line#HEAD } ;;
+      "branch "*)   ref=${line#branch }; ref=${ref#refs/heads/} ;;
+      detached)     detached=1 ;;
+      locked|"locked "*)     locked=1 ;;
+      prunable|"prunable "*) prunable=1 ;;
+      "")           classify; wt="" ;;
     esac
-
-    if [[ "$decision" == remove ]]; then
-      if [[ $DRY_RUN -eq 1 ]]; then
-        echo "WOULD REMOVE      $wt  [$br]  ($why)"; removed=$((removed+1))
-      # --force is safe: the tree is verified clean above, so this only lets git
-      # clear ignored build artifacts (node_modules/, dist/) it would else refuse.
-      elif git -C "$repo" worktree remove --force "$wt"; then
-        echo "REMOVED           $wt  [$br]  ($why)"; removed=$((removed+1))
-      else
-        echo "FAILED to remove  $wt  [$br]  ($why)" >&2; kept=$((kept+1))
-      fi
-    else
-      echo "KEEP ($why)       $wt  [$br]"; kept=$((kept+1))
-    fi
-  done < <(git -C "$repo" worktree list --porcelain 2>/dev/null)
+  done < <(git -C "$repo" worktree list --porcelain 2>/dev/null; printf '\n')
 
   [[ $DRY_RUN -eq 1 ]] || git -C "$repo" worktree prune 2>/dev/null || true
 done
 
+# Directories sitting in a scan root that are NOT registered worktrees of any repo
+# under reposRoot. Reported only, never touched: they are usually a rescued or
+# hand-copied tree, or a private cache dir. Without this they are invisible — 13
+# had accumulated on the opensc instance unnoticed.
+# NOTE it also catches a live worktree of a repo OUTSIDE reposRoot (this script
+# only enumerates repos under reposRoot), so the line says "inspect" and not
+# "delete", and deliberately does not act.
+unregistered=0
+for root in "${ROOTS[@]}"; do
+  for d in "$root"/*/; do
+    d=${d%/}
+    [[ -d "$d" ]] || continue
+    case "$SEEN_WT" in *$'\n'"$d"$'\n'*) continue ;; esac
+    printf 'UNREGISTERED      %s  (no worktree of any repo under reposRoot — may be a cache dir, a rescued tree, or a worktree of a repo elsewhere; inspect by hand)\n' "$d"
+    unregistered=$((unregistered+1))
+  done
+done
+
 echo "---"
 [[ $HAVE_GH -eq 1 ]] || echo "(gh not found — used git-only merge detection; squash-merged branches may be kept)"
-printf 'prune-worktrees: %d removable, %d kept.%s\n' "$removed" "$kept" \
+printf 'prune-worktrees: %d removable, %d reclaimable (report-only), %d kept, %d stale, %d unregistered.%s\n' \
+  "$removed" "$reclaimable" "$kept" "$stale" "$unregistered" \
   "$([[ $DRY_RUN -eq 1 ]] && echo ' (dry-run — nothing changed)')"
+if [[ $reclaimable -gt 0 && $RECLAIM -eq 0 ]]; then
+  echo "(the reclaimable set is finished but held back — a detached HEAD is never removed"
+  echo " automatically, since its commits are on no branch ref. Run with --reclaim to remove.)"
+fi

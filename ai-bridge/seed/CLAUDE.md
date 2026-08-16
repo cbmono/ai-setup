@@ -67,7 +67,7 @@ assembled from task docs that carry human questions, tool output, and PR metadat
   in the task doc, e.g. `Q1: which region? --- eu-central-1`, and the next tick folds
   it in and clears the entry), dispatches human-approved `ready` tasks to role
   agents, monitors their PRs, and reflects merges as `done`. It also reclaims
-  finished build worktrees under `_wt/` (`scripts/prune-worktrees.sh`) and, when a
+  finished build worktrees under `worktreeRoot` (`scripts/prune-worktrees.sh`) and, when a
   project's tasks are **all** terminal, flags it as **ready to close** — but
   **never closes it autonomously**.
 - **Closing a project** (`/close-project <slug>`, or on your OK to the PM's
@@ -167,7 +167,7 @@ rule here, not in each agent.
   Honor this `CLAUDE.md` for data-handling, units, and commit-attribution.
 - **Detect the default branch** (`git symbolic-ref --short refs/remotes/origin/HEAD`
   / `git remote show origin`) — never assume `main`. Never work on it.
-- Create a feature branch (or a git worktree under `<reposRoot>/_wt/`) per task.
+- Create a feature branch (or a git worktree under the instance's `worktreeRoot`) per task.
 - Conventional commits; **no AI attribution / `Co-Authored-By` lines.** Push to
   `origin` early (don't wait until the end) so an interrupted worktree loses nothing.
 - PR title format: `<type>: <subject> [<task-id>]` (OKF task id, e.g.
@@ -222,7 +222,8 @@ rule here, not in each agent.
   update a `Finding` in `knowledge/findings/` (per `SCHEMA.md`) and link it from
   the task, so the next agent doesn't re-derive it.
 - **Parallel-safety:** if the product repos share one clone / one package store,
-  each agent uses its own worktree under `<reposRoot>/_wt/` and a **private package
+  each agent uses its own worktree under `worktreeRoot` (from `instance.config.json`
+  — outside any synced folder; **never** inside `reposRoot`) and a **private package
   store** (e.g. `pnpm install --store-dir <worktree>/.pnpm-store`), and pushes
   early. Create the worktree explicitly with `git worktree add <path> -b <branch>
   origin/<default-branch>` — don't rely on the `EnterWorktree` tool, which may be

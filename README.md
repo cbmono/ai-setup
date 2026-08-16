@@ -160,7 +160,7 @@ First [install the defaults](#getting-started), then stamp out an instance:
 mkdir -p ~/workspace/<group>/_ai-bridge-<group>
 ~/path/to/ai-setup/ai-bridge/install.sh ~/workspace/<group>/_ai-bridge-<group>
 cd ~/workspace/<group>/_ai-bridge-<group>
-$EDITOR instance.config.json          # set org, reposRoot, authorEmail
+$EDITOR instance.config.json          # set org, reposRoot, worktreeRoot, authorEmail
 git init && git add -A && git commit -m "chore: bootstrap control panel"
 gh repo create <user>/_ai-bridge-<group> --private --source=. --push
 ```
