@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# test-prune-worktrees.sh — fixture harness for prune-worktrees.sh.
+# Exercises symlink/scripts/prune-worktrees.sh — the worktree reclaimer.
 #
 # The pruner is the one script in this template that can destroy work, and it has
 # done so (three running agents' worktrees, 2026-08-04). It has no safe manual
@@ -26,15 +26,20 @@
 #   6. NO worktree with zero commits of its own is ever removed, under any flag.
 #      That is a fresh dispatch — the shape that destroyed three running agents'
 #      worktrees on 2026-08-04 — and it stays that shape as its base goes stale.
+#   7. The zero-commit guard's POSITION in the decision chain is pinned, not just
+#      its existence. A guard that exists to pre-empt a later test cannot be
+#      detected by any fixture that reaches KEEP through that later test, so
+#      moving it is invisible to the rest of this matrix while re-arming the
+#      original bug. `branch-recycled-name` is the fixture that sees the move.
 #
 # `gh` is stubbed (a fake `gh` first on PATH) so PR state is a fixture rather
 # than a live network call. The stub answers the two invocations the pruner
 # makes; it exits non-zero on any other, so a new gh call shows up as a failure
 # instead of silently degrading to "no PR".
 #
-# Usage:  scripts/test-prune-worktrees.sh
-#         PRUNER=/path/to/prune-worktrees.sh scripts/test-prune-worktrees.sh
-#         SHOW_ONLY=1 scripts/test-prune-worktrees.sh   # build + run, no asserts
+# Usage:  ai-bridge/tests/prune-worktrees.test.sh
+#         PRUNER=/path/to/prune-worktrees.sh ai-bridge/tests/prune-worktrees.test.sh
+#         SHOW_ONLY=1 ai-bridge/tests/prune-worktrees.test.sh   # run, no asserts
 #
 # SHOW_ONLY prints the raw pruner output for every fixture without asserting. It
 # is how you see what a given version of the pruner decides — including an older
@@ -42,11 +47,10 @@
 # detached-HEAD handling was a false negative rather than a false positive.
 set -uo pipefail
 
-HERE="$(cd "$(dirname "$0")" && pwd -P)"
-PRUNER="${PRUNER:-$HERE/prune-worktrees.sh}"
+PRUNER="${PRUNER:-$(cd "$(dirname "$0")/.." && pwd)/symlink/scripts/prune-worktrees.sh}"
 SHOW_ONLY="${SHOW_ONLY:-0}"
 
-die() { printf 'test-prune-worktrees: %s\n' "$*" >&2; exit 2; }
+die() { printf 'prune-worktrees.test: %s\n' "$*" >&2; exit 2; }
 [[ -f "$PRUNER" ]] || die "pruner not found at $PRUNER"
 
 # --- fixture root, outside any synced folder ----------------------------------
@@ -219,6 +223,21 @@ ZERO_COMMIT+=("$WTROOT/branch-ancestor-no-pr")
 wt_branch "$WTROOT/branch-fresh-dispatch" feat/fresh
 ZERO_COMMIT+=("$WTROOT/branch-fresh-dispatch")
 
+# 7b. THE GUARD'S POSITION. A fresh dispatch — zero commits, clean, on a real
+#     branch — whose branch NAME already carries a MERGED PR from an earlier round
+#     of work. `gh pr list --head <branch>` matches by branch name, not by SHA, so
+#     a recycled name (a re-run task, a re-created branch after a revert, a name
+#     from a naming scheme) really does return a merged PR for a worktree created
+#     minutes ago. Every other fixture reaches KEEP through a LATER test than the
+#     zero-commit guard, so demoting the guard into the `none|unknown` arm — which
+#     is where it reads more naturally — changes NO other assertion here while
+#     turning a live dispatch into `WOULD REMOVE (pr merged)`: the 2026-08-04 bug,
+#     reintroduced silently. This fixture is the only one that sees the move, and
+#     it is why the guard runs before the PR lookup rather than inside the
+#     fallback arm. Verified by moving the guard and watching this go red.
+wt_branch "$WTROOT/branch-recycled-name" feat/recycled
+ZERO_COMMIT+=("$WTROOT/branch-recycled-name")
+
 # 8. on a branch with a merged PR, fully clean: the provably-safe auto-remove.
 wt_branch "$WTROOT/branch-merged-pr" feat/merged-pr
 commit_in "$WTROOT/branch-merged-pr" feature.txt 'landed work'
@@ -333,6 +352,7 @@ cat > "$FIXTURES" <<EOF
 branch feat/dirty MERGED
 branch feat/open-pr OPEN
 branch feat/merged-pr MERGED
+branch feat/recycled MERGED
 branch feat/untracked-work MERGED
 branch feat/scaff MERGED
 branch feat/nested MERGED
@@ -405,6 +425,10 @@ expect "$WTROOT/branch-open-pr"               '^KEEP \(pr open\)'
 expect "$WTROOT/branch-ancestor-no-pr"        '^KEEP \(no commits yet\)'
 expect "$WTROOT/branch-stale-base"            '^KEEP \(no commits yet\)'
 expect "$WTROOT/branch-fresh-dispatch"        '^KEEP \(no commits yet\)'
+# The guard's position: a merged PR on the branch NAME must not outrank "this
+# worktree has committed nothing of its own". If this line ever reads
+# `WOULD REMOVE (pr merged)`, the guard has been demoted below the PR lookup.
+expect "$WTROOT/branch-recycled-name"         '^KEEP \(no commits yet\)'
 expect "$WTROOT/branch-merged-pr"             '^WOULD REMOVE'
 expect "$WTROOT/branch-untracked-work"        '^KEEP \(uncommitted work\)'
 expect "$WTROOT/branch-scaffolding"           '^RECLAIMABLE'
@@ -472,6 +496,7 @@ expect "$WTROOT/branch-locked"            '^KEEP \(locked\)'
 # the attribution found removing reviewers' worktrees.
 expect "$WTROOT/branch-fresh-dispatch"    '^KEEP \(no commits yet\)'
 expect "$WTROOT/branch-stale-base"        '^KEEP \(no commits yet\)'
+expect "$WTROOT/branch-recycled-name"     '^KEEP \(no commits yet\)'
 expect "$WTROOT/branch-ancestor-no-pr"    '^KEEP \(no commits yet\)'
 expect "$LEGACY/legacy-detached-ancestor" '^KEEP \(no commits yet\)'
 never_auto_removed "no zero-commit worktree is removed even under --reclaim" "${ZERO_COMMIT[@]}"
@@ -515,7 +540,6 @@ OUT="$(ACTIVE_MINUTES=120 run_pruner --reclaim)"
 expect "$NESTED" '^KEEP \(recently active\)'
 
 # ---- verdict ----------------------------------------------------------------
-echo "---"
-printf 'test-prune-worktrees: %d passed, %d failed.\n' "$pass" "$fail"
-[[ "$fail" -eq 0 ]] || { echo "FAILED — see the mismatches above." >&2; exit 1; }
-echo "OK"
+echo
+echo "pass=$pass fail=$fail"
+[ "$fail" -eq 0 ]

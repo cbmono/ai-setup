@@ -12,7 +12,8 @@
 #     is orphaned. `reposRoot` is typically inside the synced folder, which is
 #     exactly why worktrees moved out of it.
 # An instance with no `worktreeRoot` key keeps the old behaviour (legacy root
-# only), so this is safe to ship ahead of the config change.
+# only), so this is safe to ship ahead of the config change. Docs that name the
+# key must state that fallback: absent `worktreeRoot` means `<reposRoot>/_wt`.
 #
 # WHAT IT DECIDES. Three outcomes, not two:
 #   REMOVE       done automatically, on a PM tick. Permitted ONLY for a worktree
@@ -73,20 +74,33 @@
 #     standard way is trivially "merged into the default branch", because a commit
 #     is its own ancestor. On 2026-08-04 that removed three running agents'
 #     worktrees minutes after they were created.
-#     COUNT, NEVER COMPARE. The 2026-08-04 fix (commit 58e368a in this repo, lost
-#     to a branch switch and never shipped) tested `HEAD == origin/<default>` —
-#     exact SHA equality — which stops recognising a dispatch the moment anything
-#     merges to the default branch, i.e. within minutes on an active repo. That
-#     leaves the destructive case wide open on a stale base, which is the normal
-#     state of every worktree older than the last merge.
+#     COUNT, NEVER COMPARE. Two independent attempts ten days apart both reached
+#     for `HEAD == origin/<default>` — exact SHA equality (the 2026-08-04 fix,
+#     commit 58e368a, written but left dangling and never shipped, and a later
+#     re-derivation from scratch). It reads correct and stops recognising a
+#     dispatch the moment anything merges to the default branch, i.e. within
+#     minutes on an active repo, leaving the destructive case wide open on a stale
+#     base — the normal state of every worktree older than the last merge. Two
+#     people reaching the same wrong instinct makes this a design trap, not a
+#     slip; the correct form counts, and the guard's code comment says so again.
 #     NOTE the guard and the "merged into the default branch" test below describe
 #     the SAME set: a HEAD is an ancestor of origin/<default> exactly when it has
 #     no commits of its own. Git cannot tell a fresh dispatch from a branch whose
 #     commits were fast-forwarded into the default branch, so the guard runs first
 #     and the tie goes to KEEP, per this script's governing rule: bloat is
-#     recoverable, a running agent's uncommitted work is not. A finished worktree
-#     is still auto-removed on positive PR evidence (merged/closed), which is how
-#     a squash-merging repo — every instance here — reclaims its worktrees.
+#     recoverable, a running agent's uncommitted work is not.
+#     BLAST RADIUS, stated honestly, because it is larger than "FF-merges without
+#     PRs". The guard runs BEFORE the PR lookup, so ANY zero-commit worktree is a
+#     plain KEEP — including one whose PR is merged, and it is not even reported
+#     RECLAIMABLE. GitHub's DEFAULT merge strategy is a merge commit, which leaves
+#     the merged branch tip an ancestor of the default branch, so a repo that
+#     merge-commits loses automatic reclaim ENTIRELY and its finished worktrees
+#     must be cleared by hand. A repo that squash-merges is unaffected: a
+#     squash-merged branch keeps its own commits, so the guard does not fire and
+#     the merged PR reaches REMOVE normally. The direction is safe either way, and
+#     the collision above forces the KEEP — this is a documented cost, not a bug
+#     to be fixed by moving the guard. Moving it re-arms the 2026-08-04 deletion;
+#     the `branch-recycled-name` fixture in the test harness pins its position.
 #   · recently active — anything touched within PRUNE_ACTIVE_MINUTES (default 120)
 #     is assumed to have a live agent in it. A clean tree is NOT evidence of an
 #     idle worktree: an agent that has not written a file yet is indistinguishable
@@ -110,9 +124,12 @@
 #
 # Usage:  scripts/prune-worktrees.sh [--dry-run|-n] [--reclaim]
 #
-# Verified by scripts/test-prune-worktrees.sh, which builds one throwaway
-# worktree per decision class and asserts every outcome. Run it after any change
-# here — this script cannot be exercised safely by hand.
+# Verified by ai-bridge/tests/prune-worktrees.test.sh in the ai-setup template
+# repo, which builds one throwaway worktree per decision class and asserts every
+# outcome. Run it after any change here — this script cannot be exercised safely
+# by hand. (The harness lives outside symlink/ deliberately: everything under
+# symlink/ is symlinked into every instance, and a test harness is not machinery
+# an instance needs.)
 set -euo pipefail
 
 DRY_RUN=0; RECLAIM=0
@@ -312,18 +329,32 @@ recently_active() {
 # Does this HEAD carry any commit the default branch does not already have?
 #
 # COUNTING is the load-bearing part, and the reason this is not the one-liner it
-# looks like. The obvious test — `head == origin/<default>` — recognises only a
-# dispatch whose base is still the current tip of the default branch, so a single
-# merge anywhere in the repo re-arms the deletion this guard exists to prevent.
-# On an active repo that window closes in minutes. `rev-list --count A..B` == 0
-# asks the question that actually matters: has this worktree committed anything
-# of its own that would be lost.
+# looks like. DO NOT rewrite this as `[[ "$2" == "$def_sha" ]]`. SHA equality is
+# the trap two independent implementations fell into ten days apart: it recognises
+# only a dispatch whose base is still the exact tip of the default branch, so a
+# single merge anywhere in the repo re-arms the deletion this guard exists to
+# prevent, and on an active repo that window closes in minutes. The predicate that
+# actually matters is "has this worktree committed anything of its own that would
+# be lost", and only a count answers it:
+#     git -C <wt> rev-list --count "origin/<default>..<head>"   == 0
 #
 # Any failure to establish the answer (missing origin ref, unknown sha, empty
 # HEAD) fires the guard rather than skipping it: an error must never be what
 # authorises a removal, per this script's rule that every unknown degrades to
-# KEEP. In practice the path is unreachable — default_branch() only returns a
-# name whose remote-tracking ref exists — so it is a backstop, not a behaviour.
+# KEEP. That path is REACHABLE, contrary to what this comment used to claim.
+# `git symbolic-ref --short refs/remotes/origin/HEAD` SUCCEEDS on a dangling
+# symbolic ref — verified on git 2.48: point origin/HEAD at a ref that does not
+# exist and symbolic-ref still exits 0 with the name, while `show-ref --verify`
+# on it exits 1 and the rev-list then exits 128. origin/HEAD goes dangling
+# whenever the ref it names disappears without being refreshed (an upstream
+# default-branch rename or deletion, a partial fetch, a hand-edited remote),
+# until someone runs `git remote set-head origin -a`. Whether a given git
+# version repairs it on fetch is not something to rely on — 2.48 did in one
+# rename test, which is exactly the kind of behaviour that varies.
+# The rule, generally: a ref is verified with `git show-ref --verify`, never by
+# `symbolic-ref` having returned something. (default_branch() above uses
+# show-ref for its fallback candidates but takes the symbolic-ref answer as-is,
+# which is where an unverified name can enter.)
 no_own_commits() { # <repo> <sha> <default-branch>
   local n
   [[ -n "$2" && -n "$3" ]] || return 0
