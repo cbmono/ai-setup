@@ -384,10 +384,17 @@ permissions**; opting in per project = this field. Nothing to configure in this 
    any log or console output, or the KB. Describe the shape of what you saw, not the
    records.
 
-**Worktrees.** Build tasks run in git worktrees under `<reposRoot>/_wt/`. These are
-reclaimed automatically — the PM removes a task's worktree once it is `done`/
-`cancelled`, and a per-tick sweep (`scripts/prune-worktrees.sh`) removes any
-worktree whose PR is merged/closed (or whose branch is merged into the default
-branch) and whose tree is clean, leaving dirty ones untouched. Removing a clean
-worktree deletes only its working directory; the branch ref and committed objects
-survive in the repo.
+**Worktrees.** Build tasks run in git worktrees under the instance's `worktreeRoot`
+(`instance.config.json`; absent that key, `<reposRoot>/_wt`, which is also still
+swept as the legacy root). It must be outside any synced folder — sync rewrites
+files inside a worktree mid-run. These are reclaimed automatically — the PM removes
+a task's worktree once it is `done`/`cancelled`, and a per-tick sweep
+(`scripts/prune-worktrees.sh`) removes any worktree that is on a real branch, whose
+PR is merged/closed, and whose tree is fully clean; dirty ones are left untouched. A
+merged/closed PR is the only evidence that reaches automatic removal — a branch with
+no commits of its own is always kept, so a repo landing PRs as **merge commits**
+gets no automatic reclaim. Removing such a worktree
+deletes only its working directory — the branch ref and committed objects survive.
+A **detached-HEAD** worktree is never removed automatically: its commits are on no
+branch ref, so removal destroys them. Those are reported `RECLAIMABLE` and cleared
+only by a human running `--reclaim`.

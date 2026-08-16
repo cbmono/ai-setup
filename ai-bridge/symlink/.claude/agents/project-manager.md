@@ -97,7 +97,9 @@ state, and act only on deltas.
    **Isolation (required for parallel safety).** If the product repos are a *single
    shared clone over one package store*, concurrent agents otherwise corrupt each
    other's worktrees (source + `.git` link wiped mid-run). In every dispatch,
-   instruct the agent to (a) work in its own worktree under `<reposRoot>/_wt/`,
+   instruct the agent to (a) work in its own worktree under the instance's
+   `worktreeRoot` (from `instance.config.json` — **never** a path inside the synced
+   `reposRoot`; if the key is absent, `<reposRoot>/_wt`),
    (b) run installs against a **private store** (e.g. `pnpm install --store-dir
    <worktree>/.pnpm-store`), and (c) **push early**. Two agents must never run a
    package install against the shared store at the same time — if two `ready`
@@ -196,19 +198,27 @@ state, and act only on deltas.
    has no effect: surface, don't merge.
 
    **Reclaim the worktree.** When you move a build task to `done` (all PRs merged)
-   or `cancelled`, its worktree under `<reposRoot>/_wt/` is no longer needed — run
+   or `cancelled`, its worktree under `worktreeRoot` (absent that key,
+   `<reposRoot>/_wt`) is no longer needed — run
    `scripts/prune-worktrees.sh` to reclaim it (and any other finished worktrees) so
-   `_wt` doesn't grow without bound. The script removes **only** worktrees whose PR
-   is merged/closed (or whose branch is merged into the default branch) **and**
-   whose tree is clean; it never touches a dirty one, and removing a clean worktree
-   keeps the branch + commits (only the working dir goes). Run it at most once per
-   tick; report anything it kept as still-active. **Run it only when you have no
-   role agents in flight.** A worktree whose PR is still open is kept, but one whose
-   PR merged or closed while an agent is *still working in it* is clean, finished by
-   every signal the script can read, and removed — deleting that agent's working
-   directory mid-run. Nothing in the script can detect a live run; the in-flight
-   count you already track is the only guard, so defer the prune to a later tick
-   rather than pruning beside live agents.
+   the worktree root doesn't grow without bound. It scans `worktreeRoot` **and** the
+   legacy `<reposRoot>/_wt`. It removes **only** worktrees that are on a real branch
+   **and** whose PR is merged/closed **and** whose tree is fully clean — a merged or
+   closed PR is the *only* evidence that reaches automatic removal, because a branch
+   carrying no commits of its own is always kept. A repo that lands PRs as **merge
+   commits** therefore gets no automatic reclaim at all, and those worktrees are not
+   reported `RECLAIMABLE` either. **A detached-HEAD worktree is never
+   removed automatically** — its commits are on no branch ref, so removal destroys
+   them; those are reported as `RECLAIMABLE` for you to surface on the board, and a
+   human removes them with `--reclaim`. It never touches a dirty one. Run it at most
+   once per tick; report anything it kept as still-active.
+
+   **Run it only when you have no role agents in flight.** The script does make a
+   liveness check — it keeps anything touched within `PRUNE_ACTIVE_MINUTES`
+   (default 120) — but that is a best-effort backstop: an agent that is thinking,
+   waiting on review, or running a long command writes nothing for longer than the
+   window and then looks idle. The in-flight count you already track is the primary
+   guard, so defer the prune to a later tick rather than pruning beside live agents.
 
 6. **Close completed projects (propose only — human-gated).** For each project
    whose tasks are **all** terminal (`done`/`cancelled`), do **not** close it

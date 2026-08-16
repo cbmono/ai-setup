@@ -32,6 +32,9 @@ Claude in the group folder instead gives you the umbrella's shared commands but
 Edit `instance.config.json`:
 - `org` — the GitHub org for `target_repo` values.
 - `reposRoot` — where this group's product repos are cloned locally.
+- `worktreeRoot` — where agent build worktrees live. Keep it **outside** any synced
+  folder (Dropbox/iCloud rewrite files inside a worktree mid-run). Absent this key,
+  worktrees fall back to `<reposRoot>/_wt`, which is also still swept as the legacy root.
 - `authorEmail` — shared commit email for per-agent authorship.
 - `defaultRepo` — optional; default repo for `/pr-review-request` (bare name is
   qualified with `org`, or give `owner/name`).
@@ -84,8 +87,9 @@ removing commit), rolls the project to `status: done`, and then **removes the
 project folder**. There is **no `archive/`** — git history + the KB are the record,
 and a done folder left live would only cost context on every PM tick. Recover the
 full trail anytime with `git log -- projects/<slug>/`. Finished build worktrees
-under `<reposRoot>/_wt/` are reclaimed automatically (also each PM tick, via
-`scripts/prune-worktrees.sh`).
+under `worktreeRoot` (absent that key, `<reposRoot>/_wt`) are reclaimed automatically
+(also each PM tick, via `scripts/prune-worktrees.sh`) — except detached-HEAD ones,
+which are only ever reported, since their commits are on no branch ref.
 
 ## See the group's repos from in here
 `repos/<name>` is a symlink to each clone under `reposRoot`, so `cd repos/<name>`

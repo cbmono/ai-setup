@@ -95,7 +95,9 @@ ticks, regardless of how long a tick runs.
 - Reconcile doc `status:` against live `gh`/`git` before acting; act only on deltas.
 - Concurrency cap: **at most `maxAgentsInFlight` role agents in flight** (from
   `instance.config.json`; fall back to 5 if the key is absent), and each must use its own
-  worktree under `<reposRoot>/_wt/` + a **private package store** (e.g.
+  worktree under the instance's `worktreeRoot` (from `instance.config.json`, never
+  inside the synced `reposRoot`; if the key is absent, `<reposRoot>/_wt`)
+  + a **private package store** (e.g.
   `pnpm install --store-dir <worktree>/.pnpm-store`) and **push early** — never two
   installs against the shared store at once (see `.claude/agents/project-manager.md`).
 - A LIVE tick may also dispatch the **`cataloguer`** to refresh the KB after
@@ -108,13 +110,18 @@ ticks, regardless of how long a tick runs.
   required for agent roles, so a sibling agent's staged files can't land under yours;
   never `--no-verify` in target repos.
 - **Worktree hygiene.** Reclaim finished worktrees with `scripts/prune-worktrees.sh`
-  (≤ once per tick) — it removes only worktrees whose PR is merged/closed (or whose
-  branch is merged into the default branch) **and** whose tree is clean, and reports
-  (never deletes) dirty ones. `_wt` must not grow unbounded. **Prune only when your
-  in-flight count is zero.** An open PR is kept, but a worktree whose PR has just
-  merged or closed with a clean tree is removed — and no check the script makes can
-  see an agent working inside it, so pruning with agents live can delete the tree
-  out from under one.
+  (≤ once per tick) — it removes only worktrees whose PR is merged/closed **and**
+  whose tree is fully clean **and** which are on a real branch, and reports (never
+  deletes) dirty ones and every detached-HEAD worktree. A merged/closed PR is the
+  only evidence that reaches removal — a branch with no commits of its own is always
+  kept, so a repo landing PRs as merge commits gets no automatic reclaim.
+  It scans `worktreeRoot` plus the legacy `<reposRoot>/_wt`.
+  The worktree root must not grow unbounded —
+  surface its `RECLAIMABLE` set on the board rather than removing it yourself
+  (`--reclaim` is the human's). **Prune only when your in-flight count is zero.**
+  The script's `PRUNE_ACTIVE_MINUTES` mtime veto (default 120) is a backstop, not a
+  substitute: an agent that writes nothing for longer than the window looks idle, so
+  your in-flight count stays the primary guard.
 - **Project close is human-gated.** The PM only *proposes* closing a project (all
   tasks terminal) via the 🔴 board; the human confirms (or runs `/close-project`).
   Closeout removes the folder (`git rm -r`) — git history + KB are the record, there

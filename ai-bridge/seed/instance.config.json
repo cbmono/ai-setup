@@ -2,6 +2,7 @@
   "$schema": "Instance config for an ai-bridge control panel. Customize, then commit.",
   "org": "your-github-org",
   "reposRoot": "~/workspace/<group>",
+  "worktreeRoot": "~/agent-worktrees",
   "authorEmail": "you@example.com",
   "defaultRepo": null,
   "maxAgentsInFlight": 10,
