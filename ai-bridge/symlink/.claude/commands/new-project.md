@@ -33,7 +33,9 @@ build projects.
 - `autonomy=<mode>` — how much the loop may do without you (default `gated`). The
   available modes, and any shorthand flag for one, are defined in `AUTONOMY.md` at the
   bundle root; **if that file doesn't exist, `gated` is the only mode** — don't offer or
-  accept another. Captured now; enforced by later machinery.
+  accept another. A flag naming a mode this bundle doesn't define (any mode when
+  `AUTONOMY.md` is absent) is **downgraded to `gated` and reported**, not honoured and not
+  treated as an error. Captured now; enforced by later machinery.
 - `clis="a; b"` (shorthand `/cli a, b`) — external CLIs/integrations this project's
   agents may use (e.g. `render`, `supabase`). **Build-shaped**: research projects
   dispatch no agents, so it is never *asked* for one — but an explicit flag is still
@@ -66,7 +68,8 @@ If `$ARGUMENTS` has no description, **ask** for a one-line goal before doing any
    `browser` **before** the kind-specific fields below — otherwise a project could be
    asked build-only questions on a research project, or vice versa. For any supplied as
    a flag (`kind=`, `autonomy=` or a mode's shorthand, `/cli …` / `clis=`,
-   `/claudeforchrome` / `browser=`), use it and **don't** ask. For those NOT supplied,
+   `/claudeforchrome` / `browser=`), use it and **don't** ask — with one exception, the
+   `autonomy` bullet below: a flag never grants a mode this bundle doesn't have. For those NOT supplied,
    ask the missing ones in **one batched `AskUserQuestion`** — except that **`kind` is
    settled first**, because it decides whether `clis` is offered at all: no `kind=` flag ⇒
    ask kind on its own, then batch the rest. One extra round-trip, and only when the flag
@@ -74,8 +77,14 @@ If `$ARGUMENTS` has no description, **ask** for a one-line goal before doing any
    `render` and `supabase` in front of a research project.
    - **kind** — build / research.
    - **autonomy** — read `AUTONOMY.md` at the bundle root first. **Absent ⇒ don't ask at
-     all**: `gated` is the only mode, so record it and move on. Present ⇒ offer `gated`
-     (default) plus the modes it defines, described in that file's own terms.
+     all**: `gated` is the only mode, so record it and move on — and that holds **even
+     against an explicit flag**. `autonomy=<anything-else>` with no `AUTONOMY.md` records
+     `gated` and says so in one line; it is never recorded verbatim and never errors out.
+     Absence means the safe behaviour, not a failure — the same rule the rest of this
+     machinery follows — and the announcement is what stops the human assuming they got
+     the delegation they typed. Present ⇒ offer `gated` (default) plus the modes it
+     defines, described in that file's own terms; a flag naming a mode that file **does**
+     define is used as given, without asking.
    - **clis** (multi-select) — **build only; on `kind=research`, don't ask and don't
      probe.** `clis` declares what this project's *agents* may use (`SCHEMA.md`), and a
      research project dispatches none — offering the machine's whole MCP/CLI menu there

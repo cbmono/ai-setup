@@ -143,8 +143,9 @@ Projects come in two `kind`s (see `symlink/SCHEMA.md`):
 `/new-project` scaffolds either; pass `kind=research` for the latter. It also takes
 optional capability flags — `autonomy=<mode>` (modes per `AUTONOMY.md`, if installed),
 `clis="…"` (`/cli …`), and `browser=claude-for-chrome` (`/claudeforchrome`) — and
-**interactively asks for any you don't pass** (pre-filling detected CLIs/MCPs). They're
-recorded on `project.md` and honored by later machinery (`autonomy` by the PM loop,
+**interactively asks for any you don't pass** — except `clis`, which is only asked on a
+**build** project (see below); that's the one prompt that pre-fills detected CLIs/MCPs.
+They're recorded on `project.md` and honored by later machinery (`autonomy` by the PM loop,
 browser by the claude-in-chrome integration); creating a project never itself promotes or
 merges.
 
