@@ -148,14 +148,22 @@ recorded on `project.md` and honored by later machinery (`autonomy` by the PM lo
 browser by the claude-in-chrome integration); creating a project never itself promotes or
 merges.
 
-After scaffolding, `/new-project` runs an **advisory second-opinion review of the new
-project** with the **CodeRabbit CLI** (`cr`) when it's installed and signed in — scoped to
-`projects/<slug>`, with `SCHEMA.md` + the instance `CLAUDE.md` passed in as review
-instructions. It ships a triage list so lifecycle features aren't "fixed" as defects (empty
-`acceptance_criteria` belong to the PM's refine; a research project's `deliverables/*.md`
-stubs are unwritten work; `draft` is the human's gate), and it records what was applied
-**and what was rejected, with reasons** in the project's `log.md`. No CLI (or `--no-commit`)
-→ skipped with a one-line note; the review never gates creation.
+**A research project is asked less, deliberately.** No `target_repo`, no `clis` prompt, and
+no CodeRabbit pass — each of those describes machinery a research project never runs
+(dispatched agents, PRs, code), so offering them asks you to authorise tools nothing will
+use. `browser` is still asked: web research is the clearest case for it. An explicit
+`clis=` flag is still recorded if you want a datasource CLI for in-session work.
+Versioning needs nothing extra — the bundle is itself a git repo, and every deliverable
+edit is committed through `commit-as.sh`.
+
+After scaffolding a **build** project, `/new-project` runs an **advisory second-opinion
+review of the new project** with the **CodeRabbit CLI** (`cr`) when it's installed and
+signed in — scoped to `projects/<slug>`, with `SCHEMA.md` + the instance `CLAUDE.md` passed
+in as review instructions. It ships a triage list so lifecycle features aren't "fixed" as
+defects (empty `acceptance_criteria` belong to the PM's refine; `draft` is the human's
+gate), and it records what was applied **and what was rejected, with reasons** in the
+project's `log.md`. Research projects, no CLI, or `--no-commit` → skipped with a one-line
+note; the review never gates creation.
 
 ## Browser access (`browser: claude-for-chrome`)
 A project can let its role agents **drive a real browser** — read a logged-in page, click
