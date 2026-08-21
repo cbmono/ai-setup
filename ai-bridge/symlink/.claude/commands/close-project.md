@@ -1,7 +1,7 @@
 ---
 description: Close a completed project — final KB consolidation, log the closeout, roll up status, then remove the project folder (git history + KB are the record; no archive). Human-gated; run once a project's tasks are all done/cancelled.
 argument-hint: <project-slug>  [--dry-run] [--force]
-allowed-tools: Bash(date:*), Bash(scripts/commit-as.sh:*), Bash(scripts/prune-worktrees.sh:*), Bash(git rm:*), Bash(git add:*), Bash(git log:*), Bash(ls:*), Read, Write, Edit, Glob, Agent
+allowed-tools: Bash(date:*), Bash(scripts/commit-as.sh:*), Bash(scripts/prune-worktrees.sh:*), Bash(scripts/validate-bundle.sh:*), Bash(grep:*), Bash(git rm:*), Bash(git add:*), Bash(git log:*), Bash(ls:*), Read, Write, Edit, Glob, Agent
 ---
 
 **Close a completed Project.** This is the human-triggered form of the closeout the
@@ -63,9 +63,41 @@ candidates) and ask which to close.
    reach this step while they are), **skip this step** and say so — a report that
    races a live dispatch recommends deleting it.
 
-6. **Remove & commit.** Unless `--dry-run`: `git rm -r projects/<slug>/`, stage the
+6. **Resolve inbound references — before the folder is removed.** Other documents'
+   frontmatter may point into this project: a task's or a **phase's** `depends_on:`,
+   an `objective:`, a `project:`. Removing the folder leaves those refs dangling, and
+   they are machine-read, so the PM can no longer evaluate whether a dependency is
+   met. Measured on a live instance: closing one project left **38 dangling
+   `depends_on:` refs** across two surviving projects, and nothing noticed until a
+   validator was written months later.
+
+   Find every inbound ref — tasks **and** phases:
+
+   ```bash
+   grep -rlE '^(depends_on|objective|phase|project):' \
+     projects/*/tasks/*.md projects/*/phases/*.md \
+     | xargs grep -l "/projects/<slug>/"
+   ```
+
+   **Then judge each one on the state of the task it points at — do not assume a
+   removed dependency is satisfied.** A project can close with `cancelled` tasks, and
+   `--force` closes one with unfinished tasks; silently dropping those refs tells
+   downstream automation the work is unblocked when it never completed.
+
+   * **Source task is `done`** → remove the entry from `depends_on:` and record it in
+     the dependent task's `# Notes` ("depended on `<slug>/task-007`, completed and
+     closed 2026-08-21"). History belongs in prose, where it cannot dangle.
+   * **Source task is `cancelled`, or anything other than `done`** → **stop and ask
+     the human.** The dependent work may no longer be viable. Either set the dependent
+     task `blocked` with the reason in `# Notes`, or record an explicit replacement
+     dependency. Never drop it silently.
+
+7. **Remove, validate, then commit.** Unless `--dry-run`: `git rm -r projects/<slug>/`, stage the
    `index.md` / `log.md` / objective / KB edits by explicit path, and commit via
-   `scripts/commit-as.sh human "chore: close <slug> project" -- <path>...`. Print the closing
+   `scripts/commit-as.sh human "chore: close <slug> project" -- <path>...`. **Run
+   `scripts/validate-bundle.sh` after the `git rm` and before committing** — validating
+   beforehand cannot see a reference that only dangles once the folder is gone, which
+   is the whole failure class step 6 exists to prevent. Zero errors is the gate. Print the closing
    commit SHA and the `log.md` entry. Remind the user the full record stays
    recoverable via `git log -- projects/<slug>/`.
 
