@@ -387,14 +387,20 @@ permissions**; opting in per project = this field. Nothing to configure in this 
 **Worktrees.** Build tasks run in git worktrees under the instance's `worktreeRoot`
 (`instance.config.json`; absent that key, `<reposRoot>/_wt`, which is also still
 swept as the legacy root). It must be outside any synced folder — sync rewrites
-files inside a worktree mid-run. These are reclaimed automatically — the PM removes
-a task's worktree once it is `done`/`cancelled`, and a per-tick sweep
-(`scripts/prune-worktrees.sh`) removes any worktree that is on a real branch, whose
-PR is merged/closed, and whose tree is fully clean; dirty ones are left untouched. A
-merged/closed PR is the only evidence that reaches automatic removal — a branch with
-no commits of its own is always kept, so a repo landing PRs as **merge commits**
-gets no automatic reclaim. Removing such a worktree
-deletes only its working directory — the branch ref and committed objects survive.
-A **detached-HEAD** worktree is never removed automatically: its commits are on no
-branch ref, so removal destroys them. Those are reported `RECLAIMABLE` and cleared
-only by a human running `--reclaim`.
+files inside a worktree mid-run.
+
+**Nothing reclaims them automatically.** `scripts/prune-worktrees.sh` classifies and
+reports; it never removes. It scans `worktreeRoot` and the legacy `<reposRoot>/_wt`,
+labels each worktree `REMOVABLE` (real branch, merged/closed PR, fully clean tree),
+`RECLAIMABLE` (finished, but needs a human eye — either a detached HEAD, whose
+commits are on no branch ref so removal destroys them, or a branch left with
+untracked scaffolding), `KEEP`, `STALE` or `UNREGISTERED`, and prints the exact
+`git worktree remove` commands for a human to run. A branch with no commits of its
+own is always `KEEP`, because "already merged" and "dispatched but hasn't committed
+yet" are the same git state.
+
+The removal path was deleted in ai-bridge v2: it had destroyed three running agents'
+worktrees, and no first-party mechanism covers this root (native isolation and its
+retention sweep only reach worktrees the harness created, of the *session* repo). So
+the worktree root does grow, and draining it is a periodic human job — surface the
+report, don't automate the delete.

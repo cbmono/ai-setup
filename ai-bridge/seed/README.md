@@ -87,9 +87,12 @@ removing commit), rolls the project to `status: done`, and then **removes the
 project folder**. There is **no `archive/`** — git history + the KB are the record,
 and a done folder left live would only cost context on every PM tick. Recover the
 full trail anytime with `git log -- projects/<slug>/`. Finished build worktrees
-under `worktreeRoot` (absent that key, `<reposRoot>/_wt`) are reclaimed automatically
-(also each PM tick, via `scripts/prune-worktrees.sh`) — except detached-HEAD ones,
-which are only ever reported, since their commits are on no branch ref.
+under `worktreeRoot` (absent that key, `<reposRoot>/_wt`) are **never reclaimed
+automatically** — `scripts/prune-worktrees.sh` (each PM tick that has zero agents
+in flight, and on demand)
+classifies them and prints the `git worktree remove` commands for you to run. The
+removal path was deleted after it destroyed three running agents' worktrees, so
+draining that root is a periodic human job.
 
 ## See the group's repos from in here
 `repos/<name>` is a symlink to each clone under `reposRoot`, so `cd repos/<name>`
