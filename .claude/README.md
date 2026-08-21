@@ -110,6 +110,8 @@ Output styles change how Claude *talks*, not how it codes (`keep-coding-instruct
 
 **On by default** via `"outputStyle": "Brief"` in `settings.json`. To get the stock voice back, set the built-in `Default` style in `settings.local.json` (`{"outputStyle": "Default"}`) or pick it in `/config` → *Output style* — no fork of the baseline needed. `install.sh` merges this key into an existing real `settings.json` (adding it only when absent, so your own choice always wins).
 
+**Kept over the built-in `Concise`** (v2.1.237), which covers result-first, no-preamble and short-by-default but not the `Needs you:` queue, the numbering rule, the never-state-cost-in-prose rule, or the marker discipline `show-awaiting.sh` greps for. The comparison did improve `Brief`: `Concise`'s guarantee that error reports, security warnings and destructive-action confirmations are never shortened is now in `brief.md` too.
+
 Prior art: [attention-span](https://github.com/alexgreensh/attention-span) (AGPL-3.0). `Brief` is independently written for this MIT repo — no files vendored — but its *answer vs deliverable* split and its "emoji marks structure, never decorates" rule come from there and deserve the credit.
 
 ## Plugins

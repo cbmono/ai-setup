@@ -33,6 +33,24 @@
 #   2. "authorEmail" in <repo-root>/instance.config.json
 #   3. `git config user.email`
 #
+# WHY THIS EXISTS, AND WHY NO FIRST-PARTY FEATURE REPLACES IT (v2 audit, 2026-08).
+# Native background sessions commit, push their own branch and open draft PRs — a
+# different problem. That is work in an isolated worktree of a TARGET repo under one
+# identity. This is work in the shared working tree of ONE bundle repo, by several
+# concurrent agents, under per-agent authorship. Three things follow that nothing
+# upstream provides:
+#   1. `git commit -- <path>` has the wrong semantics: it commits WORKING TREE
+#      content for that path, not the staged content. Hence the temporary index
+#      (GIT_INDEX_FILE + read-tree + update-index --index-info) — the only way to
+#      commit exactly the named staged entries while leaving a sibling agent's
+#      staged files untouched. Not cleverness; there is no git primitive for it.
+#   2. The promotion guard below reads the INDEX for that same reason. If the commit
+#      took its content from the working tree, an uncommitted `status: ready` edit
+#      could ride along past the guard.
+#   3. Per-agent author identity, which is the bundle's provenance record.
+# Verdict: keep, unshrunk. The v2 plan's overlap table guessed "shrink hard,
+# possibly delete" and was wrong on all three counts.
+#
 # SCOPE: this control-panel instance repo ONLY. Target product repos may forbid
 # AI attribution — never use this there; commit with the repo's normal identity.
 set -euo pipefail
