@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
 #
+# KEPT (v2 audit, 2026-08): GitHub-native auto-merge is the first-party equivalent,
+# but a private repo on the free plan answers 403 from both the branch-protection
+# and rulesets APIs, so the native path cannot be exercised there at all. This is a
+# documented workaround, not architecture — delete it the day every target repo can
+# enforce protection.
+#
 # required-checks.sh — resolve the REQUIRED-check set for a pull request and verify
 # every member is green. This is precondition 1 of the delegated merge gate
 # (`AUTONOMY.md` → "Merge under `yolo`"); nothing else in the bundle may merge a PR

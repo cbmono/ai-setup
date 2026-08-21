@@ -4,6 +4,12 @@ argument-hint: "<task; task; task>  |  (empty) = fan out the independent asks al
 allowed-tools: Agent, Read, Glob, Grep, Bash(ls:*)
 ---
 
+> **Kept (v2 audit, 2026-08).** The `Workflow` tool is the first-party equivalent for
+> *tracked* fan-out and this bundle already routes in-task wide work there. This command
+> covers **ad-hoc chat dispatch** — explicitly not tracked work — and carries a filter
+> `Workflow` has no equivalent of: what stays in-thread versus what needs an interactive
+> decision. Not a duplicate.
+
 Dispatch independent **ad-hoc** requests to **parallel background agents** so the
 main session stays free as a coordinator, instead of working them one at a time.
 
