@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Exercises symlink/scripts/prune-worktrees.sh — the worktree reclaimer.
+# Exercises symlink/scripts/prune-worktrees.sh — the worktree CLASSIFIER.
+# It is report-only since ai-bridge v2: it never removes, it prints commands.
 #
 # The pruner is the one script in this template that can destroy work, and it has
 # done so (three running agents' worktrees, 2026-08-04). It has no safe manual
@@ -15,7 +16,7 @@
 #      inside one — a Dropbox-backed fixture can have its files rewritten
 #      mid-run (see the dropbox-backed-worktrees finding in the instance KB).
 #   3. It runs the pruner with --dry-run only. Nothing is ever removed.
-#   4. NO detached-HEAD worktree is ever reported removable without --reclaim.
+#   4. NO detached-HEAD worktree is ever reported REMOVABLE, with any flags.
 #      This is asserted as a blanket property over the whole matrix, not just
 #      per case, because that is the class whose commits removal destroys with
 #      no ref left pointing at them.
@@ -414,7 +415,7 @@ if [[ "$SHOW_ONLY" == 1 ]]; then
 fi
 
 # ---- scenario A: default run (no --reclaim) ----------------------------------
-echo "== scenario A: default run (auto-remove only provably-safe cases) =="
+echo "== scenario A: default run (classify; provably-safe cases report REMOVABLE) =="
 OUT="$(run_pruner)"
 
 expect "$WTROOT/detached-squash-merged"       '^RECLAIMABLE'
@@ -429,13 +430,13 @@ expect "$WTROOT/branch-fresh-dispatch"        '^KEEP \(no commits yet\)'
 # worktree has committed nothing of its own". If this line ever reads
 # `WOULD REMOVE (pr merged)`, the guard has been demoted below the PR lookup.
 expect "$WTROOT/branch-recycled-name"         '^KEEP \(no commits yet\)'
-expect "$WTROOT/branch-merged-pr"             '^WOULD REMOVE'
+expect "$WTROOT/branch-merged-pr"             '^REMOVABLE'
 expect "$WTROOT/branch-untracked-work"        '^KEEP \(uncommitted work\)'
 expect "$WTROOT/branch-scaffolding"           '^RECLAIMABLE'
-expect "$WTROOT/branch-nested-activity"       '^WOULD REMOVE'
+expect "$WTROOT/branch-nested-activity"       '^REMOVABLE'
 expect "$WTROOT/branch-locked"                '^KEEP \(locked\)'
 expect "$LEGACY/legacy-detached-merged"       '^RECLAIMABLE'
-expect "$LEGACY/legacy-branch-merged-pr"      '^WOULD REMOVE'
+expect "$LEGACY/legacy-branch-merged-pr"      '^REMOVABLE'
 expect "$LEGACY/legacy-detached-ancestor"     '^KEEP \(no commits yet\)'
 expect "$WTROOT/stranded-plain-dir"           '^UNREGISTERED'
 
@@ -446,7 +447,7 @@ never_auto_removed() { # <label> <path>...
   local label=$1 bad="" d; shift
   for d in "$@"; do
     if printf '%s\n' "$OUT" | grep -F -- "$d" | grep -v -F -- "$d/" \
-         | grep -Eq '^(WOULD REMOVE|REMOVED)'; then
+         | grep -Eq '^REMOVABLE'; then
       bad="$bad $d"
     fi
   done
@@ -456,7 +457,7 @@ never_auto_removed() { # <label> <path>...
 
 # (owner decision, 2026-08-14): detached HEAD is never auto-removed, however
 # confidently the SHA->PR lookup classifies it.
-never_auto_removed "no detached worktree is removable without --reclaim" "${DETACHED[@]}"
+never_auto_removed "no detached worktree is ever reported REMOVABLE" "${DETACHED[@]}"
 # AC5's other half: a recognised scaffolding name can cost a report line, never a
 # deletion. This is what bounds the allowlist's blast radius.
 never_auto_removed "no worktree holding scaffolding is auto-removable" "${SCAFFOLDING[@]}"
@@ -475,31 +476,29 @@ assert "output never mentions a synced path" \
 assert "both roots were scanned (configured + legacy)" \
   "$([[ "$(printf '%s\n' "$roots" | wc -l | tr -d ' ')" == 2 ]] && echo 0 || echo 1)"
 
-# ---- scenario B: --reclaim ---------------------------------------------------
-echo "== scenario B: --reclaim (the human-run sweep) =="
-OUT="$(run_pruner --reclaim)"
+# ---- scenario B: --reclaim is refused ---------------------------------------
+# The removal path was deleted in ai-bridge v2 (it had destroyed three running
+# agents' worktrees, and no harness mechanism covers <reposRoot>/_wt). The flag is
+# kept only to fail loudly: a caller or a human with muscle memory must be told the
+# capability is gone, not silently given a no-op that looks like a clean sweep.
+echo "== scenario B: --reclaim is refused, and the reclaimable set is only reported =="
+set +e
+B_OUT="$( cd "$INSTANCE" && bash "$PRUNER" --reclaim 2>&1 )"; B_RC=$?
+set -e
+# assert() uses exit-code semantics: 0 is a pass.
+assert "--reclaim exits 2 instead of sweeping" \
+  "$([[ $B_RC -eq 2 ]] && echo 0 || echo 1)"
+assert "--reclaim says plainly that the script never deletes" \
+  "$(printf '%s\n' "$B_OUT" | grep -qi 'never deletes' && echo 0 || echo 1)"
+assert "--reclaim removed nothing" \
+  "$(printf '%s\n' "$B_OUT" | grep -Eqi '^REMOVED' && echo 1 || echo 0)"
 
-expect "$WTROOT/detached-squash-merged"   '^WOULD REMOVE'
-expect "$WTROOT/detached-scaffolding"     '^WOULD REMOVE'
-expect "$WTROOT/branch-scaffolding"       '^WOULD REMOVE'
-expect "$LEGACY/legacy-detached-merged"   '^WOULD REMOVE'
-# Still protected even when the human asks for a sweep: no ref points at these
-# commits, and no merged/closed PR accounts for them.
-expect "$WTROOT/detached-unpushed"        '^KEEP'
-expect "$WTROOT/branch-dirty-tracked"     '^KEEP \(uncommitted work\)'
-expect "$WTROOT/branch-untracked-work"    '^KEEP \(uncommitted work\)'
-expect "$WTROOT/branch-open-pr"           '^KEEP \(pr open\)'
-expect "$WTROOT/branch-locked"            '^KEEP \(locked\)'
-# A worktree that has committed nothing of its own is kept even under a human
-# sweep: there is nothing finished in it to reclaim, and the shape is exactly a
-# live dispatch's. `--reclaim` is the manual sweep, and a manual sweep is what
-# the attribution found removing reviewers' worktrees.
-expect "$WTROOT/branch-fresh-dispatch"    '^KEEP \(no commits yet\)'
-expect "$WTROOT/branch-stale-base"        '^KEEP \(no commits yet\)'
-expect "$WTROOT/branch-recycled-name"     '^KEEP \(no commits yet\)'
-expect "$WTROOT/branch-ancestor-no-pr"    '^KEEP \(no commits yet\)'
-expect "$LEGACY/legacy-detached-ancestor" '^KEEP \(no commits yet\)'
-never_auto_removed "no zero-commit worktree is removed even under --reclaim" "${ZERO_COMMIT[@]}"
+# The detached set stays visible as RECLAIMABLE — a human decides each one — and
+# is never promoted to REMOVABLE, whatever flags are passed.
+OUT="$(run_pruner)"
+for wt in "${DETACHED[@]}"; do
+  expect "$wt" '^(RECLAIMABLE|KEEP)'
+done
 
 # ---- scenario C: the liveness veto, with the default window -----------------
 # Every fixture is seconds old, so with the default PRUNE_ACTIVE_MINUTES nothing
@@ -507,11 +506,11 @@ never_auto_removed "no zero-commit worktree is removed even under --reclaim" "${
 # there (2026-08-04: three agents' worktrees were clean only because they had
 # not written a file yet).
 echo "== scenario C: liveness veto (default PRUNE_ACTIVE_MINUTES) =="
-ACTIVE_MINUTES="" OUT="$(ACTIVE_MINUTES=120 run_pruner --reclaim)"
+ACTIVE_MINUTES="" OUT="$(ACTIVE_MINUTES=120 run_pruner)"
 expect "$WTROOT/branch-merged-pr"       '^KEEP \(recently active\)'
 expect "$WTROOT/detached-squash-merged" '^KEEP \(recently active\)'
 assert "nothing is removable while worktrees are recently active" \
-  "$(printf '%s\n' "$OUT" | grep -Eq '^(WOULD REMOVE|REMOVED)' && echo 1 || echo 0)"
+  "$(printf '%s\n' "$OUT" | grep -Eq '^REMOVABLE' && echo 1 || echo 0)"
 
 # ---- scenario D: no worktreeRoot configured (older instances) ---------------
 echo "== scenario D: instance.config.json without worktreeRoot =="
@@ -519,11 +518,11 @@ cat > "$INSTANCE/instance.config.json" <<JSON
 { "reposRoot": "$REPOS", "authorEmail": "fixture@example.com" }
 JSON
 OUT="$(run_pruner)"
-expect "$LEGACY/legacy-branch-merged-pr" '^WOULD REMOVE'
+expect "$LEGACY/legacy-branch-merged-pr" '^REMOVABLE'
 assert "legacy-only config still scans <reposRoot>/_wt" \
   "$(printf '%s\n' "$OUT" | grep -q 'scan root' && echo 0 || echo 1)"
 assert "worktrees under the unconfigured root are left alone" \
-  "$(printf '%s\n' "$OUT" | grep -F -- "$WTROOT/" | grep -Eq '^(WOULD REMOVE|REMOVED)' && echo 1 || echo 0)"
+  "$(printf '%s\n' "$OUT" | grep -F -- "$WTROOT/" | grep -Eq '^REMOVABLE' && echo 1 || echo 0)"
 
 # ---- scenario E: the liveness veto reaches below the worktree root -----------
 # Restore the full config first (scenario D replaced it), then age the nested
@@ -536,7 +535,7 @@ write_config
 age_root "$NESTED"
 assert "the aged worktree's own root looks idle (fixture is still meaningful)" \
   "$([[ -z "$(find "$NESTED" -maxdepth 1 -mmin -120 2>/dev/null | head -1)" ]] && echo 0 || echo 1)"
-OUT="$(ACTIVE_MINUTES=120 run_pruner --reclaim)"
+OUT="$(ACTIVE_MINUTES=120 run_pruner)"
 expect "$NESTED" '^KEEP \(recently active\)'
 
 # ---- verdict ----------------------------------------------------------------

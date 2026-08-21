@@ -109,16 +109,12 @@ ticks, regardless of how long a tick runs.
   `scripts/commit-as.sh project-manager "<msg>" -- <path>...` — naming the paths is
   required for agent roles, so a sibling agent's staged files can't land under yours;
   never `--no-verify` in target repos.
-- **Worktree hygiene.** Reclaim finished worktrees with `scripts/prune-worktrees.sh`
-  (≤ once per tick) — it removes only worktrees whose PR is merged/closed **and**
-  whose tree is fully clean **and** which are on a real branch, and reports (never
-  deletes) dirty ones and every detached-HEAD worktree. A merged/closed PR is the
-  only evidence that reaches removal — a branch with no commits of its own is always
-  kept, so a repo landing PRs as merge commits gets no automatic reclaim.
-  It scans `worktreeRoot` plus the legacy `<reposRoot>/_wt`.
-  The worktree root must not grow unbounded —
-  surface its `RECLAIMABLE` set on the board rather than removing it yourself
-  (`--reclaim` is the human's). **Prune only when your in-flight count is zero.**
+- **Worktree hygiene.** `scripts/prune-worktrees.sh` (≤ once per tick) **reports
+  only — it never deletes anything.** It scans `worktreeRoot` plus the legacy
+  `<reposRoot>/_wt` and classifies each worktree, printing `git worktree remove`
+  commands for a human. Surface its `REMOVABLE` and `RECLAIMABLE` sets on the board
+  rather than acting on them yourself. **Run it only when your in-flight count is
+  zero** — a report that races a live dispatch misclassifies it.
   The script's `PRUNE_ACTIVE_MINUTES` mtime veto (default 120) is a backstop, not a
   substitute: an agent that writes nothing for longer than the window looks idle, so
   your in-flight count stays the primary guard.

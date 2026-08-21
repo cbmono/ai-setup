@@ -66,9 +66,10 @@ assembled from task docs that carry human questions, tool output, and PR metadat
   blocked on a human answer — you answer by appending ` --- <answer>` to a question
   in the task doc, e.g. `Q1: which region? --- eu-central-1`, and the next tick folds
   it in and clears the entry), dispatches human-approved `ready` tasks to role
-  agents, monitors their PRs, and reflects merges as `done`. It also reclaims
-  finished build worktrees under `worktreeRoot` (absent that key, `<reposRoot>/_wt`;
-  `scripts/prune-worktrees.sh`) and, when a
+  agents, monitors their PRs, and reflects merges as `done`. It **reports** finished
+  build worktrees under `worktreeRoot` (absent that key, `<reposRoot>/_wt`) via
+  `scripts/prune-worktrees.sh` — which classifies and prints removal commands but
+  never deletes, so draining that root stays a human job — and, when a
   project's tasks are **all** terminal, flags it as **ready to close** — but
   **never closes it autonomously**.
 - **Closing a project** (`/close-project <slug>`, or on your OK to the PM's

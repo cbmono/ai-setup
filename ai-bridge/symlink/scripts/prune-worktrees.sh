@@ -25,7 +25,7 @@
 #                merged/closed PR is the only evidence that reaches REMOVE).
 #   RECLAIMABLE  finished as far as can be told, but NOT removed automatically —
 #                reported so the PM can surface it, and removed only when a human
-#                runs `--reclaim`.
+#                a human decides, then removes by hand.
 #   KEEP         left alone, under every flag.
 #
 # LIVENESS, AND WHY THE CALLER STILL HAS A RULE. An earlier version of this header
@@ -111,18 +111,24 @@
 #     Set PRUNE_ACTIVE_MINUTES=0 to disable — which also disables the only
 #     liveness signal there is, so do it deliberately.
 #   · unrecoverable commits — a detached HEAD whose commits are on no ref, and
-#     which no merged/closed PR accounts for, is kept even under `--reclaim`.
+#     which no merged/closed PR accounts for, is always kept.
 #     Rescue it to a branch first (`git branch <name> <sha>`).
 #   · locked — `git worktree lock` is honoured as an explicit "do not touch".
 #
-# Removal uses `--force`: the tree is verified clean of real changes first, and
-# --force only lets git clear ignored artifacts (some git versions refuse
-# otherwise). Note that it also clears ignored review scaffolding.
+# REPORT-ONLY. This script does not remove anything, ever. It classifies and
+# prints the `git worktree remove` commands for you to run. The removal path was
+# deleted in ai-bridge v2: it had destroyed three running agents' worktrees, and
+# no harness mechanism covers worktrees under <reposRoot>/_wt (native isolation
+# and its retention sweep only reach worktrees the harness itself created, of the
+# SESSION repo — measured, see the worktree-isolation-spike finding). So the
+# classification is the valuable half and deletion is the dangerous half; the
+# dangerous half is now a human's hand on a printed command.
 #
 # Run from a control-panel instance root (reads `reposRoot` and `worktreeRoot`
 # from instance.config.json). Generic: no org/repo/path literals.
 #
-# Usage:  scripts/prune-worktrees.sh [--dry-run|-n] [--reclaim]
+# Usage:  scripts/prune-worktrees.sh          # classify and report; never removes
+#         scripts/prune-worktrees.sh --dry-run  # accepted, no-op (always dry now)
 #
 # Verified by ai-bridge/tests/prune-worktrees.test.sh in the ai-setup template
 # repo, which builds one throwaway worktree per decision class and asserts every
@@ -132,13 +138,18 @@
 # an instance needs.)
 set -euo pipefail
 
-DRY_RUN=0; RECLAIM=0
+# Retained only so existing callers and muscle memory keep working: this script
+# is always dry, so the flag changes nothing.
+DRY_RUN=1
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --dry-run|-n) DRY_RUN=1 ;;
-    --reclaim)    RECLAIM=1 ;;
+    --dry-run|-n) : ;;   # no-op; always report-only
+    --reclaim)
+      echo "prune-worktrees: --reclaim was removed in ai-bridge v2 — this script never deletes." >&2
+      echo "  It prints the exact 'git worktree remove' commands; run the ones you want." >&2
+      exit 2 ;;
     -h|--help)    sed -n '2,/^set -euo/p' "$0" | sed 's/^# \{0,1\}//; $d'; exit 0 ;;
-    *) echo "usage: $0 [--dry-run|-n] [--reclaim]" >&2; exit 2 ;;
+    *) echo "usage: $0 [--dry-run|-n]   (report-only; --reclaim is gone)" >&2; exit 2 ;;
   esac
   shift
 done
@@ -372,6 +383,7 @@ on_some_ref() {
 }
 
 removed=0; reclaimable=0; kept=0; stale=0
+CMDS=""
 SEEN_WT=$'\n'
 
 # Decide and act on one worktree. Reads the porcelain record vars set by the loop
@@ -425,7 +437,7 @@ classify() {
   if [[ $finished -eq 0 ]]; then
     if [[ $detached -eq 1 ]] && ! on_some_ref "$repo" "$head"; then
       # The irrecoverable class: detached, commits on no ref, no PR accounting for
-      # them. Kept even under --reclaim; rescue to a branch first.
+      # them. Always kept; rescue to a branch first.
       keep "unmerged; commits on NO ref — rescue with: git -C $repo branch <name> $head" "$label"
     else
       keep unmerged "$label"
@@ -439,32 +451,27 @@ classify() {
   [[ $detached -eq 1 ]] && hold="detached HEAD"
   [[ "$tree" == scaffolding ]] && hold="${hold:+$hold, }untracked scaffolding"
   if [[ -z "$hold" ]]; then
-    remove "$why" "$label"
-  elif [[ $RECLAIM -eq 1 ]]; then
-    remove "$why; $hold" "$label"
+    report_removable "$why" "$label"
   else
     local note="$why; $hold"
     if [[ $detached -eq 1 ]] && ! on_some_ref "$repo" "$head"; then
       note="$note, commits on no ref"
     fi
-    printf 'RECLAIMABLE       %s  [%s]  (%s — report-only; rerun with --reclaim)\n' "$wt" "$label" "$note"
+    printf 'RECLAIMABLE       %s  [%s]  (%s — needs a human: check it, then remove by hand)\n' "$wt" "$label" "$note"
     reclaimable=$((reclaimable+1))
   fi
 }
 
 keep() { printf 'KEEP (%s)  %s  [%s]\n' "$1" "$wt" "$2"; kept=$((kept+1)); }
 
-remove() { # <why> <label>
-  if [[ $DRY_RUN -eq 1 ]]; then
-    printf 'WOULD REMOVE      %s  [%s]  (%s)\n' "$wt" "$2" "$1"; removed=$((removed+1))
-  # --force is safe here: the tree is verified clean of real changes above, so it
-  # only lets git clear ignored artifacts (node_modules/, dist/) it would else
-  # refuse — and, deliberately under --reclaim, ignored review scaffolding.
-  elif git -C "$repo" worktree remove --force "$wt"; then
-    printf 'REMOVED           %s  [%s]  (%s)\n' "$wt" "$2" "$1"; removed=$((removed+1))
-  else
-    printf 'FAILED to remove  %s  [%s]  (%s)\n' "$wt" "$2" "$1" >&2; kept=$((kept+1))
-  fi
+# Report a worktree as safe to remove and remember the command for the summary.
+# --force is what a human will need: the tree is verified clean of real changes
+# above, so it only lets git clear ignored artifacts (node_modules/, dist/) that
+# git would otherwise refuse to delete.
+report_removable() { # <why> <label>
+  printf 'REMOVABLE         %s  [%s]  (%s)\n' "$wt" "$2" "$1"
+  removed=$((removed+1))
+  CMDS="${CMDS}git -C \"$repo\" worktree remove --force \"$wt\"\n"
 }
 
 for repo in "$REPOS_ROOT"/*/; do
@@ -498,7 +505,6 @@ for repo in "$REPOS_ROOT"/*/; do
     esac
   done < <(git -C "$repo" worktree list --porcelain 2>/dev/null; printf '\n')
 
-  [[ $DRY_RUN -eq 1 ]] || git -C "$repo" worktree prune 2>/dev/null || true
 done
 
 # Directories sitting in a scan root that are NOT registered worktrees of any repo
@@ -521,10 +527,16 @@ done
 
 echo "---"
 [[ $HAVE_GH -eq 1 ]] || echo "(gh not found — used git-only merge detection; squash-merged branches may be kept)"
-printf 'prune-worktrees: %d removable, %d reclaimable (report-only), %d kept, %d stale, %d unregistered.%s\n' \
-  "$removed" "$reclaimable" "$kept" "$stale" "$unregistered" \
-  "$([[ $DRY_RUN -eq 1 ]] && echo ' (dry-run — nothing changed)')"
-if [[ $reclaimable -gt 0 && $RECLAIM -eq 0 ]]; then
-  echo "(the reclaimable set is finished but held back — a detached HEAD is never removed"
-  echo " automatically, since its commits are on no branch ref. Run with --reclaim to remove.)"
+printf 'prune-worktrees: %d removable, %d reclaimable, %d kept, %d stale, %d unregistered. (report-only — nothing was changed)\n' \
+  "$removed" "$reclaimable" "$kept" "$stale" "$unregistered"
+if [[ $reclaimable -gt 0 ]]; then
+  echo "(reclaimable = finished, but a detached HEAD's commits are on no branch ref, so"
+  echo " removing it deletes their only reachability. Check each one before you do.)"
+fi
+if [[ -n "$CMDS" ]]; then
+  echo
+  echo "To remove the REMOVABLE set, run these yourself:"
+  printf '%b' "$CMDS" | sed 's/^/  /'
+  echo
+  echo "Then deregister the stale admin entries:  git -C <repo> worktree prune"
 fi

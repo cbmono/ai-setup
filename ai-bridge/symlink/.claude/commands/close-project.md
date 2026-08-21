@@ -55,8 +55,10 @@ candidates) and ask which to close.
    objective's projects are now terminal, **ask** whether to set the objective
    `status: achieved` (don't flip it silently).
 
-5. **Reclaim worktrees.** Run `scripts/prune-worktrees.sh` to remove any finished
-   worktrees left by this project's build tasks (safe — merged/closed + clean only).
+5. **Report leftover worktrees.** Run `scripts/prune-worktrees.sh` — it classifies
+   and prints `git worktree remove` commands but never deletes. Include its
+   `REMOVABLE`/`RECLAIMABLE` lines for this project's worktrees in the closing
+   summary so the human can reclaim them; don't run the commands yourself.
 
 6. **Remove & commit.** Unless `--dry-run`: `git rm -r projects/<slug>/`, stage the
    `index.md` / `log.md` / objective / KB edits by explicit path, and commit via

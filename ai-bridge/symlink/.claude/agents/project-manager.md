@@ -197,21 +197,19 @@ state, and act only on deltas.
    Never merge on your reading of PR prose. If `AUTONOMY.md` is absent, this paragraph
    has no effect: surface, don't merge.
 
-   **Reclaim the worktree.** When you move a build task to `done` (all PRs merged)
-   or `cancelled`, its worktree under `worktreeRoot` (absent that key,
-   `<reposRoot>/_wt`) is no longer needed — run
-   `scripts/prune-worktrees.sh` to reclaim it (and any other finished worktrees) so
-   the worktree root doesn't grow without bound. It scans `worktreeRoot` **and** the
-   legacy `<reposRoot>/_wt`. It removes **only** worktrees that are on a real branch
-   **and** whose PR is merged/closed **and** whose tree is fully clean — a merged or
-   closed PR is the *only* evidence that reaches automatic removal, because a branch
-   carrying no commits of its own is always kept. A repo that lands PRs as **merge
-   commits** therefore gets no automatic reclaim at all, and those worktrees are not
-   reported `RECLAIMABLE` either. **A detached-HEAD worktree is never
-   removed automatically** — its commits are on no branch ref, so removal destroys
-   them; those are reported as `RECLAIMABLE` for you to surface on the board, and a
-   human removes them with `--reclaim`. It never touches a dirty one. Run it at most
-   once per tick; report anything it kept as still-active.
+   **Report the worktree, never remove it.** When you move a build task to `done`
+   (all PRs merged) or `cancelled`, its worktree under `worktreeRoot` (absent that
+   key, `<reposRoot>/_wt`) is no longer needed — but **you do not delete it.**
+   `scripts/prune-worktrees.sh` is report-only: it scans `worktreeRoot` **and** the
+   legacy `<reposRoot>/_wt`, classifies every worktree, and prints the exact
+   `git worktree remove` commands. Surface its `REMOVABLE` and `RECLAIMABLE` sets on
+   the board as a human job; never run the printed commands yourself.
+
+   Why: the removal path destroyed three running agents' worktrees before it was
+   deleted, and the states are genuinely ambiguous — a branch with no commits of its
+   own is indistinguishable from a live dispatch that hasn't committed yet, and a
+   detached HEAD's commits are on no branch ref at all. Run it at most once per
+   tick; report anything it kept as still-active.
 
    **Run it only when you have no role agents in flight.** The script does make a
    liveness check — it keeps anything touched within `PRUNE_ACTIVE_MINUTES`
