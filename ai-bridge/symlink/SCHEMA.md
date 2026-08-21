@@ -392,8 +392,9 @@ files inside a worktree mid-run.
 **Nothing reclaims them automatically.** `scripts/prune-worktrees.sh` classifies and
 reports; it never removes. It scans `worktreeRoot` and the legacy `<reposRoot>/_wt`,
 labels each worktree `REMOVABLE` (real branch, merged/closed PR, fully clean tree),
-`RECLAIMABLE` (finished but detached HEAD — its commits are on no branch ref, so
-removal destroys them), `KEEP`, `STALE` or `UNREGISTERED`, and prints the exact
+`RECLAIMABLE` (finished, but needs a human eye — either a detached HEAD, whose
+commits are on no branch ref so removal destroys them, or a branch left with
+untracked scaffolding), `KEEP`, `STALE` or `UNREGISTERED`, and prints the exact
 `git worktree remove` commands for a human to run. A branch with no commits of its
 own is always `KEEP`, because "already merged" and "dispatched but hasn't committed
 yet" are the same git state.

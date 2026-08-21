@@ -476,6 +476,19 @@ assert "output never mentions a synced path" \
 assert "both roots were scanned (configured + legacy)" \
   "$([[ "$(printf '%s\n' "$roots" | wc -l | tr -d ' ')" == 2 ]] && echo 0 || echo 1)"
 
+# A report-only script must leave the disk exactly as it found it. Output
+# assertions alone can't show that: they'd still pass if the run deleted a
+# directory it also labelled REMOVABLE. Compare the registered worktrees and the
+# on-disk directories before and after a full run.
+echo "== scenario A2: a run mutates nothing =="
+BEFORE_WT="$(git -C "$REPO" worktree list --porcelain | grep '^worktree ' | sort)"
+BEFORE_DIRS="$( { ls -1 "$WTROOT" 2>/dev/null; ls -1 "$LEGACY" 2>/dev/null; } | sort )"
+run_pruner >/dev/null
+AFTER_WT="$(git -C "$REPO" worktree list --porcelain | grep '^worktree ' | sort)"
+AFTER_DIRS="$( { ls -1 "$WTROOT" 2>/dev/null; ls -1 "$LEGACY" 2>/dev/null; } | sort )"
+assert "no worktree was deregistered" "$([[ "$BEFORE_WT" == "$AFTER_WT" ]] && echo 0 || echo 1)"
+assert "no worktree directory was deleted" "$([[ "$BEFORE_DIRS" == "$AFTER_DIRS" ]] && echo 0 || echo 1)"
+
 # ---- scenario B: --reclaim is refused ---------------------------------------
 # The removal path was deleted in ai-bridge v2 (it had destroyed three running
 # agents' worktrees, and no harness mechanism covers <reposRoot>/_wt). The flag is

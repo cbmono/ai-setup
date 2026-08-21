@@ -55,10 +55,13 @@ candidates) and ask which to close.
    objective's projects are now terminal, **ask** whether to set the objective
    `status: achieved` (don't flip it silently).
 
-5. **Report leftover worktrees.** Run `scripts/prune-worktrees.sh` — it classifies
-   and prints `git worktree remove` commands but never deletes. Include its
-   `REMOVABLE`/`RECLAIMABLE` lines for this project's worktrees in the closing
-   summary so the human can reclaim them; don't run the commands yourself.
+5. **Report leftover worktrees** — **only when no role agents are in flight.** Run
+   `scripts/prune-worktrees.sh`; it classifies and prints `git worktree remove`
+   commands but never deletes. Include its `REMOVABLE`/`RECLAIMABLE` lines for this
+   project's worktrees in the closing summary so the human can reclaim them; don't
+   run the commands yourself. If agents are still working (a `--force` closeout can
+   reach this step while they are), **skip this step** and say so — a report that
+   races a live dispatch recommends deleting it.
 
 6. **Remove & commit.** Unless `--dry-run`: `git rm -r projects/<slug>/`, stage the
    `index.md` / `log.md` / objective / KB edits by explicit path, and commit via

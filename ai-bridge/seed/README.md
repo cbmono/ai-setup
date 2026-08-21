@@ -88,7 +88,8 @@ project folder**. There is **no `archive/`** — git history + the KB are the re
 and a done folder left live would only cost context on every PM tick. Recover the
 full trail anytime with `git log -- projects/<slug>/`. Finished build worktrees
 under `worktreeRoot` (absent that key, `<reposRoot>/_wt`) are **never reclaimed
-automatically** — `scripts/prune-worktrees.sh` (each PM tick, and on demand)
+automatically** — `scripts/prune-worktrees.sh` (each PM tick that has zero agents
+in flight, and on demand)
 classifies them and prints the `git worktree remove` commands for you to run. The
 removal path was deleted after it destroyed three running agents' worktrees, so
 draining that root is a periodic human job.

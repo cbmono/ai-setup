@@ -57,7 +57,7 @@ Parse `$ARGUMENTS` as the inter-tick **gap** (default **10m**). Then:
    (default `deep` → `opus`), and pass that as the tick's model. If `models`/`roleTiers`
    are absent, inherit the session model. (The top `apex`/`fable` tier is reserved for
    the rarest, deepest reasoning — the `plan-architect` critique — not the routine tick.) A LIVE tick refines drafts, dispatches `ready` tasks,
-   advances/reflects PRs, reclaims finished worktrees, proposes closing completed
+   advances/reflects PRs, reports finished worktrees, proposes closing completed
    projects (all tasks terminal), and — **after reflecting merges** — may dispatch
    the `cataloguer` to refresh `knowledge/` from the merged work (throttled to one
    per tick; skipped on idle/trivial ticks).

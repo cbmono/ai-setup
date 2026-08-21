@@ -138,9 +138,8 @@
 # an instance needs.)
 set -euo pipefail
 
-# Retained only so existing callers and muscle memory keep working: this script
-# is always dry, so the flag changes nothing.
-DRY_RUN=1
+# `--dry-run` is retained only so existing callers and muscle memory keep working:
+# this script is always dry, so the flag sets nothing and changes nothing.
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --dry-run|-n) : ;;   # no-op; always report-only
@@ -464,14 +463,25 @@ classify() {
 
 keep() { printf 'KEEP (%s)  %s  [%s]\n' "$1" "$wt" "$2"; kept=$((kept+1)); }
 
-# Report a worktree as safe to remove and remember the command for the summary.
-# --force is what a human will need: the tree is verified clean of real changes
-# above, so it only lets git clear ignored artifacts (node_modules/, dist/) that
-# git would otherwise refuse to delete.
+# Report a worktree as safe to remove, and remember the command for the summary.
+#
+# Both paths go through `printf %q`, not hand-written quotes: a path containing a
+# quote, a newline, a backtick or a `$(...)` would otherwise change what the human
+# pastes into their shell. The command is printed, so its escaping is a security
+# boundary even though this script runs nothing.
+#
+# Deliberately WITHOUT `--force`. `tree_state` uses `git status --porcelain`, which
+# does not see ignored files, so a worktree whose only remaining content is an
+# ignored `.env` or a local config file classifies as clean — and `--force` would
+# delete it. Plain `git worktree remove` refuses instead, which hands that judgement
+# to the human along with everything else dangerous here. The cost is that genuinely
+# disposable artifacts (node_modules/, dist/) also make git refuse; adding `--force`
+# then is the human's call, on a tree they can look at.
 report_removable() { # <why> <label>
   printf 'REMOVABLE         %s  [%s]  (%s)\n' "$wt" "$2" "$1"
   removed=$((removed+1))
-  CMDS="${CMDS}git -C \"$repo\" worktree remove --force \"$wt\"\n"
+  CMDS="${CMDS}git -C $(printf '%q' "$repo") worktree remove $(printf '%q' "$wt")
+"
 }
 
 for repo in "$REPOS_ROOT"/*/; do
@@ -505,6 +515,9 @@ for repo in "$REPOS_ROOT"/*/; do
     esac
   done < <(git -C "$repo" worktree list --porcelain 2>/dev/null; printf '\n')
 
+  # No `git worktree prune` here — this script mutates nothing. Entries whose
+  # directory is gone are reported STALE, and the summary prints the prune command
+  # for a human to run.
 done
 
 # Directories sitting in a scan root that are NOT registered worktrees of any repo
@@ -536,7 +549,7 @@ fi
 if [[ -n "$CMDS" ]]; then
   echo
   echo "To remove the REMOVABLE set, run these yourself:"
-  printf '%b' "$CMDS" | sed 's/^/  /'
+  printf '%s' "$CMDS" | sed 's/^/  /'
   echo
   echo "Then deregister the stale admin entries:  git -C <repo> worktree prune"
 fi
