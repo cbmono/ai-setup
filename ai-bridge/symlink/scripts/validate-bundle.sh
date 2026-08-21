@@ -11,11 +11,17 @@
 # Measured across three live instances (2026-08-21, ~570 documents) BEFORE it was
 # written, because a validator that reports problems nobody has is one people learn
 # to ignore:
-#   · status enums:      0 violations. Every value in every instance was already
-#                        valid for its type. Enum checking is the CHEAP part, kept
-#                        to stop a future typo, not because typos are happening.
-#   · frontmatter refs:  15 of 115 dangling (13%). THIS is the rot and the reason
-#                        this script exists. `/close-project` removes a project
+#   · status enums:      23 violations, all in `knowledge/`. The first measurement
+#                        reported ZERO and was wrong: it sampled only Objective,
+#                        Project, Phase and Task and never looked at Finding or
+#                        Service. Findings carry `open` and `active` where the enum
+#                        is `current|superseded`, and six Services carry `current`
+#                        where theirs is `active|deprecated` — someone applied the
+#                        Finding enum to a Service. Enum checking is NOT a
+#                        future-typo guard; it is catching live drift, and the drift
+#                        is concentrated exactly where nobody was looking.
+#   · missing timestamp: 16 documents across two instances.
+#   · frontmatter refs:  15 of 115 dangling (13%). This was the motivating rot. `/close-project` removes a project
 #                        folder by design, so a surviving `depends_on:` or
 #                        `objective:` pointing into it breaks silently.
 #   · `id` / `updated`:  NOT required, and not added. No document in any instance
@@ -70,6 +76,7 @@ enum_for() {
     Phase)     echo "not-started active done" ;;
     Task)      echo "draft ready in-progress in-review blocked cancelled done" ;;
     Finding)   echo "current superseded" ;;
+    Service)   echo "active deprecated" ;;
     *)         echo "" ;;
   esac
 }
@@ -78,7 +85,33 @@ KNOWN_TYPES="Objective Project Phase Task Agent Service Finding Team Runbook Ref
 
 errors=0; warns=0; checked=0
 
-frontmatter() { awk 'NR==1 && $0!="---"{exit} /^---$/{n++; if(n==2) exit; next} n==1' "$1"; }
+# Print the frontmatter block. Exit 3 when the file does not open with `---`, and
+# exit 4 when it opens but never closes — an unterminated block used to return the
+# whole file, so a malformed document with valid-looking fields passed validation.
+frontmatter() {
+  awk '
+    NR==1 && $0!="---" { bad=3; exit }
+    /^---$/ { n++; if (n==2) { closed=1; exit } ; next }
+    n==1 { print }
+    END { if (bad) exit bad; if (!closed) exit 4 }
+  ' "$1"
+}
+
+# Collect path references from the given frontmatter keys, in BOTH YAML forms:
+#   depends_on: [ /a.md, /b.md ]     (inline)
+#   depends_on:                       (block)
+#     - /a.md
+# The line-based first version saw only the inline form, so a valid block sequence
+# was silently skipped and the validator could report success while a structural
+# reference dangled. No instance uses block style today; nothing forbids it.
+refs_for() { # <frontmatter> <key-alternation> <path-regex>
+  printf '%s\n' "$1" | awk -v keys="$2" '
+    $0 ~ "^(" keys "):" { inblock=1; rest=$0; sub(/^[^:]*:/, "", rest); print rest; next }
+    inblock && /^[[:space:]]+-[[:space:]]*/ { print; next }
+    inblock && /^[[:space:]]*$/ { next }
+    /^[^[:space:]]/ { inblock=0 }
+  ' | grep -oE "$3" | sort -u || true
+}
 fail() { printf '  ERROR  %s\n         %s\n' "$1" "$2"; errors=$((errors+1)); }
 warn() { printf '  WARN   %s\n         %s\n' "$1" "$2"; warns=$((warns+1)); }
 
@@ -87,7 +120,7 @@ collect_files() {
   find ./projects -maxdepth 2 -name 'project.md' 2>/dev/null || true
   find ./projects -path '*/phases/*.md' 2>/dev/null || true
   find ./projects -path '*/tasks/*.md' 2>/dev/null || true
-  find ./knowledge -mindepth 2 -name '*.md' 2>/dev/null || true
+  find ./knowledge -mindepth 2 -maxdepth 2 -type f -name '*.md' 2>/dev/null || true
 }
 
 FILE_LIST="$(collect_files | grep -vE '/(index|log)\.md$' | sort -u || true)"
@@ -95,9 +128,14 @@ FILE_LIST="$(collect_files | grep -vE '/(index|log)\.md$' | sort -u || true)"
 while IFS= read -r file; do
   [[ -n "$file" ]] || continue
   rel="${file#./}"
-  fm="$(frontmatter "$file")"
-  if [[ -z "$fm" ]]; then
+  fm_rc=0
+  fm="$(frontmatter "$file")" || fm_rc=$?
+  if [[ $fm_rc -eq 3 ]] || { [[ $fm_rc -eq 0 ]] && [[ -z "$fm" ]]; }; then
     fail "$rel" "no YAML frontmatter, but it sits in a schema-defined location"
+    continue
+  fi
+  if [[ $fm_rc -eq 4 ]]; then
+    fail "$rel" "frontmatter opens with --- but is never closed by a second ---"
     continue
   fi
   checked=$((checked+1))
@@ -129,17 +167,13 @@ while IFS= read -r file; do
     fail "$rel" "missing required field: timestamp"
   fi
 
-  structural="$(printf '%s\n' "$fm" \
-    | grep -E '^(objective|project|phase|depends_on):' \
-    | grep -oE '/(objectives|projects|knowledge|agents)/[A-Za-z0-9._/-]+\.md' \
-    | sort -u || true)"
+  structural="$(refs_for "$fm" 'objective|project|phase|depends_on' '/(objectives|projects|knowledge|agents)/[A-Za-z0-9._/-]+[.]md')"
   while IFS= read -r ref; do
     [[ -n "$ref" ]] || continue
     [[ -e ".$ref" ]] || fail "$rel" "dangling reference: $ref"
   done <<< "$structural"
 
-  declared="$(printf '%s\n' "$fm" | grep -E '^artifacts:' \
-    | grep -oE '/projects/[A-Za-z0-9._/-]+\.md' | sort -u || true)"
+  declared="$(refs_for "$fm" 'artifacts' '/projects/[A-Za-z0-9._/-]+[.]md')"
   while IFS= read -r ref; do
     [[ -n "$ref" ]] || continue
     [[ -e ".$ref" ]] || warn "$rel" "declared artifact does not exist yet: $ref"

@@ -60,6 +60,24 @@ doc projects/live/tasks/task-008-artifact.md '---' 'type: Task' 'title: Artifact
   'artifacts: [ /projects/live/deliverables/not-written-yet.md ]' "timestamp: $TS" '---' 'body'
 doc projects/live/tasks/task-009-no-frontmatter.md '# just a heading, no frontmatter'
 
+# --- classes added after review (each was a false negative) --------------------
+# A block-style YAML sequence is valid and was silently skipped, so the validator
+# could report success while a structural reference dangled.
+doc projects/live/tasks/task-010-block-dangling.md '---' 'type: Task' 'title: Block' 'status: draft' \
+  'depends_on:' '  - /projects/closed/tasks/task-block-gone.md' "timestamp: $TS" '---' 'body'
+# A block sequence that resolves must stay silent.
+doc projects/live/tasks/task-011-block-ok.md '---' 'type: Task' 'title: BlockOk' 'status: draft' \
+  'depends_on:' '  - /projects/live/tasks/task-001-ok.md' "timestamp: $TS" '---' 'body'
+# Frontmatter that opens and never closes used to return the whole file, so bogus
+# fields passed.
+doc projects/live/tasks/task-012-unterminated.md '---' 'type: Task' 'title: Unterminated' 'status: draft' \
+  "timestamp: $TS" 'body with no closing delimiter'
+# Service carries its own status enum, which enum_for originally omitted.
+doc knowledge/services/bad-service.md '---' 'type: Service' 'title: S' 'status: retired' "timestamp: $TS" '---' 'body'
+doc knowledge/services/good-service.md '---' 'type: Service' 'title: S2' 'status: active' "timestamp: $TS" '---' 'body'
+# Below knowledge/<kind>/ is not a schema location and must be ignored.
+doc knowledge/findings/sources/raw-note.md '# a raw note a human dropped in'
+
 # --- files that must be IGNORED ------------------------------------------------
 # Navigation and content. None of these carries frontmatter, and validating them
 # is what drowned the first version.
@@ -101,6 +119,15 @@ assert "the artifact finding is labelled WARN, not ERROR" \
 assert "no ERROR mentions the unwritten artifact" \
   "$(printf '%s\n' "$OUT" | grep -B1 'not-written-yet' | grep -q 'ERROR' && echo 1 || echo 0)"
 
+echo "== classes found by review (each was a false negative) =="
+assert "a BLOCK-style dangling depends_on is an error" \
+  "$(saw 'dangling reference: /projects/closed/tasks/task-block-gone.md')"
+assert "a BLOCK-style resolving depends_on is silent" "$(not_seen 'task-011-block-ok.md')"
+assert "unterminated frontmatter is an error"        "$(saw 'never closed by a second')"
+assert "an invalid Service status is an error"       "$(saw "status 'retired' is not valid for type Service")"
+assert "a valid Service status is silent"            "$(not_seen 'good-service.md')"
+assert "files below knowledge/<kind>/ are ignored"   "$(not_seen 'raw-note.md')"
+
 echo "== valid documents are silent =="
 for f in objectives/good.md projects/live/project.md projects/live/phases/1-a.md \
          projects/live/tasks/task-001-ok.md knowledge/findings/good.md; do
@@ -118,7 +145,7 @@ assert "errors make it exit 1"                    "$([[ $RC -eq 1 ]] && echo 0 |
 assert "--strict also exits non-zero"             "$([[ $RC_STRICT -ne 0 ]] && echo 0 || echo 1)"
 
 echo "== a clean bundle passes, and --strict still passes with no warnings =="
-rm -f projects/live/tasks/task-00[2-9]*.md
+rm -f projects/live/tasks/task-00[2-9]*.md projects/live/tasks/task-01[02]*.md knowledge/services/bad-service.md
 set +e
 CLEAN="$(bash "$VALIDATOR" 2>&1)"; CRC=$?
 CLEAN_STRICT_RC=0; bash "$VALIDATOR" --strict >/dev/null 2>&1 || CLEAN_STRICT_RC=$?
