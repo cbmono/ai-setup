@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 #
+# KEPT (v2 audit, 2026-08): `claude agents` is the first-party cross-project board,
+# but it shows SESSION state. This surfaces objective-level decisions a human owes,
+# which outlive every session. Not the same list, so not a duplicate.
+#
 # show-awaiting.sh — SessionStart hook (ai-bridge machinery).
 #
 # Surfaces the "🔴 Awaiting you" items from the generated AWAITING.md when a

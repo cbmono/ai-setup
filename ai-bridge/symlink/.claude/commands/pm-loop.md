@@ -7,6 +7,19 @@ allowed-tools: Bash(pwd), Bash(ls:*), Agent, ScheduleWakeup, CronList, CronDelet
 Start the **Project Manager loop** — but as a **SERIAL, completion-driven** loop:
 **exactly one tick runs at a time.**
 
+## Why this shape, and not `/goal` (v2 audit, 2026-08)
+
+The looping **mechanism here is already first-party**: `ScheduleWakeup` is the same
+primitive `/loop`'s dynamic mode uses. This command is a policy layer over it — the
+serial guarantee, the instance-root preconditions, the in-flight check, and what a
+tick may do — not a hand-rolled loop engine.
+
+`/goal` was considered and does **not** fit. It terminates on a condition, while this
+loop runs until a human stops it; its evaluator judges only what is in the transcript
+and **calls no tools**, so it cannot see whether a PR merged; and it defers evaluation
+while background work runs, which is the normal state of a tick that has dispatched
+role agents. Wrong shape on all three counts — so the mechanism stays as it is.
+
 ## Why serial (do not revert to a fixed interval)
 
 A LIVE tick can take a long time because it dispatches real role agents that
@@ -73,6 +86,13 @@ Parse `$ARGUMENTS` as the inter-tick **gap** (default **10m**). Then:
    with `delaySeconds` = the gap, and `prompt` = `/pm-loop <gap>` so this skill
    re-enters and dispatches the next tick. (If gap is `0m`, dispatch the next
    tick immediately instead of scheduling.)
+   **Always pass `noop` and `reason`.** `noop: true` when the tick changed nothing
+   (no dispatch, no status change, no `AWAITING.md` edit); `noop: false` when it did.
+   Consecutive `noop: true` ticks collapse into one streak line in the human's
+   terminal instead of one wakeup line each — an idle loop should be nearly silent,
+   and this is the whole difference between a loop you leave running and one you
+   turn off because it scrolls. `reason` is one specific sentence about what this
+   tick is waiting on ("holding for qa-reviewer on #214"), not "waiting".
 4. **When `/pm-loop` re-fires from that wakeup:** "still in flight" means **this
    session dispatched a tick and has not yet seen its notification** — that is the
    whole check, and it is answered from this session's own history, never by

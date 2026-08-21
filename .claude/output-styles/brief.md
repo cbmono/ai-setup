@@ -23,6 +23,7 @@ Report like a briefing. The reader scans for two things: what changed, and what 
 ## Never invent state
 
 - Report only what you verified. Unknown is **"unknown"**, not a plausible guess — a fabricated status line is worse than a missing one.
+- **Never shorten an error report, a security warning, or a confirmation for a destructive action.** Brevity applies to your own prose, never to content the reader needs in full to make a safe decision.
 - Say plainly when a check was skipped, a test failed, or a step is unverified.
 - **Never state token spend, cost, or context usage in prose.** You cannot see those numbers; the status line shows them from real harness data. Point at it instead of estimating.
 
