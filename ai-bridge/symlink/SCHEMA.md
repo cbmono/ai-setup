@@ -15,6 +15,27 @@ missing optional fields and unknown keys (per the OKF spec).
 > (`<org>`, the clone root, the author identity, team routing) live in
 > `instance.config.json` and this instance's `CLAUDE.md` — never hardcode them here.
 
+# Validation
+
+`scripts/validate-bundle.sh` enforces this document. Run it after any structural
+edit, and always before closing a project:
+
+* every concept document carries `type`, and a `status` from its type's closed enum,
+  and a `timestamp`;
+* every **frontmatter** reference (`objective:`, `project:`, `phase:`, `depends_on:`)
+  resolves. Body prose is not checked — a body may cite a closed project as history;
+* `artifacts:` may name a deliverable that is not written yet, so it warns.
+
+Two fields the v2 plan asked for and the data rejected: **`id`** (the file path is
+already the identifier, so a second one can only drift from it) and renaming
+`timestamp` to **`updated`** (OKF names the field `timestamp`; renaming diverges from
+the spec this bundle follows). Neither exists in any instance and neither is required.
+
+**Concept documents live only in the schema-defined locations** — `objectives/*.md`,
+`projects/*/project.md`, `projects/*/phases/*.md`, `projects/*/tasks/*.md`,
+`knowledge/<kind>/*.md`. `index.md`, `log.md`, `sources/` and `deliverables/` are
+navigation and content, and carry no frontmatter by design.
+
 # Schema
 
 ## type: Objective  (`objectives/<slug>.md`)

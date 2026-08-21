@@ -1,7 +1,7 @@
 ---
 description: Close a completed project — final KB consolidation, log the closeout, roll up status, then remove the project folder (git history + KB are the record; no archive). Human-gated; run once a project's tasks are all done/cancelled.
 argument-hint: <project-slug>  [--dry-run] [--force]
-allowed-tools: Bash(date:*), Bash(scripts/commit-as.sh:*), Bash(scripts/prune-worktrees.sh:*), Bash(git rm:*), Bash(git add:*), Bash(git log:*), Bash(ls:*), Read, Write, Edit, Glob, Agent
+allowed-tools: Bash(date:*), Bash(scripts/commit-as.sh:*), Bash(scripts/prune-worktrees.sh:*), Bash(scripts/validate-bundle.sh:*), Bash(grep:*), Bash(git rm:*), Bash(git add:*), Bash(git log:*), Bash(ls:*), Read, Write, Edit, Glob, Agent
 ---
 
 **Close a completed Project.** This is the human-triggered form of the closeout the
@@ -63,7 +63,27 @@ candidates) and ask which to close.
    reach this step while they are), **skip this step** and say so — a report that
    races a live dispatch recommends deleting it.
 
-6. **Remove & commit.** Unless `--dry-run`: `git rm -r projects/<slug>/`, stage the
+6. **Resolve inbound references — before the folder is removed.** Other projects'
+   task frontmatter may `depends_on:` a task in this one. Removing the folder leaves
+   those refs dangling, and they are machine-read, so the PM can no longer evaluate
+   whether the dependency is met. Measured on a live instance: closing one project
+   left **38 dangling `depends_on:` refs** across two surviving projects, and nothing
+   noticed until a validator was written months later.
+
+   Find them, then fix each at the source:
+
+   ```bash
+   grep -rlE '^(depends_on|objective|phase|project):' projects/*/tasks/*.md \
+     | xargs grep -l "/projects/<slug>/"
+   ```
+
+   For each hit, **remove the entry from `depends_on:`** — a closed project's task is
+   satisfied by definition — and record the fact in that task's `# Notes` (e.g.
+   "depended on `<slug>/task-007`, closed 2026-08-21"). The history belongs in prose,
+   where it cannot dangle; frontmatter must stay resolvable. Then run
+   `scripts/validate-bundle.sh` and confirm it reports zero errors before step 7.
+
+7. **Remove & commit.** Unless `--dry-run`: `git rm -r projects/<slug>/`, stage the
    `index.md` / `log.md` / objective / KB edits by explicit path, and commit via
    `scripts/commit-as.sh human "chore: close <slug> project" -- <path>...`. Print the closing
    commit SHA and the `log.md` entry. Remind the user the full record stays
