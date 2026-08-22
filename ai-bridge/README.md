@@ -447,6 +447,14 @@ evidence from this repo's git history:
   by a directory or a symlink). Either way the script cannot tell an edit from a
   divergence, so it refuses to guess — `diff` the two paths it names and port by hand.
 
+A **retired** seed file — one the template has stopped shipping, declared in
+`ai-bridge/RETIRED` — is **reported, never deleted**, with the exact `rm` command, and
+listed in "what's left for you". The asymmetry with machinery is deliberate: a dangling
+symlink into the template has one possible meaning, so `install.sh` sweeps it; a seed file
+has been yours to edit since the day it was copied in, and `todos.md` was literally your
+notes. The installer never removes instance content — that is what makes it safe to run
+blindly on a repo full of your work.
+
 `migrate-bundle.sh` likewise leaves some things alone — a dangling reference, an
 unrecognised status, a document whose frontmatter never closes. Those need a decision,
 not a rewrite, and the report names each one.

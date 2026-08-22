@@ -501,6 +501,14 @@ if [ "$APPLY" -eq 0 ] && { [ "$MIG_FIX" -gt 0 ] || [ "$portable" -gt 0 ]; }; the
   left "re-run with --apply to write the safe changes ($MIG_FIX schema repair(s), $portable seed file(s)):"
   left_more "$SELF '$TARGET' --apply"
 fi
+# install.sh already printed these in stage 1; repeat them here because the numbered list
+# is what a human actually reads and acts on, and this is a decision only they can make.
+STALE_N="$(awk '/^  stale /{n++} END{print n+0}' "$TMPD/install.out")"
+if [ "$STALE_N" -gt 0 ]; then
+  left "$STALE_N retired file(s) are still in this instance — the template stopped"
+  left_more "shipping them, but the contents are yours, so nothing was deleted. Each"
+  left_more "'stale' line in stage 1 above prints the exact rm command."
+fi
 if [ "$MIG_HUMAN" -gt 0 ]; then
   left "$MIG_HUMAN document(s) need a decision only you can make (a dangling reference,"
   left_more "an unrecognised status). Read its HUMAN lines:"
