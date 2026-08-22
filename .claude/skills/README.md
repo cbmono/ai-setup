@@ -30,4 +30,6 @@ This repo ships mostly [commands](../commands/) — they're explicit, determinis
 
 ## Portability
 
+**Skills here are allow-listed one by one in the root `.gitignore`, unlike the other `.claude/` directories.** This one is a *drop-in* directory — installing any third-party skill creates a subdirectory here — so a bare re-include meant `git add -A -- .claude` swept four uninvited ones into this public repo, three of them symlinks to a `.agents/` path that exists under `~/.claude` but not here, i.e. dead links. Since `install.sh` discovers what to link with `git ls-files .claude`, anything tracked here lands in **every consumer's** `~/.claude/skills/`. So adding a `!` line for a skill is the deliberate act of shipping it to everyone; `tests/skills-allowlisted.test.sh` is what notices when it happens by accident instead.
+
 The `SKILL.md` format is shared across the Claude surfaces — Claude Code CLI, the Claude desktop app, IDE extensions, and `claude.ai/code`. Keep skills generic (no project-specific paths, infer the toolchain from `package.json`) so the same folder works everywhere.
