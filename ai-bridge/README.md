@@ -8,6 +8,7 @@ each its own git repo.
 ```
 ai-setup/ai-bridge/        # this template (lives in the ai-setup repo)
 ├── install.sh                    # stamp out / refresh an instance
+├── upgrade.sh                    # bring one stamped instance up to date after a pull (report; --apply)
 ├── symlink/                      # generic machinery → symlinked into instances (gitignored there)
 │   ├── SCHEMA.md  AUTONOMY.md  agents/index.md  scripts/*.sh
 │   └── .claude/{agents/*, commands/{pm-loop,new-project,close-project,pr-review-request,answer,audit,todo,fanout}.md, hooks/{show-awaiting,show-todos}.sh, settings.json}
@@ -407,27 +408,43 @@ depends on *what* changed, and only two of the four cases need you to do anythin
 | A **`seed/`** file (`CLAUDE.md`, `README.md`, `index.md`, …) | Never — seed is copied only when absent, so instance data is never clobbered | port the change by hand, per instance |
 | A **schema** change | The machinery updates, the *data* does not | `scripts/validate-bundle.sh`, then `scripts/migrate-bundle.sh` (report), then `--apply` |
 
-The last row is the one that bites: the validator ships instantly through its
-symlink and starts reporting errors against documents written under the old rules.
-That is working as intended — the errors were already there — but nothing fixes them
-until someone runs the migration.
-
-Run it per instance, and read the report before applying:
+**One command walks all four rows, per instance:**
 
 ```bash
-cd ~/workspace/<group>/_ai-bridge-<group>
-scripts/validate-bundle.sh          # what is wrong
-scripts/migrate-bundle.sh           # what a migration would change (report only)
-scripts/migrate-bundle.sh --apply   # write it
-scripts/validate-bundle.sh          # confirm; anything left needs a human
+ai-setup/ai-bridge/upgrade.sh ~/workspace/<group>/_ai-bridge-<group>            # report
+ai-setup/ai-bridge/upgrade.sh ~/workspace/<group>/_ai-bridge-<group> --apply    # write it
 ```
 
-`migrate-bundle.sh` deliberately leaves some things alone — a dangling reference, an
-unrecognised status, a document whose frontmatter never closes. Those need a decision,
-not a rewrite, and it names each one.
+It runs `install.sh` (row 2), then the instance's `validate-bundle.sh` (row 4) and
+`migrate-bundle.sh`, then works out row 3 — and ends with a numbered list of what is
+left for **you**, with the exact commands. Report-only by default: the default run
+changes nothing beyond the symlinks `install.sh` creates. Re-run it any time; a
+second run finds nothing to do.
 
-**Order matters when a pull brings both a new file and a schema change:** install
-first (so the scripts exist), then migrate.
+Row 4 is the one that bites, and it is why the order inside the script is fixed:
+the validator ships instantly through its symlink and starts reporting errors
+against documents written under the old rules (working as intended — the errors were
+already there), but nothing repairs them until the migration runs, and on an instance
+older than those scripts it takes `install.sh` to make them exist at all.
+
+Row 3 is the one you cannot automate blindly, so the script judges each seed file on
+evidence from this repo's git history:
+
+- Your copy is a **prior version of the seed, verbatim** → nothing was hand-edited, so
+  `--apply` ports it exactly.
+- Your copy is **hand-edited but the seed's change lands elsewhere in the file** →
+  `--apply` 3-way merges the change on top of your edits (backing the file up first)
+  and verifies the result on disk.
+- Your edits and the seed's **collide** → reported as a `CONFLICT` with the diff, and
+  **not touched**. Your wording is the only copy of a decision somebody made; port it
+  by hand.
+- The seed file has **never changed** since your instance was stamped → nothing to
+  deliver, so it stays quiet even though your copy has grown (`log.md`, `index.md`, a
+  `.gitignore` with the machinery block).
+
+`migrate-bundle.sh` likewise leaves some things alone — a dangling reference, an
+unrecognised status, a document whose frontmatter never closes. Those need a decision,
+not a rewrite, and the report names each one.
 
 ## Updating the machinery
 Edit files under `symlink/` here and commit to `ai-setup`. Because instances
@@ -444,13 +461,15 @@ instance up to date:
 1. **Pull the template** you stamped from (`ai-setup`, or your fork) to `main`. The
    symlinked machinery — agents, commands, `SCHEMA.md`, scripts — updates **immediately**
    (the instance symlinks it); no reinstall needed for *changed* files.
-2. **Re-run the installer** to link any **new** files and refresh the gitignore block:
-   `ai-setup/ai-bridge/install.sh <instance-dir>`. Idempotent — it never clobbers your
-   instance data.
-3. **Merge new seed keys by hand.** Seed content (`instance.config.json`, the instance
-   `CLAUDE.md`) is copied **once** and never overwritten, so new keys don't auto-arrive.
-   In particular, if `instance.config.json` lacks the model-routing block, add it —
-   otherwise model routing stays off and everything runs on the session model:
+2. **Run the upgrade** — `ai-setup/ai-bridge/upgrade.sh <instance-dir>`, then again with
+   `--apply` once you have read the report. It links any **new** machinery files (that is
+   `install.sh`, which it calls), validates and migrates the bundle, and ports the seed
+   changes it can prove are safe. See *After pulling `ai-setup`* above for what each
+   verdict means.
+3. **Port what it hands back.** A seed file it reports as a `CONFLICT` is hand-diverged
+   and stays untouched — that is where your instance's own decisions live. In particular,
+   if `instance.config.json` lacks the model-routing block, add it — otherwise model
+   routing stays off and everything runs on the session model:
    ```json
    "maxAgentsInFlight": 10,
    "models":    { "light": "haiku", "standard": "sonnet", "deep": "opus", "apex": "fable" },
