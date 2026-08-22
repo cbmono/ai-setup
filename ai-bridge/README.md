@@ -9,8 +9,8 @@ each its own git repo.
 ai-setup/ai-bridge/        # this template (lives in the ai-setup repo)
 ├── install.sh                    # stamp out / refresh an instance
 ├── symlink/                      # generic machinery → symlinked into instances (gitignored there)
-│   ├── SCHEMA.md  AUTONOMY.md  agents/index.md  scripts/*.sh
-│   └── .claude/{agents/*, commands/{pm-loop,new-project,close-project,pr-review-request,answer,audit,todo,fanout}.md, hooks/{show-awaiting,show-todos}.sh, settings.json}
+│   ├── SCHEMA.md  AUTONOMY.md  CONVENTIONS.md  agents/index.md  scripts/*.sh
+│   └── .claude/{agents/*, commands/{pm-loop,new-project,close-project,pr-review-request,answer,audit,todo,fanout}.md, hooks/{show-awaiting,show-todos}.sh, rules/*.md, settings.json}
 └── seed/                         # starting content → copied into an instance once (then yours)
     ├── instance.config.json  CLAUDE.md  README.md  index.md  log.md  .gitignore
     ├── bridge.code-workspace     # multi-root editor view; install.sh seeds it as <group>.code-workspace
@@ -402,7 +402,7 @@ depends on *what* changed, and only two of the four cases need you to do anythin
 
 | What changed in the pull | Reaches an instance how | You must |
 |---|---|---|
-| An **edited** `symlink/` file (script, agent, command, `SCHEMA.md`) | Instantly, through the existing symlink | nothing |
+| An **edited** `symlink/` file (script, agent, command, `SCHEMA.md`, `CONVENTIONS.md`, a `.claude/rules/` file) | Instantly, through the existing symlink | nothing |
 | A **new** `symlink/` file | Not at all until its symlink exists | `ai-bridge/install.sh <instance>` — once per instance |
 | A **`seed/`** file (`CLAUDE.md`, `README.md`, `index.md`, …) | Never — seed is copied only when absent, so instance data is never clobbered | port the change by hand, per instance |
 | A **schema** change | The machinery updates, the *data* does not | `scripts/validate-bundle.sh`, then `scripts/migrate-bundle.sh` (report), then `--apply` |
