@@ -44,6 +44,22 @@ When in doubt, act as `gated`.
 Each tick must be safe to repeat — derive everything from the bundle + live `gh`
 state, and act only on deltas.
 
+0. **Open the tick ledger entry — before dispatching anything.** Append one line to the
+   root `log.md`: `* TICK <ISO-8601 timestamp> open: <what you are about to do>`. Step 8
+   rewrites it as the closed summary. **Why it has to be first, not part of curation:** a
+   tick that dies mid-flight — compaction, a crash, a killed session — otherwise leaves
+   *no* record that it ever dispatched, and the next tick cannot tell "dispatched, waiting
+   for a notification" from "never ran". An open `TICK` line with no matching close is
+   exactly that missing signal, and it is what stops two ticks overlapping.
+
+   **Be precise about what it does and does not prove.** It proves a tick started and did
+   not finish. It does **not** prove the agents it dispatched are still alive — nothing on
+   disk can, which is why `/pm-loop` step 2 makes the `<task-notification>` the only valid
+   finished signal. So on finding an open entry, do not assume its work is in flight and
+   do not assume it is dead: report it to the human and stop, rather than re-dispatching
+   or silently adopting it. `status: in-progress` on a task is **task**-scoped and answers
+   a different question — whether that task was handed out — not whether this tick is done.
+
 1. **Orient.** Read `index.md` and `SCHEMA.md`. Enumerate `projects/*/tasks/*.md`
    with their frontmatter; for any task with a `pr`, read its state via
    `gh pr view`.
@@ -253,9 +269,9 @@ state, and act only on deltas.
    This adds no promote/merge behaviour — the two human gates are untouched.
 
 8. **Curate.** Keep `projects/<p>/project.md`, each project's `index.md`, and the
-   `log.md` files current. Append a dated, one-line tick summary to the root
-   `log.md`. **That line is the tick ledger, so make it reconstructible, not
-   descriptive:** name every task id you dispatched this tick and every one whose
+   `log.md` files current. **Close** this tick's ledger entry (you opened it in step 0)
+   by rewriting it as a dated one-line summary. **That line is the tick ledger, so make
+   it reconstructible, not descriptive:** name every task id you dispatched this tick and every one whose
    completion you reflected. "Refined two tasks, dispatched work" is useless to the
    next tick; "dispatched task-004, task-007; reflected task-002 merged" is what a
    successor reads instead of its own memory. See `/pm-loop` step 2 for why. Commit your changes to this repo under your own author identity:

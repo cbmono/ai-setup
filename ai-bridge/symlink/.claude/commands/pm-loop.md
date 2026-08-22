@@ -86,13 +86,21 @@ Parse `$ARGUMENTS` as the inter-tick **gap** (default **10m**). Then:
    **After a compaction, that memory is gone — so trust the disk, not your
    recollection.** This loop is long-lived and its context gets summarised; the
    in-flight set is answered from session history, which is exactly what
-   compaction discards. Re-derive it from the root `log.md` tick ledger, the task
-   documents' own `status:`, and `git log` — in that order — and treat all three
+   compaction discards. Re-derive it from the root `log.md` tick ledger — whose
+   entry the PM **opens before dispatching**, precisely so a tick that dies
+   mid-flight still leaves a trace, and whose open-with-no-close state is the
+   only thing on disk that distinguishes "dispatched, waiting" from "never
+   ran" — then the task documents' own `status:`, then `git log`, in that order, and treat all three
    as outranking anything you seem to remember. The failure this prevents is
    re-dispatching a task sequence that already finished, which costs a full set of
    agent runs and can open duplicate PRs; it is the most expensive failure observed
    in loops of this shape. If the ledger and a task's `status:` disagree, the task
    document wins and the ledger was written by a tick that died before curating.
+   **An open entry does not mean its agents are alive.** Nothing on disk can show
+   that — which is why the notification is the only finished signal in the first
+   place. So an open entry is a reason to report and stop, never to re-dispatch or
+   to silently adopt the work as your own in-flight set; a stale open entry would
+   otherwise miscount the `maxAgentsInFlight` cap in both directions.
 3. **On completion**, schedule the next tick after the gap: call `ScheduleWakeup`
    with `delaySeconds` = the gap, and `prompt` = `/pm-loop <gap>` so this skill
    re-enters and dispatches the next tick. (If gap is `0m`, dispatch the next
