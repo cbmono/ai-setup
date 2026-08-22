@@ -1,0 +1,28 @@
+# Retired seed paths — instance CONTENT the template no longer ships.
+#
+# One `<path>\t<reason>` per line, relative to an instance root. Blank lines and
+# `#` comments are ignored. Absence of this file, or an empty one, means nothing
+# is retired — never an error.
+#
+# WHAT THIS IS FOR, and why it is not a delete list.
+#
+# Retiring MACHINERY is unambiguous: install.sh sweeps a symlink that points into
+# this template and whose target is gone, because such a link has exactly one
+# possible meaning (see install.sh step 2b). Retiring SEED content is not. A seed
+# file was copied into the instance once and has been the human's to edit ever
+# since, so its contents may be theirs and theirs only — `todos.md` is literally a
+# notes file. install.sh's safety property is that it only links and
+# seeds-if-absent; it never removes instance content, which is what makes it safe
+# to run blindly on a repo full of someone's work. Spending that to save one `rm`
+# would be a bad trade.
+#
+# So: every entry here is REPORTED, with the exact command to remove it, and
+# `upgrade.sh` puts it in the numbered "what's left for you" list. Nothing here is
+# ever deleted by either script. The decision stays with the human who wrote the
+# file.
+#
+# Add an entry in the same commit that removes the seed file. Leave it here
+# permanently — an instance stamped years ago still has the file, and a manifest
+# that gets pruned stops answering for exactly those instances.
+
+todos.md	the /todo feature was removed; this file is your own notes, so it is yours to keep
