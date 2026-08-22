@@ -54,13 +54,35 @@ done
   exit 2
 }
 
-fixed=0; skipped=0; human=0
+fixed=0; skipped=0; human=0; failed=0
 
-act() { # <file> <what>
-  if [[ $APPLY -eq 1 ]]; then printf '  FIXED    %s\n           %s\n' "$1" "$2"
-  else printf '  WOULD FIX %s\n           %s\n' "$1" "$2"; fi
-  fixed=$((fixed+1))
+# One write path, and the label comes AFTER the verification.
+#
+# The first attempt at this fix printed FIXED before writing and corrected the count
+# afterwards — so a caller reading stdout still saw a false success, which is the very
+# bug being fixed. In apply mode nothing is announced until the field has been read
+# back and matches.
+fix_field() { # <file> <rel> <what> <key> <value> <add|set>
+  local f="$1" rel="$2" what="$3" k="$4" v="$5" mode="$6" got rc=0
+  if [[ $APPLY -eq 0 ]]; then
+    printf '  WOULD FIX %s\n           %s\n' "$rel" "$what"
+    fixed=$((fixed+1)); return 0
+  fi
+  case "$mode" in
+    add) add_field "$f" "$k" "$v" || rc=$? ;;
+    set) set_field "$f" "$k" "$v" || rc=$? ;;
+  esac
+  got="$(field "$f" "$k")"
+  if [[ $rc -eq 0 && "$got" == "$v" ]]; then
+    printf '  FIXED    %s\n           %s\n' "$rel" "$what"
+    fixed=$((fixed+1))
+  else
+    printf '  FAILED   %s\n           %s — the write did not land (found %s)\n' \
+      "$rel" "$what" "${got:-nothing}" >&2
+    failed=$((failed+1))
+  fi
 }
+
 hold() { printf '  HUMAN    %s\n           %s\n' "$1" "$2"; human=$((human+1)); }
 skip() { printf '  SKIPPED  %s\n           %s\n' "$1" "$2"; skipped=$((skipped+1)); }
 
@@ -70,19 +92,19 @@ skip() { printf '  SKIPPED  %s\n           %s\n' "$1" "$2"; skipped=$((skipped+1
 # that over a document would silently make every repaired file 0600; and if $TMPDIR
 # is on another filesystem, `mv` degrades to copy-and-remove, so an interruption can
 # leave a half-written document. Same-directory rename is atomic and keeps the mode.
-temp_beside() { # <file>
+temp_beside() { # <file> — prints a temp path, or returns 1 if it cannot make one
   local f="$1" d t m
   d="$(dirname "$f")"
-  t="$(mktemp "$d/.migrate-bundle.XXXXXX")"
+  t="$(mktemp "$d/.migrate-bundle.XXXXXX" 2>/dev/null)" || return 1
   m="$(stat -f '%Lp' "$f" 2>/dev/null || stat -c '%a' "$f" 2>/dev/null || echo 644)"
   chmod "$m" "$t" 2>/dev/null || true
   printf '%s\n' "$t"
 }
 
 # Replace a frontmatter scalar in place, only inside the frontmatter block.
-set_field() { # <file> <key> <value>
+set_field() { # <file> <key> <value> — returns non-zero if the write cannot be made
   local f="$1" k="$2" v="$3" tmp
-  tmp="$(temp_beside "$f")"
+  tmp="$(temp_beside "$f")" || return 1
   awk -v key="$k" -v val="$v" '
     BEGIN { n=0; done=0 }
     /^---$/ { n++; print; next }
@@ -92,9 +114,9 @@ set_field() { # <file> <key> <value>
 }
 
 # Insert a frontmatter scalar just before the closing delimiter.
-add_field() { # <file> <key> <value>
+add_field() { # <file> <key> <value> — returns non-zero if the write cannot be made
   local f="$1" k="$2" v="$3" tmp
-  tmp="$(temp_beside "$f")"
+  tmp="$(temp_beside "$f")" || return 1
   awk -v key="$k" -v val="$v" '
     BEGIN { n=0 }
     /^---$/ { n++; if (n==2) print key ": " val; print; next }
@@ -128,6 +150,15 @@ while IFS= read -r file; do
   [[ -n "$file" ]] || continue
   rel="${file#./}"
   head -1 "$file" | grep -q '^---$' || { skip "$rel" "no frontmatter — a content decision, not a migration"; continue; }
+  # An unterminated frontmatter block has no closing delimiter to insert before, so
+  # add_field would silently no-op while this script reported a fix. Skip it: the
+  # document is malformed, which is a content decision, and validate-bundle.sh names
+  # it precisely. This guard exists because the script DID once report FIXED for a
+  # write it never made — a false success is worse than the error it claimed to fix.
+  [[ "$(grep -c '^---$' "$file")" -ge 2 ]] || {
+    skip "$rel" "frontmatter opens but never closes — add the missing '---' by hand, then re-run"
+    continue
+  }
 
   type="$(field "$file" type)"
   [[ -n "$type" ]] || { skip "$rel" "no type — a content decision, not a migration"; continue; }
@@ -137,15 +168,15 @@ while IFS= read -r file; do
     Finding)
       case "$status" in
         current|superseded) : ;;
-        "")            act "$rel" "Finding has no status -> current"; [[ $APPLY -eq 0 ]] || add_field "$file" status current ;;
-        open|active)   act "$rel" "Finding status '$status' -> current"; [[ $APPLY -eq 0 ]] || set_field "$file" status current ;;
+        "")            fix_field "$file" "$rel" "Finding has no status -> current" status current add ;;
+        open|active)   fix_field "$file" "$rel" "Finding status '$status' -> current" status current set ;;
         *)             hold "$rel" "Finding status '$status' is not a mapping this script knows — decide it by hand" ;;
       esac ;;
     Service)
       case "$status" in
         active|deprecated) : ;;
-        "")        act "$rel" "Service has no status -> active"; [[ $APPLY -eq 0 ]] || add_field "$file" status active ;;
-        current)   act "$rel" "Service status 'current' -> active"; [[ $APPLY -eq 0 ]] || set_field "$file" status active ;;
+        "")        fix_field "$file" "$rel" "Service has no status -> active" status active add ;;
+        current)   fix_field "$file" "$rel" "Service status 'current' -> active" status active set ;;
         *)         hold "$rel" "Service status '$status' is not a mapping this script knows — decide it by hand" ;;
       esac ;;
   esac
@@ -153,8 +184,8 @@ while IFS= read -r file; do
   if [[ -z "$(field "$file" timestamp)" ]]; then
     added="$(git_added_date "$file")"
     if [[ -n "$added" ]]; then
-      act "$rel" "timestamp missing -> $added (author date of the commit that added it)"
-      [[ $APPLY -eq 0 ]] || add_field "$file" timestamp "$added"
+      fix_field "$file" "$rel" "timestamp missing -> $added (author date of the commit that added it)" \
+        timestamp "$added" add
     else
       skip "$rel" "timestamp missing and git does not know this file — refusing to invent a date"
     fi
@@ -175,8 +206,10 @@ done <<< "$FILE_LIST"
 
 echo "---"
 if [[ $APPLY -eq 1 ]]; then
-  printf 'migrate-bundle: %d fixed, %d left for a human, %d skipped.\n' "$fixed" "$human" "$skipped"
+  printf 'migrate-bundle: %d fixed, %d left for a human, %d skipped, %d FAILED.\n' \
+    "$fixed" "$human" "$skipped" "$failed"
   echo "Now run: scripts/validate-bundle.sh"
+  [[ $failed -eq 0 ]] || exit 1
 else
   printf 'migrate-bundle: %d would be fixed, %d need a human, %d skipped. (report only — nothing changed)\n' \
     "$fixed" "$human" "$skipped"
