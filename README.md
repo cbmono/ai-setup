@@ -62,11 +62,10 @@ All of these run from inside a control-panel instance (`cd` there, then `claude`
 | **`/answer`** | Answers all the PM's pending questions interactively in one batch, instead of editing each task file by hand. |
 | **`/close-project <slug>`** | Close a finished project (the PM flags candidates; you pull the trigger). |
 | **`/audit`** | The slow counter-metric. Weekly-ish: checks whether all this throughput is actually moving your stated goals. See [Are the agents actually helping?](#are-the-agents-actually-helping) |
-| **`/todo <text>`** | Quick personal reminders in `todos.md`, separate from formal project work. `/todo` lists, `/todo done <text>` closes. |
 | **`/fanout`** | Send a batch of independent one-off asks to parallel background agents. (Just giving the session ≥2 independent asks does this automatically.) |
 | **`/pr-review-request <filter>`** | Find related open, green PRs and draft a grouped review-request message. |
 
-Two `SessionStart` hooks mean that when you open Claude in an instance, it greets you with what's awaiting you and any open todos — you don't have to remember to ask.
+A `SessionStart` hook means that when you open Claude in an instance, it greets you with what's awaiting you — you don't have to remember to ask.
 
 There is deliberately **no status command**. The one status artifact is `AWAITING.md`: a queue of just the items a human decision unblocks (✅ approve · ❓ answer · 🔀 merge · ⛔ unblock · 🏁 close), rewritten by each `/pm-loop` tick and injected at session start. In-flight and upcoming work is left out — it needs no decision from you, and a board you scroll past is a board you stop reading. It's **on by default and off by deletion**: `ai-bridge/install.sh` creates the file when it first stamps out an instance, and after that the loop refreshes it only if it exists and never recreates it. So `rm AWAITING.md` turns the queue off for good — even across installer re-runs — and `touch AWAITING.md` turns it back on.
 
@@ -118,7 +117,6 @@ _ai-bridge-<group>/
 ├── objectives/       what you're actually trying to achieve
 ├── projects/         active work → each with tasks (draft → ready → in-review → done)
 ├── knowledge/        services, findings, runbooks, teams — what's been learned
-├── todos.md          quick personal reminders
 ├── log.md            the durable event log
 └── AWAITING.md       what needs a decision from you (derived; delete it to opt out)
 ```
