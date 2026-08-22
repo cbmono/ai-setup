@@ -6,6 +6,7 @@
   "authorEmail": "you@example.com",
   "defaultRepo": null,
   "maxAgentsInFlight": 10,
+  "maxPrLoc": 500,
   "codegraphSkip": "",
   "externalReviewer": null,
   "prReviewSlackChannel": null,

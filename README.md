@@ -85,6 +85,8 @@ Q1: which region should we default to? --- eu-central-1
 
 The next tick folds it in and clears the question. Once the list is empty, the task is promotable. `/answer` does this for you conversationally, and answering in chat during a session works too.
 
+The cleared entry is **moved, not deleted** — it lands in the task's `answered_questions:` list as one flat line, `<ISO 8601> · <the entry verbatim>`, so the decision and its reason stay readable next to the work they shaped. Nothing reads that list; it is there for you. Which is also the caution: an answer you would not want kept for the life of the repo (anything with customer PII in it) is one to give in person instead. Two smaller things in the same layer: a `UserPromptSubmit` hook restates the instance's **current** state — in-flight tasks, awaiting count, active projects — on every turn, because a loop running for hours otherwise keeps acting on the roster it saw at tick one; and `maxPrLoc` in `instance.config.json` (**500** when the key is absent) makes a role agent *propose* a PR split when a diff runs long, without ever blocking the PR.
+
 ## How much do you have to babysit it?
 
 Each project has an **autonomy** setting, chosen when you create it:
@@ -263,7 +265,7 @@ Instructions — not workflows — that load **only when Claude reads a file mat
 
 | Rule                          | `paths:`                             | Covers                                                                 |
 | ----------------------------- | ------------------------------------ | ---------------------------------------------------------------------- |
-| **ai-bridge**                 | `ai-bridge/**`                       | The subtree's layout and its eight load-bearing invariants             |
+| **ai-bridge**                 | `ai-bridge/**`                       | The subtree's layout and its nine load-bearing invariants              |
 | **hooks-and-scripts**         | `.claude/hooks/**`, `.claude/scripts/**` | Status-line contract, absolute hook paths, the DeepSeek launcher   |
 | **output-styles**             | `.claude/output-styles/**`           | Why `Brief` survives the built-in `Concise`, marker discipline         |
 | **repo-config**               | `.coderabbit.yaml`, `install.sh`     | One-review-per-PR config; the installer's display-only key contract    |

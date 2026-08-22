@@ -24,7 +24,7 @@ Defaults shipped by this repo. See the [top-level README](../README.md) for inst
     brief.md                          # "Brief": outcome first, then Needs-you as numbered steps with URLs
   skills/                             # auto-invocable capabilities; see skills/README.md
   rules/                              # path-scoped instructions (`paths:` glob) — load only on a matching read
-    ai-bridge.md                      # paths: ai-bridge/**            — layout + its 8 load-bearing invariants
+    ai-bridge.md                      # paths: ai-bridge/**            — layout + its 9 load-bearing invariants
     hooks-and-scripts.md              # paths: .claude/{hooks,scripts}/** — status line, hook paths, DeepSeek
     output-styles.md                  # paths: .claude/output-styles/** — Brief vs the built-in Concise
     repo-config.md                    # paths: .coderabbit.yaml, install.sh
