@@ -11,6 +11,13 @@ node_modules/
 # itself to turn the queue off (the loop never recreates it).
 AWAITING.md
 
+# Derived board snapshot — rewritten by scripts/write-snapshot.sh at the end of each
+# /pm-loop tick, and read by scripts/build-board.sh (possibly from another instance).
+# A view, not source. Delete the file itself to take this instance off the board (the
+# writer never recreates it), and note the board HTML is derived output too.
+SNAPSHOT.json
+board.html
+
 # Derived view of the group's product repos (scripts/link-repos.sh) — one symlink
 # per repo into reposRoot, never content, and machine-local like the machinery
 # below. Delete it freely; install.sh or that script recreates it.

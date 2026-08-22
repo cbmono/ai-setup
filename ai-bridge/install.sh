@@ -170,6 +170,39 @@ elif [ "$FIRST_STAMP" = no ] && [ ! -e "$TARGET/AWAITING.md" ]; then
   echo "  skip  AWAITING.md (absent by choice — run 'touch AWAITING.md' to re-enable)"
 fi
 
+# 1c. The board snapshot, created ONLY on the first stamp — same contract, same
+# reason, same guard as AWAITING.md above.
+#
+# SNAPSHOT.json is opt-in by presence: scripts/write-snapshot.sh rewrites it only when
+# it exists and never creates it, and scripts/build-board.sh leaves an instance without
+# one off the board entirely. So `rm SNAPSHOT.json` takes this instance off the board
+# for good — and FIRST_STAMP is what makes "for good" true, because a refresh that
+# re-created the file would silently undo that decision.
+#
+# It is deliberately generated ROOT content and not a file under symlink/: machinery is
+# re-linked unconditionally on every run (see AUTONOMY.md's hazard in
+# .claude/rules/ai-bridge.md), so a deletable capability built out of a machinery file
+# comes back by itself. A gitignored root file has no such hole.
+#
+# Seeded content is a VALID EMPTY snapshot rather than an empty file: build-board.sh
+# parses this as JSON, and a zero-byte file would render an "unreadable snapshot" note
+# on a brand-new instance that has done nothing wrong.
+if [ "$FIRST_STAMP" = yes ] && [ ! -e "$TARGET/SNAPSHOT.json" ]; then
+  cat > "$TARGET/SNAPSHOT.json" <<'SNAPSHOT'
+{
+  "_schema": "ai-bridge board snapshot v1",
+  "_sensitivity": "Derived and gitignored. Rewritten by scripts/write-snapshot.sh each /pm-loop tick. Delete this file to take this instance off the board for good.",
+  "group": "",
+  "generated_at": "",
+  "counts": {"projects": 0, "tasks": 0, "awaiting": 0},
+  "projects": []
+}
+SNAPSHOT
+  echo "  seed  SNAPSHOT.json (on the board; delete it to take this instance off)"
+elif [ "$FIRST_STAMP" = no ] && [ ! -e "$TARGET/SNAPSHOT.json" ]; then
+  echo "  skip  SNAPSHOT.json (absent by choice — run 'touch SNAPSHOT.json' to re-enable)"
+fi
+
 # 2. Machinery — symlink each file (absolute target), backing up real conflicts.
 chmod +x "$SYMLINK_SRC"/scripts/*.sh 2>/dev/null || true
 while IFS= read -r rel; do
