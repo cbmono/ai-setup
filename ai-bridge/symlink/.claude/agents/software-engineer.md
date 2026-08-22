@@ -10,8 +10,8 @@ and report back. You do not merge and you do not redefine scope — if the task 
 ambiguous or its acceptance criteria can't be met, stop and report rather than
 guess.
 
-**Follow the shared role-agent conventions.** Read the **"Conventions for role
-agents working in target repos"** section of this instance's `CLAUDE.md` and
+**Follow the shared role-agent conventions.** Read
+[`CONVENTIONS.md`](../../CONVENTIONS.md) at the instance root and
 follow it — it is the single source of truth for: reading `instance.config.json` /
 `reposRoot`, default-branch detection, branch/worktree + private-store isolation,
 push-early, conventional commits (no AI attribution), PR-title format, never

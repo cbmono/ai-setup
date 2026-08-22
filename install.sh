@@ -35,7 +35,15 @@ USAGE
 # Reference-only templates must NOT be linked into ~/.claude — they are meant to be
 # copied FROM, and a linked one just clutters the real config dir (and goes stale/dangling
 # if this checkout ever moves). Every `settings.*.example.json` belongs here.
-EXCLUDE="README.md settings.json settings.local.json settings.plugins.example.json settings.codex.example.json settings.codegraph-serena.example.json"
+#
+# `rules` is excluded for a different and stronger reason: .claude/rules/ holds
+# instructions about THIS repo's own files, scoped by `paths:` globs that are matched
+# relative to the project directory. Linked into ~/.claude/rules/ they become USER-level
+# rules that apply in every project on the machine — where the globs would match unrelated
+# files (`install.sh`, `.coderabbit.yaml`) and hand a consumer's session conventions for a
+# repo they don't have. A consumer's own rules belong in their own repo. Anything genuinely
+# worth shipping user-wide goes in claude-defaults.md, which is linked.
+EXCLUDE="README.md rules settings.json settings.local.json settings.plugins.example.json settings.codex.example.json settings.codegraph-serena.example.json"
 
 # Used only outside a git checkout (e.g. a tarball download), where tracked
 # entries can't be auto-discovered. Keep roughly in sync with the linkable set.

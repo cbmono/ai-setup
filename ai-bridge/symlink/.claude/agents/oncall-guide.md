@@ -15,8 +15,8 @@ Follow the `superpowers:systematic-debugging` discipline: find the root cause
 before proposing fixes, gather evidence at component boundaries, form a single
 hypothesis before acting. As a subagent you won't auto-load it — invoke it yourself.
 
-**Read-only subset of the shared conventions.** Read the **"Conventions for role
-agents working in target repos"** section of this instance's `CLAUDE.md` and
+**Read-only subset of the shared conventions.** Read
+[`CONVENTIONS.md`](../../CONVENTIONS.md) at the instance root and
 honor only the parts that apply to a read-only diagnostician: read
 `instance.config.json` for `reposRoot` and resolve `target_repo` under it;
 **detect the default branch** (never assume `main`); **no customer PII** in your

@@ -259,6 +259,26 @@ Auto-invocable capabilities — Claude fires them on intent match (no `/<name>`)
 
 The skill is the canonical definition of the convention — `/grill` and `/plan` also pull it in as a `locators` review lens on frontend changes (the lens carries a short, in-sync copy of the rules). `/dave` restates the rules inline in its prompt and CodeRabbit applies them from its **web** review-instruction settings — both run outside Claude Code and can't reach the skill.
 
+## Path-scoped rules (`.claude/rules/`)
+
+Instructions — not workflows — that load **only when Claude reads a file matching a glob** in their `paths:` frontmatter, instead of every turn. This is where this repo keeps the per-area conventions that used to live in the root `CLAUDE.md`, which is why that file went from ~33,000 to ~15,000 characters without losing a single rule or a line of its reasoning.
+
+| Rule                          | `paths:`                             | Covers                                                                 |
+| ----------------------------- | ------------------------------------ | ---------------------------------------------------------------------- |
+| **ai-bridge**                 | `ai-bridge/**`                       | The subtree's layout and its eight load-bearing invariants             |
+| **hooks-and-scripts**         | `.claude/hooks/**`, `.claude/scripts/**` | Status-line contract, absolute hook paths, the DeepSeek launcher   |
+| **output-styles**             | `.claude/output-styles/**`           | Why `Brief` survives the built-in `Concise`, marker discipline         |
+| **repo-config**               | `.coderabbit.yaml`, `install.sh`     | One-review-per-PR config; the installer's display-only key contract    |
+| **settings-and-permissions**  | `.claude/settings*.json`             | The baseline, default plugins, permission-pattern shapes, deny rules   |
+
+Why rules rather than skills: a skill loads on **intent match** and its name and description stay in context every turn, while a rule loads on **file access** and costs nothing when unmatched. Three properties are worth knowing before you write one — all measured with an [`InstructionsLoaded`](https://code.claude.com/docs/en/hooks) hook, not assumed:
+
+- **A glob is matched relative to the project directory and never matches a file outside it.** `**/*.ts` fires for `<project>/src/a.ts` and does not fire for a file in an `--add-dir` directory elsewhere; neither do `/abs/path/**` or `../outside/**`.
+- **A rule fires on a *read*,** so it can't govern a file being created from scratch. Every prohibition relocated into a rule therefore keeps a one-line headline in `CLAUDE.md` — the headline is the trigger, the rule body is the reasoning.
+- **A rule with no `paths:`, including one whose frontmatter fails to parse, loads unconditionally at session start.** A typo costs context silently rather than erroring. Verify a new rule with the hook rather than by reading its frontmatter.
+
+These rules describe *this repo's* files, so `install.sh` deliberately does **not** link them into `~/.claude` — as user-level rules they'd apply in every project on the machine, where `install.sh` or `.coderabbit.yaml` would match unrelated files. The classification behind the split, including what was deliberately left always-loaded, is in [`docs/instruction-surface-inventory.md`](docs/instruction-surface-inventory.md).
+
 ## Settings (`.claude/settings.json`)
 
 Pre-allows common safe operations so you see fewer permission prompts:
@@ -498,7 +518,7 @@ cd ~/path/to/ai-setup
 ./install.sh
 ```
 
-The script symlinks each tracked default (`agents/`, `commands/`, `skills/`, `hooks/`, `output-styles/`, `scripts/`, `MEMORY.md`, `claude-defaults.md`) **into** your real `~/.claude`, rather than replacing `~/.claude` with one big symlink. Two reasons this matters:
+The script symlinks each tracked default (`agents/`, `commands/`, `skills/`, `hooks/`, `output-styles/`, `scripts/`, `MEMORY.md`, `claude-defaults.md`) **into** your real `~/.claude`, rather than replacing `~/.claude` with one big symlink. `.claude/rules/` is the one tracked default it skips on purpose — those rules are about this repo's own files (see [Path-scoped rules](#path-scoped-rules-clauderules)). Two reasons this matters:
 
 - **Your `~/.claude` keeps owning its runtime state** — `plugins/`, `sessions/`, `projects/`, `history.jsonl`, `settings.local.json`. A whole-directory symlink would either nest inside an existing `~/.claude` (a silent no-op) or relocate all that state into the repo, where it'd clutter the working tree.
 - **It auto-discovers what to link from `git ls-files`**, so a new top-level default added to the repo is picked up on the next run — there's no list to maintain. Re-running is idempotent; anything it would overwrite is backed up to `*.bak.<timestamp>`. Entries are linked whole, so if `~/.claude` already has a real `commands/`/`agents/`/`skills/` of your own, that directory is moved aside to `*.bak.<timestamp>` (recoverable) and replaced by the symlink — keep personal global commands per-project (`<project>/.claude/commands/`) instead, since `~/.claude/commands/` now points into this repo.
