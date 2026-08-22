@@ -10,7 +10,7 @@ in `.claude/agents/<role>.md`; this is the routing reference.
 **Task assignees** — the PM dispatches human-approved `ready` build tasks to these:
 * [software-engineer](/.claude/agents/software-engineer.md) - features and bug fixes in product code
 * [devops-engineer](/.claude/agents/devops-engineer.md) - CI/CD, GitHub Actions, Helm, ArgoCD, Terraform, Docker images, observability
-* [qa-reviewer](/.claude/agents/qa-reviewer.md) - writing/extending tests and reviewing PRs (the quality gate)
+* [qa-reviewer](/.claude/agents/qa-reviewer.md) - writing/extending tests, reviewing PRs, and reviewing a new project scaffold when no external reviewer is installed (the quality gate)
 
 **Orchestration & read-only roles** — **never** task assignees (the PM invokes them, but they aren't dispatched a `ready` task):
 * [project-manager](/.claude/agents/project-manager.md) - orchestrator: refines, assigns, reviews, curates.
@@ -24,7 +24,7 @@ in `.claude/agents/<role>.md`; this is the routing reference.
 |---|---|
 | Application code, APIs, business logic, bug fixes | `software-engineer` |
 | Pipelines, workflows, infra, deploys, images, monitoring | `devops-engineer` |
-| Tests, verification against acceptance criteria, PR review | `qa-reviewer` |
+| Tests, verification against acceptance criteria, PR review, scaffold review | `qa-reviewer` |
 | Diagnosing a red CI / build / failed deploy **without changing code** (incl. from a pasted PR) | `oncall-guide` (read-only, reports back) |
 
 Notes:
