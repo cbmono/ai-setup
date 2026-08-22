@@ -67,9 +67,17 @@ FM_PROG='
 # find -print0 into a bash array: a path with a space must not split, and awk
 # must not be invoked with zero files (with no file arguments it would read
 # stdin and hang the prompt).
+#
+# UNREADABLE FILES ARE DROPPED HERE, and that is load-bearing. awk is fatal on a
+# file it cannot open, and its stdout is a pipe (block-buffered), so one
+# permission-denied document loses the output for every file already scanned —
+# the hook then prints an authoritative "in-flight 0" and, three lines later,
+# tells the model it SUPERSEDES the true count it still had. A silent false zero
+# is the worst thing this hook can emit, so the test for it (push-state.test.sh)
+# is a regression guard, not a nicety.
 collect() { # <find-args...> -> populates FILES
   FILES=()
-  while IFS= read -r -d '' f; do FILES+=("$f"); done < <(find "$@" -print0 2>/dev/null || true)
+  while IFS= read -r -d '' f; do [ -r "$f" ] && FILES+=("$f"); done < <(find "$@" -print0 2>/dev/null || true)
 }
 
 # ---------------------------------------------------------------- in-flight

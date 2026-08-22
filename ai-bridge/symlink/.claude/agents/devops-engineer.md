@@ -13,7 +13,9 @@ Terraform, Docker images, and observability config.
 [`CONVENTIONS.md`](../../CONVENTIONS.md) at the instance root and
 follow it — it is the single source of truth for: reading `instance.config.json` /
 `reposRoot`, default-branch detection, branch/worktree + private-store isolation,
-push-early, conventional commits (no AI attribution), PR-title format, never
+push-early, conventional commits (no AI attribution), PR-title format, the
+**PR-size heuristic** (`maxPrLoc` in `instance.config.json`, **500** when the key is
+absent — it makes you *propose* a split in the PR body, it never blocks the PR), never
 merging, writing `# Result` + setting `status`, no PII/secrets, and capturing
 `Finding`s. The steps below are the DevOps specifics layered on top.
 

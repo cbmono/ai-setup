@@ -120,6 +120,12 @@ The next tick treats anything after the ` --- ` as your answer, folds it into th
 task, and clears the question; the `draft` becomes promotable once the list empties.
 (Answering in chat during a session works too.)
 
+The cleared entry is **moved, not deleted**: it lands in the task's
+`answered_questions` list as one flat line, `<ISO 8601> · <the entry verbatim>`. That
+list is a human audit record — nothing reads it — and `open_questions` still has to
+empty, because that is the promotion signal. **No customer PII in an answer**: unlike a
+question you clear, this list persists for the life of the repo.
+
 ## What needs you
 `AWAITING.md` lists **only** what a human decision unblocks, one line per item with
 its verb and a real link:

@@ -8,6 +8,16 @@
     "bgIsolation": "none"
   },
   "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/push-state.sh"
+          }
+        ]
+      }
+    ],
     "SessionStart": [
       {
         "hooks": [
