@@ -82,13 +82,15 @@ control panel. -->
   session is already running one here.
 - **If this bundle is shared with another human**, each of you clones it and runs
   your own loop — that is supported, and different from two loops on one clone. Set
-  `ownerGithubUser` (your GitHub username) in `instance.config.local.json`
-  (gitignored, per-machine) and put an `owner:` on the projects that are theirs. Each
-  loop then **dispatches only its own human's tasks** (`scripts/task-owner.sh`; no
-  `owner` anywhere means everything is yours, which is the single-human default).
-  Ownership gates **dispatch only** — either of you may promote any task
-  `draft → ready`, and it is not a lock. See `SCHEMA.md` → "Ownership on a shared
-  instance".
+  `ownerGithubUser` (your GitHub login) in `instance.config.local.json` (gitignored,
+  per-machine — the one key each clone needs), set **`defaultOwner`** in the tracked
+  `instance.config.json`, and put an `owner:` on the projects that are theirs. Each
+  loop then **dispatches only its own human's tasks** (`scripts/task-owner.sh`).
+  `defaultOwner` is what stops an *unowned* task being dispatched by both clones, so
+  don't skip it; absent it, and absent any `owner:`, everything is every clone's —
+  correct for one human, a double dispatch for two. Ownership gates **dispatch only**
+  — either of you may promote any task `draft → ready`, and it is not a lock. See
+  `SCHEMA.md` → "Ownership on a shared instance".
 
 ## Reporting progress
 When you report progress — a `/pm-loop` tick summary, `AWAITING.md`, or any
@@ -155,13 +157,14 @@ read `CONVENTIONS.md`.
   this one working tree and a commit of "whatever is staged" absorbs a sibling's
   in-progress files under the wrong author (roles: `project-manager`,
   `software-engineer`, `devops-engineer`, `qa-reviewer`, `cataloguer`; `human` for
-  direct edits). It sets the author **name** to the role while keeping the
-  `authorEmail` from `instance.config.local.json` if present, else
-  `instance.config.json`, else `git config user.email`, so the host still links to
-  the human's account but `git log`/`git shortlog -sn` separate work per agent.
-  **On a shared bundle, put your address in the local file** — the tracked one is
-  read by both of you, so a shared value would author both people's commits as one
-  person. **Never** use this in the target product repos — many forbid AI attribution.
+  direct edits). It sets the author **name** to the role, and the **email** from the
+  first of: `$CONTROL_PLANE_AUTHOR_EMAIL`, `authorEmail` in
+  `instance.config.local.json`, `people[<ownerGithubUser>]` in the tracked
+  `instance.config.json`, the tracked `authorEmail`, `git config user.email`. So the
+  host still links to the human's account, while `git log`/`git shortlog -sn` separate
+  work per agent. **On a shared bundle, the `people` map is how each clone authors as
+  its own human** — a single tracked `authorEmail` would make both people one person.
+  **Never** use this in the target product repos — many forbid AI attribution.
 
 ## Conventions for role agents working in target repos
 **Full rules: [`CONVENTIONS.md`](CONVENTIONS.md) — read it before your first write

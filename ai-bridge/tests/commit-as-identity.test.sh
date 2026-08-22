@@ -16,9 +16,22 @@
 #
 # Resolution order asserted below:
 #   1. $CONTROL_PLANE_AUTHOR_EMAIL
-#   2. "authorEmail" in instance.config.local.json   (gitignored, per-machine)
-#   3. "authorEmail" in instance.config.json         (tracked, shared)
-#   4. `git config user.email`
+#   2. "authorEmail" in instance.config.local.json          (this machine)
+#   3. "people"[<ownerGithubUser>] in instance.config.json  (tracked directory)
+#   4. "authorEmail" in instance.config.json                (tracked, shared)
+#   5. `git config user.email`
+#
+# Step 3 is the shape that makes a second human's setup one line: the addresses are
+# recorded once in the TRACKED config, and each clone's local file says only which login
+# it is — the same key the ownership gate already needs. So the parser gets most of the
+# attention here: it must read only INSIDE the `people` object (a same-named key
+# elsewhere must not answer), handle the pretty-printed and one-line forms alike, and
+# fall through silently on anything it cannot read rather than erroring.
+#
+# Fixture logins are PLACEHOLDERS VERIFIED UNCLAIMED on github.com
+# (`gh api users/example-user-007` → 404), and every address is at example.com, which
+# RFC 2606 reserves. This repo is public: `alice` and `bob` are real accounts, so an
+# example naming one is an example someone copies.
 #
 # `assert()` uses exit-code semantics: 0 is a PASS, matching the other harnesses.
 set -uo pipefail
@@ -48,6 +61,21 @@ setup() { # [<tracked authorEmail>]
   fi
   printf 'x\n' > seed.txt
   git add -A >/dev/null; git commit -qm init
+}
+
+# A tracked config carrying a pretty-printed `people` map, the shape a real instance has.
+tracked_with_people() {
+  cat > instance.config.json <<'JSON'
+{
+  "org": "o",
+  "defaultOwner": "example-user-007",
+  "people": {
+    "example-user-007": "example-user-007@example.com",
+    "example-user-008": "example-user-008@example.com"
+  },
+  "authorEmail": "shared@example.com"
+}
+JSON
 }
 commit_one() { # <role> -> attributes a fresh file
   printf '%s\n' "$RANDOM$RANDOM" > mine.txt
@@ -140,6 +168,129 @@ OUT="$(GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 \
        "$SCRIPT" project-manager "test: none" -- mine.txt 2>&1)" || RC=$?
 assert "no email anywhere -> refuses"   "$([[ $RC -ne 0 ]] && echo 0 || echo 1)"
 assert "…and names the local file too"  "$(printf '%s\n' "$OUT" | grep -q 'instance.config.local.json' && echo 0 || echo 1)"
+
+echo
+echo "== the tracked people map: one line per clone, addresses recorded once =="
+
+setup; tracked_with_people
+printf '{ "ownerGithubUser": "example-user-008" }\n' > instance.config.local.json
+commit_one project-manager
+AE_B="$(ae)"
+eq "people[ownerGithubUser] is used"          "example-user-008@example.com" "$AE_B"
+printf '{ "ownerGithubUser": "example-user-007" }\n' > instance.config.local.json
+commit_one project-manager
+AE_A="$(ae)"
+eq "…and the other clone gets the other one" "example-user-007@example.com" "$AE_A"
+
+# The two clones of one bundle, which is the point: ONE tracked map, two local
+# one-liners, two genuinely different commit authors. Compares what actually landed, not
+# the expected literals — an implementation ignoring the map would make both of these
+# the tracked `authorEmail`, and this is what would catch it.
+assert "two clones author as two different people" \
+  "$( [ -n "$AE_A" ] && [ -n "$AE_B" ] && [ "$AE_A" != "$AE_B" ] && echo 0 || echo 1 )"
+assert "…and neither is the shared tracked address" \
+  "$( [ "$AE_A" != "shared@example.com" ] && [ "$AE_B" != "shared@example.com" ] && echo 0 || echo 1 )"
+
+# Precedence, both directions.
+setup; tracked_with_people
+printf '{ "ownerGithubUser": "example-user-008", "authorEmail": "explicit@example.com" }\n' > instance.config.local.json
+commit_one project-manager
+eq "a local authorEmail beats the map"        "explicit@example.com" "$(ae)"
+setup; tracked_with_people
+printf '{ "ownerGithubUser": "example-user-008" }\n' > instance.config.local.json
+printf 'q\n' > mine.txt; git add mine.txt >/dev/null
+CONTROL_PLANE_AUTHOR_EMAIL=env@example.com "$SCRIPT" project-manager "test: env" -- mine.txt >/dev/null 2>&1
+eq "the env var beats the map"                "env@example.com" "$(ae)"
+
+setup; tracked_with_people
+printf '{ "ownerGithubUser": "example-user-009" }\n' > instance.config.local.json
+commit_one project-manager
+eq "a login absent from the map falls through" "shared@example.com" "$(ae)"
+
+setup; tracked_with_people
+commit_one project-manager
+eq "no ownerGithubUser -> no lookup"           "shared@example.com" "$(ae)"
+
+# ownerGithubUser may also come from the tracked file (the single-human case).
+setup
+printf '{ "people": { "example-user-007": "example-user-007@example.com" }, "ownerGithubUser": "example-user-007" }\n' > instance.config.json
+commit_one project-manager
+eq "a tracked ownerGithubUser also resolves"   "example-user-007@example.com" "$(ae)"
+
+echo
+echo "== the people parser: only inside the object, and never an error =="
+
+setup
+printf '{ "people": { "example-user-008": "inline@example.com" } }\n' > instance.config.json
+printf '{ "ownerGithubUser": "example-user-008" }\n' > instance.config.local.json
+commit_one project-manager
+eq "the one-line people form parses"           "inline@example.com" "$(ae)"
+
+# A same-named key OUTSIDE the object must not answer: reading it would attribute a
+# commit to the wrong address.
+setup shared@example.com
+cat > instance.config.json <<'JSON'
+{
+  "roleTiers": { "example-user-008": "wrong@example.com" },
+  "people": {
+    "example-user-007": "example-user-007@example.com"
+  },
+  "authorEmail": "shared@example.com"
+}
+JSON
+printf '{ "ownerGithubUser": "example-user-008" }\n' > instance.config.local.json
+commit_one project-manager
+eq "a match outside the object is ignored"     "shared@example.com" "$(ae)"
+
+# An empty map, and a login that is not a login, both fall through silently.
+setup shared@example.com
+printf '{ "people": {}, "authorEmail": "shared@example.com" }\n' > instance.config.json
+printf '{ "ownerGithubUser": "example-user-007" }\n' > instance.config.local.json
+commit_one project-manager
+eq "an empty people map falls through"         "shared@example.com" "$(ae)"
+printf '{ "ownerGithubUser": "not a login!" }\n' > instance.config.local.json
+commit_one project-manager
+eq "a non-login ownerGithubUser is not matched" "shared@example.com" "$(ae)"
+# A regex metacharacter must not match some other entry in the map.
+setup shared@example.com
+printf '{ "people": { "example-user-007": "example-user-007@example.com" }, "authorEmail": "shared@example.com" }\n' > instance.config.json
+printf '{ "ownerGithubUser": ".*" }\n' > instance.config.local.json
+commit_one project-manager
+eq "a regex-shaped login matches nothing"      "shared@example.com" "$(ae)"
+
+# The exact GitHub rule, matching task-owner.sh's valid_user: a hyphen only BETWEEN
+# alphanumerics. A value that is not a login must not be looked up even when the map
+# happens to contain that literal key — the shape check is what keeps the two scripts
+# agreeing about what a login is. (Raised by review on PR #67.)
+for bad in 'example-user-007-' 'example-user-007--ops' '-example-user-007' 'example-user-007_ops'; do
+  setup shared@example.com
+  printf '{ "people": { "%s": "bad@example.com" }, "authorEmail": "shared@example.com" }\n' "$bad" > instance.config.json
+  printf '{ "ownerGithubUser": "%s" }\n' "$bad" > instance.config.local.json
+  commit_one project-manager
+  eq "'$bad' is not a login, so no lookup"     "shared@example.com" "$(ae)"
+done
+# …and a legitimately hyphenated login still resolves.
+setup shared@example.com
+printf '{ "people": { "example-user-007-ops": "hyphen@example.com" }, "authorEmail": "shared@example.com" }\n' > instance.config.json
+printf '{ "ownerGithubUser": "example-user-007-ops" }\n' > instance.config.local.json
+commit_one project-manager
+eq "a hyphenated login does resolve"           "hyphen@example.com" "$(ae)"
+
+# The template's own seed must carry PLACEHOLDERS ONLY, and unclaimed ones: this repo is
+# public, and a real address or a live login in the seed is stamped into every future
+# instance.
+assert "the seed people map uses the placeholder logins" \
+  "$(grep -q '"example-user-007"' "$TPL/seed/instance.config.json" && echo 0 || echo 1)"
+assert "…and says it is an example"           \
+  "$(grep -q 'EXAMPLE ONLY' "$TPL/seed/instance.config.json" && echo 0 || echo 1)"
+assert "…and says placeholders must be verified unclaimed" \
+  "$(grep -q 'VERIFIED UNCLAIMED' "$TPL/seed/instance.config.json" && echo 0 || echo 1)"
+assert "…and every address is at example.com" \
+  "$(grep -oE '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+' "$TPL/seed/instance.config.json" \
+     | grep -vE '@example\.com$' | grep -q . && echo 1 || echo 0)"
+# Plausible names are taken: these are real GitHub accounts and must never be examples.
+assert "…and names no live account (alice/bob/jane-doe)" \
+  "$(grep -qE '"(alice|bob|jane-doe)"' "$TPL/seed/instance.config.json" && echo 1 || echo 0)"
 
 echo
 echo "== the override is gitignored by the template's seed =="

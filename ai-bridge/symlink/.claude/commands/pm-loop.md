@@ -145,10 +145,15 @@ ticks, regardless of how long a tick runs.
 - **Dispatch only this clone's human's work.** On an instance shared by more than one
   human, `scripts/task-owner.sh <task-path>` decides, and **exit 0 is the only
   clearance** — exit 1 (someone else's) and exit 2 (cannot answer) both refuse.
-  Resolution is task `owner:` → project `owner:` → `ownerGithubUser` from
-  `instance.config.local.json` (gitignored, per-machine) or `instance.config.json`;
-  **no `owner:` anywhere means every task is this clone's**, so a single-human
-  instance behaves exactly as before and absence is never an error. It gates
+  It is **two operations**: **resolve** the task's owner — task `owner:` → project
+  `owner:` → **tracked `defaultOwner`** → nobody (unowned) — then **compare** that
+  owner against this clone's `ownerGithubUser`, which answers "who am I?" and is never
+  itself a source of ownership. `defaultOwner` lives in `instance.config.json` and is
+  **not** locally overridable: both clones must agree on it, or an unowned task is
+  dispatched twice. `ownerGithubUser` comes from `instance.config.local.json`
+  (gitignored, per-machine) else `instance.config.json`.
+  **With none of them set, every task is this clone's**, so a single-human instance
+  behaves exactly as before and absence is never an error. It gates
   **dispatch only** — never promotion (`draft → ready` stays the human's, either
   human's), never a commit, never the KB. And it is **not a lock**: it stops two
   loops dispatching the same task, not two loops running at once. `AWAITING.md` is

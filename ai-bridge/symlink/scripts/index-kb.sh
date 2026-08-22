@@ -34,17 +34,28 @@ command -v codegraph >/dev/null 2>&1 || {
 }
 
 CONFIG=instance.config.json
+LOCAL_CONFIG=instance.config.local.json
 if [[ ! -f "$CONFIG" ]]; then
   echo "index-kb: run from a control-panel instance root (no $CONFIG here)." >&2
   exit 1
 fi
 
 # reposRoot from config; expand a leading ~ to $HOME (same parse as prune-worktrees).
-REPOS_ROOT=$(grep -o '"reposRoot"[[:space:]]*:[[:space:]]*"[^"]*"' "$CONFIG" \
-  | sed 's/.*:[[:space:]]*"//; s/"$//')
+# OVERRIDABLE per machine: the gitignored instance.config.local.json wins over the
+# tracked instance.config.json, since an absolute path here cannot be right for both
+# clones of a shared bundle. Absent local file ⇒ behaviour unchanged. Full overridable
+# set: SCHEMA.md → "Per-machine config overrides". (`codegraphSkip` below is NOT
+# overridable — it names repos, which both clones share.)
+REPOS_ROOT=""
+for cfg_file in "$LOCAL_CONFIG" "$CONFIG"; do
+  [[ -f "$cfg_file" ]] || continue
+  REPOS_ROOT=$(grep -o '"reposRoot"[[:space:]]*:[[:space:]]*"[^"]*"' "$cfg_file" \
+    | sed 's/.*:[[:space:]]*"//; s/"$//' || true)
+  [[ -n "$REPOS_ROOT" ]] && break
+done
 REPOS_ROOT=${REPOS_ROOT/#\~/$HOME}
 if [[ -z "$REPOS_ROOT" || ! -d "$REPOS_ROOT" ]]; then
-  echo "index-kb: reposRoot ('$REPOS_ROOT') not found — check $CONFIG." >&2
+  echo "index-kb: reposRoot ('$REPOS_ROOT') not found — check $LOCAL_CONFIG / $CONFIG." >&2
   exit 1
 fi
 # Canonicalize so path handling lines up with symlinked reposRoots.

@@ -13,24 +13,42 @@
 #   2  cannot answer: usage error, not an instance root, unreadable/malformed
 #      frontmatter, or a configured value that is not a GitHub username
 #
-# RESOLUTION ORDER (the same three steps every doc naming `owner` must state):
+# TWO OPERATIONS, NOT ONE CHAIN. This RESOLVES the task's owner (the four steps below),
+# then COMPARES that owner against this clone's `ownerGithubUser`. `ownerGithubUser` is
+# the comparator — "who am I?" — and never a source of ownership; listing it as a fourth
+# owner source is the documentation bug to avoid, because it reads as though setting it
+# assigns unowned work.
 #
-#   1. the task's own `owner:`            (projects/<slug>/tasks/<id>.md)
-#   2. else the owning project's `owner:` (projects/<slug>/project.md)
-#   3. else this clone's own human        (`ownerGithubUser`, below)
+# RESOLUTION ORDER (the same four steps every doc naming `owner` must state):
 #
-# So **no `owner:` anywhere means every task is this clone's** — which is exactly
-# the behaviour of a single-human instance, and why this is a no-op for one.
-# Absence is never an error at any of the three steps.
+#   1. the task's own `owner:`             (projects/<slug>/tasks/<id>.md)
+#   2. else the owning project's `owner:`  (projects/<slug>/project.md)
+#   3. else `defaultOwner` from instance.config.json  (TRACKED — see below)
+#   4. else nobody: the task is unowned, and every clone treats it as its own
 #
-# THIS CLONE'S HUMAN comes from `ownerGithubUser`, read from
-# `instance.config.local.json` first (gitignored, per-machine) and then from
-# `instance.config.json` (tracked, shared). **If the key is absent from both, this
-# clone has no configured human** — unowned tasks still clear (step 3 above resolves
-# to "nobody in particular, so mine"), and a task naming an owner refuses, because
-# an unconfigured clone cannot prove the name is its own. That is the fail-closed
-# direction: the cost of refusing is a task waiting one tick, the cost of clearing
-# is two loops dispatching the same task twice.
+# Absence is never an error at any step. With none of the three keys set, step 4
+# clears every task — which is exactly how a single-human instance already behaves,
+# and why all of this is a no-op for one.
+#
+# WHY `defaultOwner` IS TRACKED, AND WHY IT IS NOT LOCALLY OVERRIDABLE.
+# Step 4 is a DOUBLE-DISPATCH BUG the moment a bundle has two clones: an unowned
+# task resolves to "mine" on clone A *and* "mine" on clone B, so both loops dispatch
+# it — precisely what ownership exists to prevent. `defaultOwner` closes that by
+# naming, in the file BOTH clones read, who unowned work belongs to. Exactly one
+# clone then matches it. That only holds while both clones agree, so this key is
+# read from the TRACKED config only: a local override would let the two disagree and
+# would reintroduce the bug it exists to fix. It is the one config key here that is
+# deliberately NOT overridable per machine.
+#
+# THIS CLONE'S HUMAN ("self") is a different question from who owns a task, and comes
+# from `ownerGithubUser` — read from `instance.config.local.json` first (gitignored,
+# per-machine) and then from `instance.config.json`. **On a shared bundle it belongs
+# in the LOCAL file**: a tracked value makes both clones claim the same identity, so
+# one of them would dispatch the other's work. **If the key is absent from both, this
+# clone has no configured human** — unowned tasks still clear (step 4), and a task
+# naming an owner refuses, because an unconfigured clone cannot prove the name is its
+# own. That is the fail-closed direction: the cost of refusing is a task waiting one
+# tick, the cost of clearing is two loops dispatching the same task twice.
 #
 # The value is a **GitHub username**, never an email — public, stable, and it keeps
 # addresses out of tracked documents, which is also the standing no-customer-PII
@@ -87,11 +105,22 @@ json_string() { # <file> <key>
   sed -n 's/.*"'"$2"'"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$1" | head -n1
 }
 
-# A GitHub username: 1-39 of [A-Za-z0-9-]. Anything else is not a username, and a
-# value we cannot read is not a value we may compare against — refuse (exit 2)
-# rather than guess, or a typo would silently make every owned task "someone
-# else's" and quietly stall the board.
-valid_user() { printf '%s' "$1" | grep -qE '^[A-Za-z0-9][A-Za-z0-9-]{0,38}$'; }
+# A GitHub username: 1-39 alphanumerics, hyphens allowed only BETWEEN them — never
+# leading, never trailing, never doubled. Anything else is not a username, and a value
+# we cannot read is not a value we may compare against: refuse (exit 2) rather than
+# guess, or a typo would silently make every owned task "someone else's" and quietly
+# stall the board.
+#
+# The loose form `^[A-Za-z0-9][A-Za-z0-9-]{0,38}$` was wrong in the FAIL-OPEN direction,
+# which is why the exact rule is worth the extra line: it accepted `alice-` and
+# `alice--ops`, so a mistyped `defaultOwner` and a mistyped `ownerGithubUser` carrying
+# the SAME typo compared equal and **cleared** dispatch — the one outcome this guard
+# exists to prevent — instead of refusing with exit 2.
+valid_user() {
+  local u="$1"
+  [ ${#u} -ge 1 ] && [ ${#u} -le 39 ] || return 1
+  printf '%s' "$u" | grep -qE '^[A-Za-z0-9]+(-[A-Za-z0-9]+)*$'
+}
 lower() { printf '%s' "$1" | tr '[:upper:]' '[:lower:]'; }
 
 self="$(json_string "$LOCAL_CONFIG" ownerGithubUser)"
@@ -102,7 +131,8 @@ if [ -z "$self" ]; then
 fi
 if [ -n "$self" ] && ! valid_user "$self"; then
   echo "error: \"ownerGithubUser\" in $self_src is not a GitHub username: '$self'" >&2
-  echo "       Expected 1-39 characters of [A-Za-z0-9-]. Refusing rather than" >&2
+  echo "       Expected 1-39 alphanumerics with single hyphens between them (never" >&2
+  echo "       leading, trailing or doubled). Refusing rather than" >&2
   echo "       comparing against a value we cannot read." >&2
   exit 2
 fi
@@ -197,15 +227,23 @@ if [ -z "$owner" ]; then
   fi
 fi
 
+# Step 3: the TRACKED default. Read from "$CONFIG" only, never the local override —
+# both clones must agree on who unowned work belongs to, or step 4 double-dispatches
+# it (see the header). Absent ⇒ fall through to step 4, i.e. today's behaviour.
 if [ -z "$owner" ]; then
-  echo "ok: $rel names no owner — this clone's work${self:+ (self: $self)}"
+  owner="$(json_string "$CONFIG" defaultOwner)"
+  [ -z "$owner" ] || owner_src="$CONFIG (defaultOwner)"
+fi
+
+if [ -z "$owner" ]; then
+  echo "ok: $rel names no owner and no defaultOwner is set — this clone's work${self:+ (self: $self)}"
   exit 0
 fi
 
 if ! valid_user "$owner"; then
-  echo "error: owner '$owner' in $owner_src is not a GitHub username (1-39 of" >&2
-  echo "       [A-Za-z0-9-]). Refusing rather than comparing against a value we" >&2
-  echo "       cannot read." >&2
+  echo "error: owner '$owner' in $owner_src is not a GitHub username (1-39" >&2
+  echo "       alphanumerics, single hyphens between them only). Refusing rather" >&2
+  echo "       than comparing against a value we cannot read." >&2
   exit 2
 fi
 

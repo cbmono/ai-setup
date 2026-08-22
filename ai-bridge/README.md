@@ -346,13 +346,30 @@ and can hand a project or a single task across. Three pieces make that safe, and
 **all three are no-ops on a single-human instance** — absence means today's
 behaviour, never an error.
 
-**1. `owner` gates dispatch.** Put `owner: <github-username>` on a `project.md`
+**1. `owner` gates dispatch.** Put `owner: <github-login>` on a `project.md`
 (the normal place) or on one `tasks/<id>.md` (overrides the project). A **GitHub
-username**, never an email — public, stable, and it keeps addresses out of tracked
-documents. Resolution is **task `owner:` → project `owner:` → this clone's
-`ownerGithubUser`**, so *no `owner:` anywhere means every task is this clone's*.
-`scripts/task-owner.sh <task-path>` is the resolver and **exit 0 is the only
-clearance**; the PM dispatches a `ready` build task only on 0.
+login**, never an email.
+
+**It is two operations, not one chain** — worth stating plainly, because collapsing
+them reads as though `ownerGithubUser` *assigns* work:
+
+1. **Resolve** who owns the task: task `owner:` → project `owner:` → tracked
+   `defaultOwner` → nobody (unowned).
+2. **Compare** that owner against **this clone's** `ownerGithubUser` — the answer to
+   "who am I?", never a source of ownership. Equal ⇒ dispatch. Different ⇒ leave it.
+   Unowned from step 1 ⇒ every clone treats it as its own, which is why step 1 needs
+   `defaultOwner` on a shared bundle.
+
+`scripts/task-owner.sh <task-path>` does both and **exit 0 is the only clearance**;
+the PM dispatches a `ready` build task only on 0.
+
+**Set `defaultOwner`, or unowned work is dispatched twice.** The last step of that
+chain is safe on one clone and a bug on two: an unowned task resolves to "mine" on
+*both*, so both loops dispatch it. `defaultOwner` in the **tracked** config names who
+unowned work belongs to, in the file both clones read, so exactly one matches. It is
+the one key here that is deliberately **not** locally overridable — an override is
+precisely the disagreement that would break it. Absent, you get the old behaviour, so
+a single-human instance needs nothing.
 
 It gates **dispatch, not promotion**: either human may promote any task
 `draft → ready` — it is a shared board — and gating promotion would be gating the
@@ -362,23 +379,58 @@ And **it is not a lock**: it stops two loops dispatching the *same* task, not tw
 loops acting in the same tick window on tasks they each own, nor two humans pushing
 at once. Those stay ordinary git conflicts — pull before you push.
 
-**2. Identity stays per-machine.** `instance.config.json` is tracked, so its
-`authorEmail` would author both humans' commits as one person. Put your own in
-**`instance.config.local.json`** (gitignored; created by `install.sh` in the
-managed ignore list), which wins over the tracked file for identity keys only:
+**2. Identity: a tracked directory, and a one-line local file.** Record who is who
+**once**, in the tracked config, keyed by GitHub login:
 
 ```json
-{ "authorEmail": "you@example.com", "ownerGithubUser": "your-github-login" }
+"people": { "your-login": "you@example.com", "their-login": "them@example.com" },
+"defaultOwner": "your-login"
 ```
 
-No local file ⇒ resolution is exactly what it was: `$CONTROL_PLANE_AUTHOR_EMAIL`,
-then the tracked `authorEmail`, then `git config user.email`. (A shared bundle can
-alternatively just delete `authorEmail` from the tracked file and let each clone
-fall through to its own `git config user.email`.) A **derived**
-`<username>@users.noreply.github.com` is deliberately *not* used: GitHub requires
-the ID-prefixed `<id>+<username>@…` form for accounts created after 2017-07-18, so
-a derived plain address silently fails to link to the account. Copy yours from
-GitHub → Settings → Emails instead.
+Then each clone's `instance.config.local.json` (gitignored; `install.sh` adds the
+ignore line) says only which login it is:
+
+```json
+{ "ownerGithubUser": "your-login" }
+```
+
+`commit-as.sh` looks the address up in `people`, so a second person's setup is one
+line and they never write their own address down. `instance.config.json` is *tracked*,
+so a single `authorEmail` there would author both humans' commits as one person —
+which is what this replaces.
+
+**The address is per-instance, not per-person, and that is why the map lives in the
+instance rather than anywhere shared.** The same login maps to a different address in
+each group's bundle, because the address says which entity the work belongs to — one
+person working three clients commits as three addresses. So don't try to derive it from
+the login, and don't move it into the local file: that file says *which login this clone
+is*, and the address for that login *in this instance* comes from the tracked map.
+Reversed, two clones of one instance could disagree about which entity the work belongs
+to, and git history would silently record both. The full chain: `$CONTROL_PLANE_AUTHOR_EMAIL` → local
+`authorEmail` (still supported, for a machine that wants to state its own) →
+`people[ownerGithubUser]` → tracked `authorEmail` → `git config user.email`. **Absence
+changes nothing** at every step, which is why this is a no-op for a single-human
+instance.
+
+Real addresses in a private instance repo are fine — that is where they belong. A
+**derived** `<login>@users.noreply.github.com` is deliberately *not* used: GitHub
+requires the ID-prefixed `<id>+<login>@…` form for accounts created after 2017-07-18, so
+a derived plain address silently fails to link to the account. Record the real one.
+
+This template is public, so its seed ships **placeholder logins verified unclaimed on
+github.com** (`example-user-007`/`008`, both 404) and addresses at `example.com`, which
+RFC 2606 reserves. If you write a new example, verify the login the same way —
+`alice`, `bob` and `jane-doe` are all real accounts, and an example is what people copy.
+
+**The local file also covers this machine's paths.** `reposRoot`, `worktreeRoot` and
+`boardInstances` are absolute paths, so a tracked value cannot be right for two
+machines; all three are overridable, and every reader honours it (`prune-worktrees.sh`,
+`link-repos.sh`, `index-kb.sh`, `build-board.sh`). The **one** place the overridable
+set is listed — with what each key means when absent — is
+[`SCHEMA.md` → "Per-machine config overrides"](symlink/SCHEMA.md). Two rules survive
+the override and are checked against the *effective* values: `worktreeRoot` must never
+sit inside the synced `reposRoot`, and `reposRoot` must not be the instance directory
+itself.
 
 **3. The derived indexes are gitignored.** `index.md` (root) and
 `projects/*/index.md` are rewritten every tick from the documents they summarise, so

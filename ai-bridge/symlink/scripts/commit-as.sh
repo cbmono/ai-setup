@@ -28,26 +28,48 @@
 # Never `git add -A` in a shared instance — stage by explicit path.
 #
 # GENERIC TEMPLATE FILE — symlinked from the `ai-bridge` template; do not
-# edit per instance. The shared author email is resolved, in order, from:
-#   1. $CONTROL_PLANE_AUTHOR_EMAIL          (explicit override)
-#   2. "authorEmail" in <repo-root>/instance.config.local.json   (per-machine)
-#   3. "authorEmail" in <repo-root>/instance.config.json         (tracked, shared)
-#   4. `git config user.email`
+# edit per instance. The author email is resolved, in order, from:
+#   1. $CONTROL_PLANE_AUTHOR_EMAIL                               (explicit override)
+#   2. "authorEmail" in <repo-root>/instance.config.local.json   (this machine)
+#   3. "people"[<ownerGithubUser>] in instance.config.json       (tracked directory)
+#   4. "authorEmail" in <repo-root>/instance.config.json         (tracked, shared)
+#   5. `git config user.email`
 #
-# WHY STEP 2 EXISTS. `instance.config.json` is TRACKED, so on an instance shared by
-# two humans its `authorEmail` would author BOTH clones' commits as one person —
-# destroying the per-agent, per-human provenance this script exists to create.
-# `instance.config.local.json` is gitignored, so identity stays per-machine.
-# Only identity keys are read from it (`authorEmail` here, `ownerGithubUser` in
-# task-owner.sh); it is not a general config overlay, and anything else in it is
-# ignored. **Absence changes nothing**: no local file ⇒ steps 3 and 4 exactly as
-# before, which is why this is a no-op for a single-human instance.
+# Most specific first: an explicit env var, then a statement about THIS machine, then
+# the shared directory looked up by who this machine is, then the shared default,
+# then git's own answer.
 #
-# A shared instance can also simply DELETE `authorEmail` from the tracked file and
-# let every clone fall through to its own `git config user.email` (step 4). Both
-# work; the override file is preferred because it needs no edit to a tracked file
-# the other human also reads, and because `ownerGithubUser` needs a per-machine
-# home there anyway.
+# WHY 2 AND 3 EXIST. `instance.config.json` is TRACKED, so on a bundle shared by two
+# humans a single `authorEmail` there would author BOTH clones' commits as one person
+# — destroying the per-agent, per-human provenance this script exists to create.
+#
+# Step 3 is the shape that scales: `"people": { "<login>": "<email>", ... }` in the
+# TRACKED config is a directory of who is who, recorded once by whoever knows the
+# addresses, and each clone's local file then needs a single key —
+# `{ "ownerGithubUser": "<login>" }` — which the ownership gate (task-owner.sh)
+# already requires anyway. So a second human's setup is one line and they never write
+# their own address down. Step 2 stays for the machine that wants to state its own
+# address outright, and it wins, being the more specific claim.
+#
+# `people` is read from the TRACKED file only: it is a shared fact, like `defaultOwner`
+# (see task-owner.sh), not a per-machine one.
+#
+# THE ADDRESS IS PER-INSTANCE, NOT PER-PERSON, which is exactly why the map lives in the
+# instance's own config and nowhere shared: the same login maps to a different address in
+# each group's bundle, because the address says which entity the work belongs to. One
+# person working three clients commits as three addresses. Two things follow. (1) Never
+# DERIVE it from the login — no `<login>@<domain>` rule, and specifically not
+# `<login>@users.noreply.github.com`, which was REJECTED because GitHub requires the
+# ID-prefixed `<id>+<login>@…` form for accounts created after 2017-07-18 and a derived
+# plain address silently fails to link. The mapping is a business fact, not a naming
+# convention. (2) Never move the address into the local file: that file says which login
+# this clone IS, and the address for that login in THIS instance comes from the tracked
+# map. Reversed, two clones of one instance could disagree about which entity the work
+# belongs to and git history would record both.
+#
+# **Absence changes nothing** at every step: no local file, no `people`, no
+# `ownerGithubUser` ⇒ steps 4 and 5 exactly as before. That is what keeps this a no-op
+# for every single-human instance.
 #
 # WHY THIS EXISTS, AND WHY NO FIRST-PARTY FEATURE REPLACES IT (v2 audit, 2026-08).
 # Native background sessions commit, push their own branch and open draft PRs — a
@@ -122,21 +144,71 @@ fi
 
 repo_root="$(git rev-parse --show-toplevel)"
 
-# Resolve the shared author email (see header). The gitignored local file wins over
-# the tracked one, so a shared instance keeps per-machine authorship; an absent
-# local file leaves the previous behaviour untouched.
-config_email=""
-for config_file in "$repo_root/instance.config.local.json" "$repo_root/instance.config.json"; do
-  [ -f "$config_file" ] || continue
-  # Portable extraction of the JSON string value for "authorEmail" (no jq dependency).
-  config_email="$(sed -n 's/.*"authorEmail"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$config_file" | head -n1)"
-  if [ -n "$config_email" ]; then break; fi
-done
+# Resolve the author email (see header for the order and the reasoning).
+TRACKED_CONFIG="$repo_root/instance.config.json"
+LOCAL_CONFIG="$repo_root/instance.config.local.json"
+
+# Portable extraction of a JSON string value (no jq dependency).
+json_string() { # <file> <key>
+  [ -f "$1" ] || return 0
+  sed -n 's/.*"'"$2"'"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$1" | head -n1
+}
+
+# people[<login>] from the TRACKED config. Handles both the pretty-printed block form
+# and the one-line form, and reads ONLY inside the `people` object — a same-named key
+# elsewhere in the file must not answer. awk, not sed: this is a nested object, and a
+# line-wise regex over the whole file cannot tell inside from outside.
+people_email() { # <login>
+  [ -f "$TRACKED_CONFIG" ] || return 0
+  awk -v who="$1" '
+    BEGIN { want = "\"" who "\"" }
+    {
+      if (!inb) {
+        i = index($0, "\"people\"")
+        if (i == 0) next
+        inb = 1
+        $0 = substr($0, i + 8)
+        i = index($0, "{")
+        if (i == 0) next            # the opening brace is on a later line
+        $0 = substr($0, i + 1)
+      }
+      e = index($0, "}")
+      seg = (e ? substr($0, 1, e - 1) : $0)
+      if (match(seg, want "[[:space:]]*:[[:space:]]*\"[^\"]*\"")) {
+        m = substr(seg, RSTART, RLENGTH)
+        sub(/^[^:]*:[[:space:]]*"/, "", m)
+        sub(/"$/, "", m)
+        print m; exit
+      }
+      if (e) exit                   # the object closed without naming this login
+    }
+  ' "$TRACKED_CONFIG"
+}
+
+config_email="$(json_string "$LOCAL_CONFIG" authorEmail)"
+
+if [ -z "$config_email" ]; then
+  # Who is this clone? Same resolution as task-owner.sh: local file, then tracked.
+  who="$(json_string "$LOCAL_CONFIG" ownerGithubUser)"
+  [ -n "$who" ] || who="$(json_string "$TRACKED_CONFIG" ownerGithubUser)"
+  # Shape-check before using it in a regex: a GitHub login is 1-39 alphanumerics with
+  # single hyphens only between them, so a value carrying regex metacharacters — or a
+  # trailing/doubled hyphen — is not a login and must not be matched against the map.
+  # Same rule as task-owner.sh's valid_user. Skipping the lookup falls through to the
+  # next source; it is never an error.
+  if [ ${#who} -le 39 ] && printf '%s' "$who" | grep -qE '^[A-Za-z0-9]+(-[A-Za-z0-9]+)*$'; then
+    config_email="$(people_email "$who")"
+  fi
+fi
+
+[ -n "$config_email" ] || config_email="$(json_string "$TRACKED_CONFIG" authorEmail)"
+
 AUTHOR_EMAIL="${CONTROL_PLANE_AUTHOR_EMAIL:-${config_email:-$(git config user.email || true)}}"
 [ -n "$AUTHOR_EMAIL" ] || {
-  echo "error: no author email — set CONTROL_PLANE_AUTHOR_EMAIL, add \"authorEmail\" to" >&2
-  echo "       instance.config.local.json (per-machine) or instance.config.json," >&2
-  echo "       or run: git config user.email \"...\"" >&2
+  echo "error: no author email. Either add \"authorEmail\" to instance.config.local.json" >&2
+  echo "       (per-machine), add this clone's login to \"people\" in instance.config.json" >&2
+  echo "       and \"ownerGithubUser\" to instance.config.local.json, set" >&2
+  echo "       CONTROL_PLANE_AUTHOR_EMAIL, or run: git config user.email \"...\"" >&2
   exit 2
 }
 

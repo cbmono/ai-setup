@@ -381,20 +381,39 @@ and runs their own `/pm-loop`, so both see one board, one set of projects and on
 knowledge base, and can hand a project or a single task to the other. `owner`
 is what keeps their two loops from doing the same work twice.
 
-**Resolution order — three steps, and every doc naming `owner` states all three:**
+**Two operations, not one chain.** Deciding whether a task is *this clone's* means
+first **resolving** who owns it (the four steps below), then **comparing** that owner
+against this clone's `ownerGithubUser`. Writing `ownerGithubUser` into the resolution
+chain as a third owner source is the mistake to avoid: it reads as though setting it
+*assigns* unowned work, when in fact it only answers "who am I?".
+
+**Resolution order — four steps, and every doc naming `owner` states all four:**
 
 1. the task's own `owner:` (`projects/<slug>/tasks/<id>.md`);
 2. else the owning project's `owner:` (`projects/<slug>/project.md`) — the normal
    place to set it, since work is usually handed over a project at a time;
-3. else **this clone's own human**, from `ownerGithubUser` in
-   `instance.config.local.json` (gitignored, per-machine) or `instance.config.json`.
-   **If that key is absent from both, this clone has no configured human** — an
-   unowned task is still its work (step 3 resolves to "nobody in particular, so
-   mine"), and a task naming an owner is refused, because an unconfigured clone
-   cannot prove the name is its own.
+3. else **`defaultOwner`** from `instance.config.json` — **tracked**, see below;
+4. else nobody: the task is **unowned**, and every clone treats it as its own.
 
-So **no `owner:` anywhere means every task is this clone's**, which is exactly how a
-single-human instance already behaves. Absence is never an error at any step.
+Absence is never an error at any step. With none of the three keys set, step 4 clears
+everything, which is exactly how a single-human instance already behaves.
+
+**`defaultOwner` is tracked, and deliberately not overridable per machine.** Step 4 is
+a **double-dispatch bug** as soon as a bundle has two clones: an unowned task resolves
+to "mine" on clone A *and* "mine" on clone B, so both loops dispatch it — the very
+thing ownership exists to prevent. `defaultOwner` closes that by naming, in the file
+**both** clones read, who unowned work belongs to; exactly one clone then matches. That
+guarantee only holds while both clones agree, so this is the one key here that is read
+from the tracked config **only**. A local override would let them disagree and would
+reintroduce the bug.
+
+**"This clone's human" is a separate question** — who *you* are, not who owns a task —
+and comes from `ownerGithubUser` (`instance.config.local.json`, else
+`instance.config.json`). On a shared bundle it belongs in the **local** file: a tracked
+value makes both clones claim the same identity, so one would dispatch the other's
+work. **Absent from both, this clone has no configured human**: unowned tasks still
+clear (step 4), and a task naming an owner is refused, because an unconfigured clone
+cannot prove the name is its own.
 
 The value is a **GitHub username**, never an email — public, stable, and it keeps
 addresses out of tracked documents, the same no-PII rule that governs every other
@@ -431,6 +450,64 @@ conflict on every push, and the documents it summarises are the source of truth.
 `knowledge/index.md` stays **tracked**: it is the KB's curated lookup surface, it
 changes only when the KB changes rather than every tick, and an agent told to scan
 it needs it to exist in a fresh clone.
+
+## Per-machine config overrides
+
+`instance.config.json` is **tracked**, so every value in it is a statement both clones
+read. Some values cannot be shared: an absolute path on one machine, or which human a
+clone belongs to. Those go in **`instance.config.local.json`** beside it — gitignored
+(`install.sh` adds the line), read **first**, and **entirely optional: no local file
+means the tracked file answers exactly as it always did.**
+
+**This is the one place the overridable set is listed. Don't scatter it.**
+
+| Key | Overridable? | Absent ⇒ |
+|---|---|---|
+| `ownerGithubUser` | **yes** — who this clone is | no configured human: unowned tasks clear, owned ones refuse |
+| `authorEmail` | **yes** — this machine's commit address | `people[ownerGithubUser]`, else the tracked `authorEmail`, else `git config user.email` |
+| `reposRoot` | **yes** — an absolute path on this machine | the readers report it as unset and skip; nothing is guessed |
+| `worktreeRoot` | **yes** — an absolute path on this machine | `<reposRoot>/_wt`, which is also still swept as the legacy root |
+| `boardInstances` | **yes** — a list of paths to sibling instances | just this instance |
+| `defaultOwner` | **no, by design** | step 4 above: unowned, so every clone treats it as its own |
+| `people` | **no** — a shared directory of who is who | no lookup; the `authorEmail` chain answers |
+| everything else | no — shared facts (`org`, `models`, `roleTiers`, `maxAgentsInFlight`, `maxPrLoc`, `defaultRepo`, `externalReviewer`, `codegraphSkip`, …) | as documented per key |
+
+The rule behind the split: **the tracked file holds facts both clones share; the local
+file holds facts about this machine and this human.** A key that must be *the same* on
+both clones to be correct — `defaultOwner`, `people` — is never overridable, because an
+override is exactly the disagreement that breaks it.
+
+Two constraints survive the override and must be checked against the *effective*
+values, not the tracked ones:
+
+* **`worktreeRoot` must never sit inside `reposRoot`** — `reposRoot` is typically a
+  synced folder, and sync rewrites files inside a worktree mid-run. If the local file
+  sets one, check it against whichever value is actually in force for the other.
+* **`reposRoot` must not be the instance directory itself** (`link-repos.sh` refuses
+  that, and it reads the override too).
+
+`people` is a map of **GitHub login → commit email**, used by `commit-as.sh` to author
+a clone's commits as the human who runs it: `{ "<login>": "<email>", … }`. It exists so
+the address is recorded **once**, by whoever knows it, and a second human's local file
+is a single line — `{ "ownerGithubUser": "<login>" }`.
+
+**The address is per-instance, not per-person — and that is why the map lives here.**
+The same login maps to a *different* address in each group's bundle, because the address
+says which entity the work belongs to: one person working three clients commits as a
+different address in each of their three instances. That is a business fact about the
+instance, not a naming convention, so:
+
+* **never derive it from the login.** No `<login>@<domain>` rule, and specifically not
+  `<login>@users.noreply.github.com` — that one was rejected outright, because GitHub
+  requires the ID-prefixed `<id>+<login>@…` form for accounts created after 2017-07-18,
+  so a derived plain address silently fails to link to the account. Only the instance
+  can state its own mapping;
+* **never move the address into the local file.** `instance.config.local.json` says
+  *which login this clone is*; the address for that login *in this instance* comes from
+  the tracked map. Split the other way, two clones of one instance could disagree about
+  which entity the work belongs to and git history would silently record both.
+
+Real addresses in a private instance repo are fine — that is where they belong.
 
 # Project & objective completion
 

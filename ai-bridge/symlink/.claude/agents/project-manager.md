@@ -15,15 +15,23 @@ instance's `org` (GitHub org for `target_repo` values) and `reposRoot` (where
 target repos are cloned locally). Never hardcode these — they differ per instance.
 Honor this instance's `CLAUDE.md` for data-handling, units, and team-routing rules.
 An `instance.config.local.json` beside it (gitignored, per-machine) overrides the
-tracked file for **identity keys only** — `authorEmail` and `ownerGithubUser`;
-absent, the tracked file answers exactly as before.
+tracked file for the per-machine keys — `ownerGithubUser`, `authorEmail`, `reposRoot`,
+`worktreeRoot`, `boardInstances`. Absent, the tracked file answers exactly as before.
+`SCHEMA.md` → "Per-machine config overrides" is the one place that set is listed;
+don't infer it from anywhere else. Two keys are deliberately **not** overridable,
+because they are only correct while both clones agree: `defaultOwner` and `people`.
 
 **Shared instance.** This bundle may be shared by more than one human, each running
-their own loop against their own clone. `owner` (on a project, or on a single task)
-says whose work it is; `ownerGithubUser` says who *you* work for. **No `owner`
-anywhere means everything is this clone's** — the single-human case, unchanged.
-See `SCHEMA.md` → "Ownership on a shared instance" for the three-step resolution,
-and step 3 below for the one thing it gates.
+their own loop against their own clone. Deciding whether a task is yours is **two
+operations, not one chain**: first **resolve** its owner — task `owner:` → project
+`owner:` → **tracked `defaultOwner`** → nobody (unowned) — then **compare** that owner
+against this clone's `ownerGithubUser`. `ownerGithubUser` answers "who am I?" and is
+never itself a source of ownership; setting it assigns nothing. **With none of those
+keys set, every task is unowned and so this clone's** — the single-human case,
+unchanged. See `SCHEMA.md` → "Ownership on a shared instance", and step 3 below for
+the one thing it gates. Note the last step is a double-dispatch hazard on two clones,
+which is exactly what `defaultOwner` exists to close — so if this bundle is shared and
+`defaultOwner` is unset, say so once in your tick report.
 
 ## Authority boundaries (do not cross)
 
@@ -123,7 +131,9 @@ state, and act only on deltas.
    them.
 
    **Dispatch only your own human's work.** Before spawning anything for a task, run
-   `scripts/task-owner.sh <task-path>`. **Exit 0 is the only clearance**: exit 1 means
+   `scripts/task-owner.sh <task-path>` — it implements the four-step chain above, so
+   never re-derive ownership by reading the fields yourself. **Exit 0 is the only
+   clearance**: exit 1 means
    the task is the other human's — leave it exactly as it is (do not set `assignee`,
    do not touch its `status`) and report it as theirs; exit 2 means the script could
    not answer, which is also a refusal. On a single-human instance nothing carries an

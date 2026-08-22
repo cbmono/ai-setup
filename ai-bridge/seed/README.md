@@ -35,15 +35,30 @@ Edit `instance.config.json`:
 - `worktreeRoot` — where agent build worktrees live. Keep it **outside** any synced
   folder (Dropbox/iCloud rewrite files inside a worktree mid-run). Absent this key,
   worktrees fall back to `<reposRoot>/_wt`, which is also still swept as the legacy root.
-- `authorEmail` — commit email for per-agent authorship. **On a bundle shared with
-  another human, put yours in `instance.config.local.json` instead** (gitignored,
-  per-machine, and it wins over this file for identity keys) — this file is tracked,
-  so a shared value would author both people's commits as one person.
-- `ownerGithubUser` — optional; **your** GitHub username, for a shared bundle. With
-  `owner:` on a project or task, each human's loop dispatches only its own work
-  (`scripts/task-owner.sh`). Absent from both config files, and with no `owner:`
-  anywhere, every task is this clone's — the single-human default. Belongs in
-  `instance.config.local.json`, for the same reason as `authorEmail`.
+- `authorEmail` — commit email for per-agent authorship. Used when `people` (below)
+  has no entry for this clone.
+- `people` — optional; a map of **GitHub login → commit email** for everyone who works
+  this bundle: `{ "<login>": "<email>", … }`. Recorded once, by whoever knows the
+  addresses. `scripts/commit-as.sh` looks up this clone's login, so each clone authors
+  its commits as the human running it. **The address is per-instance, not per-person**:
+  the same login belongs to a different address in each group's bundle, because the
+  address says which entity the work belongs to — which is why this map lives here and
+  not anywhere shared, why it is never derived from the login, and why it never moves
+  into `instance.config.local.json` (that file says which login this clone *is*). The
+  template ships **placeholder logins verified unclaimed on github.com** and addresses
+  at `example.com` — replace them here, in your own instance, and verify any new example
+  login the same way.
+- `defaultOwner` — optional; the GitHub login that owns work no `owner:` names. **Set
+  it on any bundle shared by more than one human**: without it an unowned task resolves
+  to "mine" on every clone and two loops dispatch it. Tracked on purpose, and **not**
+  locally overridable — both clones must agree. Absent, every task is every clone's,
+  which is right for a single-human instance and is the old behaviour exactly.
+
+Per-machine values go in **`instance.config.local.json`** beside this file
+(gitignored, read first, entirely optional): `ownerGithubUser` (which login this clone
+is — the one key a second person needs), `authorEmail`, `reposRoot`, `worktreeRoot`,
+`boardInstances`. The full set, and what each means when absent, is listed in one place:
+`SCHEMA.md` → "Per-machine config overrides".
 - `defaultRepo` — optional; default repo for `/pr-review-request` (bare name is
   qualified with `org`, or give `owner/name`).
 - `prReviewSlackChannel` — optional; channel name or id for `/pr-review-request`.

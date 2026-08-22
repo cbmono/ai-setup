@@ -7,26 +7,31 @@ surface:** scan it to find prior work, then open only the specific doc(s) you ne
 (populated via the agent and as a byproduct of task work).
 
 ## Services
+
 | Service | What it is | Path | Status |
 |---|---|---|---|
 | _(none yet)_ | | | |
 
 ## Findings — decisions, learnings, gotchas
+
 | Finding | Summary | Path | Status |
 |---|---|---|---|
 | _(none yet)_ | | | |
 
 ## Runbooks
+
 | Runbook | When to use | Path | Status |
 |---|---|---|---|
 | _(none yet)_ | | | |
 
 ## References — durable specs & contracts
+
 | Reference | What it specifies | Path | Status |
 |---|---|---|---|
 | _(none yet)_ | | | |
 
 ## Teams — who owns what / routing
+
 | Team | Owns | Path |
 |---|---|---|
 | _(none yet)_ | | |
