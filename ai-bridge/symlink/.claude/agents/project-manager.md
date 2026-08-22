@@ -298,6 +298,17 @@ state, and act only on deltas.
    human to approve or merge something that isn't there, which costs more trust
    than a missing row costs time.
 
+   **Refresh the board snapshot — again, only if it already exists.** At the very end
+   of the tick, after the curation commit and the queue rewrite, run
+   `scripts/write-snapshot.sh --quiet`. It derives `SNAPSHOT.json` at the bundle root
+   from `projects/*/{project.md,phases/*.md,tasks/*.md}`, which is why you run the
+   script instead of assembling JSON yourself — hand-written JSON drifts from the
+   field allowlist, and that allowlist is a data-governance boundary, not a format.
+   The same absence rule as `AWAITING.md` applies and the script enforces it for you:
+   **no `SNAPSHOT.json` ⇒ it writes nothing and exits 0**, because its absence is how
+   a human takes this instance off the cross-instance board. Never create the file,
+   and never stage or commit it — it is derived and gitignored, like the queue.
+
 9. **Leave for the human.** By default, do not act on a `draft` beyond surfacing it — it
    awaits the human's approval (a project that delegates promotion is the one exception,
    per step 2). A `draft` with open questions, and any `blocked` task, **always** await a

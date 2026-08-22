@@ -3,6 +3,7 @@
   "org": "your-github-org",
   "reposRoot": "~/workspace/<group>",
   "worktreeRoot": "~/agent-worktrees",
+  "boardInstances": [],
   "authorEmail": "you@example.com",
   "defaultRepo": null,
   "maxAgentsInFlight": 10,

@@ -143,6 +143,69 @@ The old `/status` command and `DASHBOARD.md` are gone. In each existing instance
 
 </details>
 
+## Cross-instance board (optional)
+
+`AWAITING.md` answers "what needs me *here*". The board answers "where does everything
+stand, across every instance" — one self-contained HTML page: instance → project →
+phase progress → a column per task status, with the same 🔴 awaiting-you queue on top.
+Two scripts, in the order you run them:
+
+```bash
+scripts/write-snapshot.sh          # in an instance: refresh its SNAPSHOT.json
+scripts/build-board.sh             # anywhere: render one page from every snapshot
+scripts/build-board.sh --standalone --out /tmp/board.html   # ...to open in a browser
+```
+
+**The snapshot is the observation contract.** `write-snapshot.sh` derives
+`SNAPSHOT.json` at the bundle root from `projects/*/{project.md,phases/*.md,tasks/*.md}`
+— nothing else reads the bundle to build the board. Each `/pm-loop` tick refreshes it
+at the end of the tick, so on a looping instance you never run it by hand.
+
+**On by default, off by deletion** — exactly like `AWAITING.md`, and for the same
+reason. `install.sh` creates `SNAPSHOT.json` on the **first stamp only**; the writer
+rewrites it just when it already exists and never creates it; `build-board.sh` leaves an
+instance without one off the page entirely, with no placeholder. So `rm SNAPSHOT.json`
+takes that instance off the board for good (an installer re-run won't resurrect it:
+`FIRST_STAMP` gates that) and `touch SNAPSHOT.json` puts it back. Both files are
+derived and gitignored; never hand-edit either. An instance stamped **before** the board
+existed is in the same position as one that deleted the file — the installer will not
+create it there either — so opt in with `touch SNAPSHOT.json`; `upgrade.sh` reports the
+two seed changes that go with it (the `.gitignore` line and the `boardInstances` key).
+
+**Which instances appear is explicit, never a glob.** `build-board.sh` renders the
+directories you name; with none named it reads `boardInstances` in
+`instance.config.json`; **if that key is absent or empty, the board is just this
+instance.** (The script is symlinked into every instance and cannot know where anybody's
+workspace lives, so it never guesses at siblings.)
+
+```jsonc
+// instance.config.json
+"boardInstances": ["." , "~/workspace/other-group/_ai-bridge-other-group"]
+```
+
+**Publishing it.** The default output is an **Artifact page body** — a `<title>`, an
+inline `<style>`, then content, with no `<!doctype>`/`<html>`/`<head>`/`<body>`, because
+the publish step wraps the file in exactly those. Use `--standalone` for a file you open
+in a browser yourself. The page makes **zero external requests** (no fonts, no CDN, no
+`<script>` at all — the instance tabs are CSS-only), is theme-aware, and scrolls its
+status columns inside their own strip rather than the page body.
+
+**Before you publish it, know what it carries.** The board can leave the machine, so the
+snapshot deliberately carries *less* than `AWAITING.md` does: project
+title/description/kind/status/autonomy, phase title/order/status, and per task its
+id/title/kind/status/assignee **role**/in-flight flag/awaiting **verb**/open-question
+**count**/PR links. It never carries a task `description:`, any document body, the
+**text** of an open question or a blocker reason, any author identity, or any path
+outside the bundle — and the page identifies an instance by its directory **name**, not
+its path. Titles *are* carried, because a board without them is unreadable, which makes
+the file **as sensitive as the task documents it comes from**; that sentence travels
+inside the JSON in its own `_sensitivity` key. No customer PII belongs in a task title in
+the first place.
+
+`build-board.sh` needs `python3` (standard library only) — JSON parsing and
+HTML-escaping are the two things a hand-rolled awk reader gets wrong on exactly this
+input. `write-snapshot.sh` is bash + awk like everything else under `scripts/`.
+
 ## Projects: build & research
 Projects come in two `kind`s (see `symlink/SCHEMA.md`):
 - **`build`** (default) — ships code to a `target_repo` as PRs; role agents execute,
