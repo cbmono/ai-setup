@@ -31,11 +31,21 @@ gated on **completion**, never on a clock.
 
 **This guarantee is per-session only — there is no cross-session lock.** The
 "one tick at a time" serialization lives in *this* session's wakeup chain; a
-second Claude session running `/pm-loop` against the **same instance** reintroduces
-exactly the overlap bug (double-dispatch, shared-store corruption, racing pushes
-to the control panel's `main`). **Run at most one active `/pm-loop` per instance
-at a time** — that's a human responsibility, not something the loop can enforce.
-Before starting, make sure no other session is already looping this instance.
+second Claude session running `/pm-loop` against the **same working tree**
+reintroduces exactly the overlap bug (double-dispatch, shared-store corruption,
+racing pushes to the control panel's `main`). **Run at most one active `/pm-loop`
+per clone at a time** — that's a human responsibility, not something the loop can
+enforce. Before starting, make sure no other session is already looping this clone.
+
+**A bundle shared by two humans is different, and is supported.** Each human has
+their own clone on their own machine, with their own `reposRoot` and
+`worktreeRoot`, so two of the three failure modes cannot arise: there is no shared
+package store and no shared working tree. The third — double-dispatch — is what
+`owner` prevents, since each loop dispatches only its own human's tasks
+(`scripts/task-owner.sh`; see the guardrails below). What remains is racing pushes
+to the bundle's `main`, which is an ordinary git conflict on ordinary git files,
+not corruption: pull before you push. **Two loops against one clone is still the
+bug; two loops against one bundle from two clones is the design.**
 
 **Diagnosing it: suspect your own second tick first.** Interleaved writers on one
 control panel read like another session in the bundle, and usually aren't — a tick
@@ -132,6 +142,23 @@ ticks, regardless of how long a tick runs.
   the field is inert. See the PM agent's "Authority boundaries". When `autonomy` is unset,
   act as `gated`.
 - Reconcile doc `status:` against live `gh`/`git` before acting; act only on deltas.
+- **Dispatch only this clone's human's work.** On an instance shared by more than one
+  human, `scripts/task-owner.sh <task-path>` decides, and **exit 0 is the only
+  clearance** — exit 1 (someone else's) and exit 2 (cannot answer) both refuse.
+  It is **two operations**: **resolve** the task's owner — task `owner:` → project
+  `owner:` → **tracked `defaultOwner`** → nobody (unowned) — then **compare** that
+  owner against this clone's `ownerGithubUser`, which answers "who am I?" and is never
+  itself a source of ownership. `defaultOwner` lives in `instance.config.json` and is
+  **not** locally overridable: both clones must agree on it, or an unowned task is
+  dispatched twice. `ownerGithubUser` comes from `instance.config.local.json`
+  (gitignored, per-machine) else `instance.config.json`.
+  **With none of them set, every task is this clone's**, so a single-human instance
+  behaves exactly as before and absence is never an error. It gates
+  **dispatch only** — never promotion (`draft → ready` stays the human's, either
+  human's), never a commit, never the KB. And it is **not a lock**: it stops two
+  loops dispatching the same task, not two loops running at once. `AWAITING.md` is
+  the one artifact that narrows to this human's decisions; the tick report still
+  names the other human's work. See `SCHEMA.md` → "Ownership on a shared instance".
 - **An answered question is MOVED, never deleted.** Folding an answer in shifts that
   `open_questions` entry into the task's `answered_questions` list — one flat line,
   `<ISO 8601> · <the entry verbatim>` (see `SCHEMA.md`). `open_questions` must still
@@ -171,9 +198,10 @@ ticks, regardless of how long a tick runs.
   count, and what awaits the human (approvals / answers / merges).
 
 ## Notes
-- One serial loop per session — and **one active loop per instance** (see "Why
-  serial"): don't start a second session looping the same instance. To change the
-  gap: stop, then `/pm-loop <gap>`.
+- One serial loop per session — and **one active loop per clone** (see "Why
+  serial"): don't start a second session looping the same working tree. Two humans
+  sharing one bundle from two clones is a different case and is supported — see
+  there. To change the gap: stop, then `/pm-loop <gap>`.
 - A tick with nothing to do is a fast no-op — the gap keeps idle cycles cheap.
 - Each tick refreshes `AWAITING.md` — the queue of what a human decision unblocks —
   **only when that file already exists**; a `SessionStart` hook surfaces its

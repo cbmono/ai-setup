@@ -175,7 +175,9 @@ A few things worth knowing:
 - **The machinery is symlinked, not copied**, so a `git pull` on `ai-setup` updates every instance immediately. Your instance data is copied once and never clobbered. Re-run `install.sh` only when the template *adds* new files.
 - **Want one tree in your editor?** Open the seeded `<group>.code-workspace` (VS Code / Cursor / Antigravity) for a multi-root view. Zed users: open the group folder.
 
-**One `/pm-loop` per instance at a time.** The "one tick at a time" guarantee is per session and there's no cross-session lock — a second session looping the same instance would double-dispatch tasks and race pushes.
+**One `/pm-loop` per clone at a time.** The "one tick at a time" guarantee is per session and there's no cross-session lock — a second session looping the same working tree would double-dispatch tasks and race pushes.
+
+**Sharing an instance with someone else** is a different case and is supported: you each clone the bundle and run your own loop, seeing one board, one set of projects and one knowledge base. Four settings make it safe, and every one of them is a no-op on a single-human instance — `owner: <github-login>` on a project (or a single task) so each loop **dispatches only its own human's work** (it gates *dispatch*, never promotion, and it is not a lock); `defaultOwner` in the tracked config, so work nobody owns is still dispatched by exactly one clone; a `people` map recording who is who, so each clone authors its commits as its own human from a one-line `instance.config.local.json`; and the derived `index.md` files **gitignored** — for an instance whose copies are already committed, `install.sh` prints the exact `git rm --cached` to run, since a gitignore rule does nothing to a file git already tracks; it never untracks anything itself. That local file also carries this machine's paths (`reposRoot`, `worktreeRoot`). Details: [`ai-bridge/README.md` → Sharing one instance between two humans](ai-bridge/README.md#sharing-one-instance-between-two-humans).
 
 ## Tuning: cost, speed, and depth
 

@@ -34,7 +34,9 @@ the spec this bundle follows). Neither exists in any instance and neither is req
 **Concept documents live only in the schema-defined locations** — `objectives/*.md`,
 `projects/*/project.md`, `projects/*/phases/*.md`, `projects/*/tasks/*.md`,
 `knowledge/<kind>/*.md`. `index.md`, `log.md`, `sources/` and `deliverables/` are
-navigation and content, and carry no frontmatter by design.
+navigation and content, and carry no frontmatter by design. (`knowledge/<kind>/` is
+a shape, not a list of names — a fifth kind directory is validated the moment it
+exists, which is how `knowledge/references/` was already covered.)
 
 # Schema
 
@@ -65,6 +67,7 @@ deliverables: [ "<artifact>", ... ]   # RESEARCH only: what this project produce
 autonomy: gated | <mode>              # optional (default gated). gated = the human promotes `ready` AND merges — both gates absolute. Any other value names a delegated-authority mode defined in `AUTONOMY.md`, and is INERT unless that file exists (absent ⇒ gated). See "Delegated authority" below.
 clis: [ <name>, ... ]                 # optional: external CLIs/integrations this project's agents may use (e.g. render, supabase). A declaration — agents still verify a CLI works before relying on it. BUILD-SHAPED: research projects dispatch no agents, so `/new-project` never asks for it there (an explicit clis= flag is still recorded).
 browser: off | claude-for-chrome      # optional (default off). claude-for-chrome = agents may drive the browser via the claude-in-chrome tools when present — background role agents included, each with its OWN tab group (not the human's tabs), so navigate explicitly. Absent tools = degrade, don't fail. Writes follow the project's autonomy: ask-first by default, permitted where a delegated mode says so (AUTONOMY.md). See "Browser access" below.
+owner: <github-username>              # optional: which human's work this project is, on an instance shared by more than one. A GitHub USERNAME, never an email. Absent ⇒ nobody in particular, so it is this clone's — see "Ownership on a shared instance" below. Gates DISPATCH only, never promotion.
 status: active | paused | done
 timestamp: <ISO 8601>
 ---
@@ -108,6 +111,7 @@ description: <one line>
 kind: build | research                # inherits the project's kind if omitted
 status: draft                         # initial state; see lifecycle below
 assignee:                             # BUILD: role slug set by PM (software-engineer | devops-engineer | qa-reviewer). RESEARCH: usually empty (human-driven)
+owner: <github-username>              # optional: overrides the project's `owner` for this one task, on a shared instance. Absent ⇒ the project's owner; absent there too ⇒ this clone's. See "Ownership on a shared instance". Gates DISPATCH only, never promotion. Omit the key entirely when the project's owner is right — an empty value reads as absent, and a placeholder would read as a declared owner.
 model:                                # optional: override model routing — a tier (light|standard|deep) or any raw model alias (e.g. haiku|sonnet|opus). PM resolves tiers via instance.config.json and passes aliases verbatim.
 target_repo: <org>/<repo>             # BUILD only: inherits project default if omitted
 objective: /objectives/<slug>.md
@@ -155,7 +159,7 @@ title: <service name>
 description: <one line>
 repo: <org>/<repo>                # owning repo (or monorepo)
 path: services/<name>             # path within a monorepo, if applicable
-owner:                            # team / person, optional
+owner:                            # team / person, optional. FREE TEXT and read by nothing — unrelated to the `owner` that gates dispatch on a Project/Task (see "Ownership on a shared instance").
 stack: [ <framework>, <orm>, ... ]
 runtime: node-<major>
 status: active | deprecated
@@ -210,6 +214,32 @@ timestamp: <ISO 8601>
 ---
 ```
 Body headings: `# When to use`, `# Steps`, `# Verification`, `# References`.
+
+### type: Reference  (`knowledge/references/<slug>.md`)
+
+A durable specification or contract the bundle keeps as reference material —
+longer-lived than a `Finding` (which states one decision or learning) and not a
+procedure (`Runbook`) or a system description (`Service`).
+
+```yaml
+---
+type: Reference
+title: <what this specifies>
+description: <one line>
+status: current | superseded
+timestamp: <ISO 8601>
+---
+```
+
+This is the fifth knowledge kind, and it is deliberately the **thinnest**: the
+`Reference` type already existed for the bundle's own root documents (`SCHEMA.md`,
+`AUTONOMY.md`), which sit outside every schema-defined location and are therefore
+never validated. `knowledge/references/*.md` **is** a schema-defined location, so
+those documents were already being checked for `type`, `timestamp` and dangling
+frontmatter references — the one gap was the `status` enum, because `Reference` had
+none. Declaring the kind closes exactly that gap and adds no field the live
+documents do not already carry. Root documents are unaffected: they are not in a
+schema-defined location, so no enum reaches them.
 
 # Task lifecycle
 
@@ -344,6 +374,141 @@ point to them from `# Result`). Approval of the deliverable replaces the merge g
 
 Everything between `ready` and `done` is the PM's to drive autonomously.
 
+# Ownership on a shared instance
+
+An instance may be shared by more than one human: each clones the same bundle repo
+and runs their own `/pm-loop`, so both see one board, one set of projects and one
+knowledge base, and can hand a project or a single task to the other. `owner`
+is what keeps their two loops from doing the same work twice.
+
+**Two operations, not one chain.** Deciding whether a task is *this clone's* means
+first **resolving** who owns it (the four steps below), then **comparing** that owner
+against this clone's `ownerGithubUser`. Writing `ownerGithubUser` into the resolution
+chain as a third owner source is the mistake to avoid: it reads as though setting it
+*assigns* unowned work, when in fact it only answers "who am I?".
+
+**Resolution order — four steps, and every doc naming `owner` states all four:**
+
+1. the task's own `owner:` (`projects/<slug>/tasks/<id>.md`);
+2. else the owning project's `owner:` (`projects/<slug>/project.md`) — the normal
+   place to set it, since work is usually handed over a project at a time;
+3. else **`defaultOwner`** from `instance.config.json` — **tracked**, see below;
+4. else nobody: the task is **unowned**, and every clone treats it as its own.
+
+Absence is never an error at any step. With none of the three keys set, step 4 clears
+everything, which is exactly how a single-human instance already behaves.
+
+**`defaultOwner` is tracked, and deliberately not overridable per machine.** Step 4 is
+a **double-dispatch bug** as soon as a bundle has two clones: an unowned task resolves
+to "mine" on clone A *and* "mine" on clone B, so both loops dispatch it — the very
+thing ownership exists to prevent. `defaultOwner` closes that by naming, in the file
+**both** clones read, who unowned work belongs to; exactly one clone then matches. That
+guarantee only holds while both clones agree, so this is the one key here that is read
+from the tracked config **only**. A local override would let them disagree and would
+reintroduce the bug.
+
+**"This clone's human" is a separate question** — who *you* are, not who owns a task —
+and comes from `ownerGithubUser` (`instance.config.local.json`, else
+`instance.config.json`). On a shared bundle it belongs in the **local** file: a tracked
+value makes both clones claim the same identity, so one would dispatch the other's
+work. **Absent from both, this clone has no configured human**: unowned tasks still
+clear (step 4), and a task naming an owner is refused, because an unconfigured clone
+cannot prove the name is its own.
+
+The value is a **GitHub username**, never an email — public, stable, and it keeps
+addresses out of tracked documents, the same no-PII rule that governs every other
+field here. Comparison is case-insensitive.
+
+**Not to be confused with `owner:` on a `Service`.** That is a different,
+pre-existing field: free text naming the owning *team or person* for a system in the
+knowledge base, purely descriptive, and nothing reads it. The dispatch gate reads
+`owner` **only** on `Project` and `Task` documents, and a `Service` is neither — so
+the two never meet. Don't unify them: one is a routing note about a system, the other
+is a machine-compared identity.
+
+**It gates DISPATCH, not promotion.** `scripts/task-owner.sh <task-path>` is the
+resolver, and **exit 0 is the only clearance**: the loop dispatches a `ready` build
+task only when it exits 0, and leaves anything else alone. It does **not** gate
+`draft → ready`: a shared board means either human may promote any task, whoever
+owns it, and gating promotion would be gating the wrong verb. Nor does it gate
+commits, the KB, or `/close-project`.
+
+**The loop still sees and reports the other human's work** — that is the entire
+point of sharing. Only `AWAITING.md` narrows: it queues decisions *this* human can
+act on. Someone else's tasks appear in the tick report, not in the queue.
+
+**It is not a lock.** Git is not a lock, and neither is this. It stops two loops
+double-dispatching the *same* task. It does not stop two loops acting in the same
+tick window on tasks they each own, or two humans pushing the control panel at once
+— those stay ordinary git conflicts, resolved the ordinary way. Claiming more than
+that would be claiming a guarantee the mechanism cannot make.
+
+**Derived files are not shared.** `index.md` (root and per-project) is regenerated
+every tick from the documents, so on a shared instance it is gitignored like
+`AWAITING.md` and `SNAPSHOT.json` — a derived file two loops rewrite is a merge
+conflict on every push, and the documents it summarises are the source of truth.
+`knowledge/index.md` stays **tracked**: it is the KB's curated lookup surface, it
+changes only when the KB changes rather than every tick, and an agent told to scan
+it needs it to exist in a fresh clone.
+
+## Per-machine config overrides
+
+`instance.config.json` is **tracked**, so every value in it is a statement both clones
+read. Some values cannot be shared: an absolute path on one machine, or which human a
+clone belongs to. Those go in **`instance.config.local.json`** beside it — gitignored
+(`install.sh` adds the line), read **first**, and **entirely optional: no local file
+means the tracked file answers exactly as it always did.**
+
+**This is the one place the overridable set is listed. Don't scatter it.**
+
+| Key | Overridable? | Absent ⇒ |
+|---|---|---|
+| `ownerGithubUser` | **yes** — who this clone is | no configured human: unowned tasks clear, owned ones refuse |
+| `authorEmail` | **yes** — this machine's commit address | `people[ownerGithubUser]`, else the tracked `authorEmail`, else `git config user.email` |
+| `reposRoot` | **yes** — an absolute path on this machine | the readers report it as unset and skip; nothing is guessed |
+| `worktreeRoot` | **yes** — an absolute path on this machine | `<reposRoot>/_wt`, which is also still swept as the legacy root |
+| `boardInstances` | **yes** — a list of paths to sibling instances | just this instance |
+| `defaultOwner` | **no, by design** | step 4 above: unowned, so every clone treats it as its own |
+| `people` | **no** — a shared directory of who is who | no lookup; the `authorEmail` chain answers |
+| everything else | no — shared facts (`org`, `models`, `roleTiers`, `maxAgentsInFlight`, `maxPrLoc`, `defaultRepo`, `externalReviewer`, `codegraphSkip`, …) | as documented per key |
+
+The rule behind the split: **the tracked file holds facts both clones share; the local
+file holds facts about this machine and this human.** A key that must be *the same* on
+both clones to be correct — `defaultOwner`, `people` — is never overridable, because an
+override is exactly the disagreement that breaks it.
+
+Two constraints survive the override and must be checked against the *effective*
+values, not the tracked ones:
+
+* **`worktreeRoot` must never sit inside `reposRoot`** — `reposRoot` is typically a
+  synced folder, and sync rewrites files inside a worktree mid-run. If the local file
+  sets one, check it against whichever value is actually in force for the other.
+* **`reposRoot` must not be the instance directory itself** (`link-repos.sh` refuses
+  that, and it reads the override too).
+
+`people` is a map of **GitHub login → commit email**, used by `commit-as.sh` to author
+a clone's commits as the human who runs it: `{ "<login>": "<email>", … }`. It exists so
+the address is recorded **once**, by whoever knows it, and a second human's local file
+is a single line — `{ "ownerGithubUser": "<login>" }`.
+
+**The address is per-instance, not per-person — and that is why the map lives here.**
+The same login maps to a *different* address in each group's bundle, because the address
+says which entity the work belongs to: one person working three clients commits as a
+different address in each of their three instances. That is a business fact about the
+instance, not a naming convention, so:
+
+* **never derive it from the login.** No `<login>@<domain>` rule, and specifically not
+  `<login>@users.noreply.github.com` — that one was rejected outright, because GitHub
+  requires the ID-prefixed `<id>+<login>@…` form for accounts created after 2017-07-18,
+  so a derived plain address silently fails to link to the account. Only the instance
+  can state its own mapping;
+* **never move the address into the local file.** `instance.config.local.json` says
+  *which login this clone is*; the address for that login *in this instance* comes from
+  the tracked map. Split the other way, two clones of one instance could disagree about
+  which entity the work belongs to and git history would silently record both.
+
+Real addresses in a private instance repo are fine — that is where they belong.
+
 # Project & objective completion
 
 A **project** has no lifecycle step of its own until its tasks finish. When
@@ -367,7 +532,8 @@ in this order:
    SHA. This one line is the durable, greppable pointer back into
    `git log -- projects/<slug>/` if the full record is ever needed again.
 3. **Roll up.** Set `project.md` `status: done`; drop the project from the active
-   `## Projects` list in `index.md`; update its objective's project list. When
+   `## Projects` list in `index.md` (derived and gitignored — rewritten, never
+   committed); update its objective's project list. When
    **all** projects serving an objective are `done`/`cancelled`, likewise
    **propose** the objective `status: achieved` (human-confirmed).
 4. **Remove the folder.** `git rm -r projects/<slug>/`. **Git history + the KB are

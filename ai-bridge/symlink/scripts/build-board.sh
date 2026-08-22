@@ -7,7 +7,8 @@
 #     scripts/build-board.sh [--out FILE] [--standalone] [INSTANCE_DIR ...]
 #
 #     INSTANCE_DIR ...  the instances to render. With none given, the list comes
-#                       from `boardInstances` in ./instance.config.json; if that key
+#                       from `boardInstances` in ./instance.config.local.json, else
+#                       ./instance.config.json; if that key
 #                       is absent or empty, just this instance.
 #     --out FILE        where to write (default: ./board.html)
 #     --standalone      wrap the output in <!doctype html>/<head> for opening in a
@@ -113,8 +114,16 @@ def href(url):
 def resolve_dirs(argv):
     if argv:
         return [Path(a).expanduser() for a in argv], None
-    cfg = Path("instance.config.json")
-    if cfg.is_file():
+    # `boardInstances` is an OVERRIDABLE key: the gitignored instance.config.local.json
+    # wins over the tracked instance.config.json. It is a list of filesystem PATHS
+    # (expanduser below), so it is machine-shaped by the same test as reposRoot and
+    # worktreeRoot — the sibling instances a second clone can see are its own business.
+    # Absent (or empty) local file ⇒ the tracked file answers, exactly as before.
+    # Full overridable set: SCHEMA.md → "Per-machine config overrides".
+    for name in ("instance.config.local.json", "instance.config.json"):
+        cfg = Path(name)
+        if not cfg.is_file():
+            continue
         try:
             parsed = json.loads(cfg.read_text(encoding="utf-8"))
             # A config whose top level is a list/string/number parses fine but has no
@@ -123,7 +132,9 @@ def resolve_dirs(argv):
             listed = (parsed.get("boardInstances") or []) if isinstance(parsed, dict) else []
         except (ValueError, OSError, UnicodeDecodeError):
             listed = []
-            print("build-board: instance.config.json is unreadable; falling back to this instance.", file=sys.stderr)
+            # Say only what is true: an unreadable LOCAL file still lets the tracked
+            # one answer on the next pass, so this must not claim the final fallback.
+            print(f"build-board: {name} is unreadable; ignoring it.", file=sys.stderr)
         if isinstance(listed, list) and listed:
             return [Path(str(p)).expanduser() for p in listed], "boardInstances"
     return [Path(".")], "this instance"

@@ -18,6 +18,25 @@ AWAITING.md
 SNAPSHOT.json
 board.html
 
+# Per-machine identity overrides (authorEmail, ownerGithubUser). instance.config.json
+# is tracked and therefore SHARED, so on a bundle two humans clone its authorEmail
+# would author both people's commits as one person. This file wins over it for those
+# identity keys only. Never commit it.
+instance.config.local.json
+
+# The derived navigation indexes (`/index.md`, `/projects/*/index.md`) are ignored
+# too — but the lines live in install.sh, NOT here, and that is not an oversight.
+# THIS FILE IS ITSELF AN ACTIVE .gitignore INSIDE THE ai-bridge TEMPLATE'S OWN
+# `seed/` DIRECTORY, so a `/index.md` line here matches `ai-bridge/seed/index.md`
+# and silently stops the template from tracking its own seed file. (Measured: it
+# broke the upgrade.sh fixture, which re-inits a repo over a copy of seed/.) The
+# other entries above are safe because no seed file is named any of them.
+# install.sh appends both lines to an instance's .gitignore if missing, which also
+# reaches instances stamped before they existed. `knowledge/index.md` is
+# deliberately NOT ignored anywhere — it is the KB's curated lookup surface, it
+# changes only when the KB changes, and an agent told to scan it needs it present
+# in a fresh clone.
+
 # Derived view of the group's product repos (scripts/link-repos.sh) — one symlink
 # per repo into reposRoot, never content, and machine-local like the machinery
 # below. Delete it freely; install.sh or that script recreates it.

@@ -42,6 +42,12 @@ build projects.
   honoured (the in-session escape hatch for a research project that queries a datasource).
 - `browser=off|claude-for-chrome` (shorthand `/claudeforchrome`) — let agents drive the
   browser via the claude-in-chrome MCP when present (default `off`).
+- `owner=<github-username>` — **only for a bundle shared by more than one human**:
+  whose project this is. A GitHub username, never an email. Like `clis`, it is
+  **never asked for** — an instance with one human has no use for it and the question
+  would be noise — but an explicit flag is recorded. Omitted ⇒ the key is left out
+  entirely (no placeholder, no empty value), which resolves to this clone's human.
+  See `SCHEMA.md` → "Ownership on a shared instance".
 - `--no-commit` — scaffold only; don't commit (default is to commit).
 
 If `$ARGUMENTS` has no description, **ask** for a one-line goal before doing anything.
@@ -126,10 +132,13 @@ If `$ARGUMENTS` has no description, **ask** for a one-line goal before doing any
      `objective: /objectives/<slug>.md`, `status: active`, `timestamp`) — plus
      `target_repo` for **build**, or `deliverables: [...]` for **research**; plus the
      capabilities from step 4: `autonomy:` (always; default `gated`), and `clis:` /
-     `browser:` only when non-default (omit them otherwise) — and a `# Context` body
+     `browser:` / `owner:` only when non-default or explicitly given (omit them
+     otherwise) — and a `# Context` body
      that states what the project does and why, ending by linking its `index.md` and
      `log.md`.
    - `index.md` — `# <title> — tasks`, one bullet per seed task with its status.
+     **Derived and gitignored** (the PM rewrites it each tick): create it, but it is
+     not part of the commit in step 7.
    - `log.md` — `# <title> — log`, a `## <date>` heading and a **Created** bullet.
    - `tasks/` — derive seed tasks from the description. For a **research** project
      split by domain/team, create **one task + one deliverable stub per chunk**
@@ -152,7 +161,9 @@ If `$ARGUMENTS` has no description, **ask** for a one-line goal before doing any
      etc.) that serves as background or raw data for the project. The README makes the
      otherwise-empty folder committable.
 
-6. **Register the project** (keep the bundle navigable):
+6. **Register the project** (keep the bundle navigable). The root `index.md` is
+   **derived and gitignored** — edit it so the bundle reads correctly now, but it is
+   not committed; `log.md` and the objective are the tracked registration:
    - Add a bullet under `## Projects` in the root `index.md`. For build:
      `[<title>](/projects/<slug>/project.md) - target: \`<target_repo>\` · <n> seed task(s)`.
      For research: `[<title>](/projects/<slug>/project.md) - research · <n> deliverable(s)`.
@@ -170,8 +181,11 @@ If `$ARGUMENTS` has no description, **ask** for a one-line goal before doing any
    the per-agent helper, naming **every** path steps 5 and 6 touched — the scaffold
    and its registration belong in one commit, or the tree records a project that
    nothing links to:
-   `scripts/commit-as.sh human "feat: add <slug> project" -- projects/<slug> index.md log.md objectives/<objective>.md`
-   (drop `objectives/<objective>.md` only if step 3 left it untouched).
+   `scripts/commit-as.sh human "feat: add <slug> project" -- projects/<slug> log.md objectives/<objective>.md`
+   (drop `objectives/<objective>.md` only if step 3 left it untouched). The root and
+   per-project `index.md` are **not** in that list — they are derived and gitignored,
+   so `git add` skips them and naming them would only produce a confusing "nothing
+   staged" refusal.
    Remind the user of the next step: the PM refines the drafts, then **you** promote
    `draft → ready`. For **build**, the PM then dispatches to a role agent → PR →
    you merge. For **research**, *you* work each task in-session (Claude + any

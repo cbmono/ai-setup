@@ -49,6 +49,7 @@ for arg in "$@"; do
 done
 
 CONFIG=instance.config.json
+LOCAL_CONFIG=instance.config.local.json
 INSTANCE=$(pwd -P)
 VIEW="$INSTANCE/repos"
 
@@ -98,8 +99,19 @@ fi
 # pipefail`, grep finding nothing would abort the script here, so a config with no
 # reposRoot key at all would exit 1 silently instead of reaching the explanation
 # below — the exact case a fresh instance can be in.
-REPOS_ROOT=$(grep -o '"reposRoot"[[:space:]]*:[[:space:]]*"[^"]*"' "$CONFIG" \
-  | sed 's/.*:[[:space:]]*"//; s/"$//' || true)
+#
+# `reposRoot` is OVERRIDABLE per machine: the gitignored instance.config.local.json
+# wins over the tracked instance.config.json, because an absolute path on this
+# machine cannot be right for both clones of a shared bundle. Absent local file ⇒
+# behaviour unchanged. Full overridable set: SCHEMA.md → "Per-machine config
+# overrides".
+REPOS_ROOT=""
+for cfg_file in "$LOCAL_CONFIG" "$CONFIG"; do
+  [[ -f "$cfg_file" ]] || continue
+  REPOS_ROOT=$(grep -o '"reposRoot"[[:space:]]*:[[:space:]]*"[^"]*"' "$cfg_file" \
+    | sed 's/.*:[[:space:]]*"//; s/"$//' || true)
+  [[ -n "$REPOS_ROOT" ]] && break
+done
 REPOS_ROOT=${REPOS_ROOT/#\~/$HOME}
 
 # A fresh instance ships a PLACEHOLDER reposRoot, so "not set yet" is the expected
@@ -107,7 +119,7 @@ REPOS_ROOT=${REPOS_ROOT/#\~/$HOME}
 # calls this script, and an unconfigured instance must still install cleanly.
 if [[ -z "$REPOS_ROOT" || ! -d "$REPOS_ROOT" ]]; then
   echo "  skip  repos/ view — reposRoot ('$REPOS_ROOT') is unset or missing."
-  echo "        Set it in $CONFIG, then run scripts/link-repos.sh."
+  echo "        Set it in $CONFIG (or $LOCAL_CONFIG), then run scripts/link-repos.sh."
   exit 0
 fi
 # Canonicalize so the instance-identity check below compares resolved paths.

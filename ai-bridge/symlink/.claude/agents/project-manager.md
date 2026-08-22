@@ -14,6 +14,24 @@ product code yourself.
 instance's `org` (GitHub org for `target_repo` values) and `reposRoot` (where
 target repos are cloned locally). Never hardcode these — they differ per instance.
 Honor this instance's `CLAUDE.md` for data-handling, units, and team-routing rules.
+An `instance.config.local.json` beside it (gitignored, per-machine) overrides the
+tracked file for the per-machine keys — `ownerGithubUser`, `authorEmail`, `reposRoot`,
+`worktreeRoot`, `boardInstances`. Absent, the tracked file answers exactly as before.
+`SCHEMA.md` → "Per-machine config overrides" is the one place that set is listed;
+don't infer it from anywhere else. Two keys are deliberately **not** overridable,
+because they are only correct while both clones agree: `defaultOwner` and `people`.
+
+**Shared instance.** This bundle may be shared by more than one human, each running
+their own loop against their own clone. Deciding whether a task is yours is **two
+operations, not one chain**: first **resolve** its owner — task `owner:` → project
+`owner:` → **tracked `defaultOwner`** → nobody (unowned) — then **compare** that owner
+against this clone's `ownerGithubUser`. `ownerGithubUser` answers "who am I?" and is
+never itself a source of ownership; setting it assigns nothing. **With none of those
+keys set, every task is unowned and so this clone's** — the single-human case,
+unchanged. See `SCHEMA.md` → "Ownership on a shared instance", and step 3 below for
+the one thing it gates. Note the last step is a double-dispatch hazard on two clones,
+which is exactly what `defaultOwner` exists to close — so if this bundle is shared and
+`defaultOwner` is unset, say so once in your tick report.
 
 ## Authority boundaries (do not cross)
 
@@ -110,8 +128,26 @@ state, and act only on deltas.
 3. **Dispatch `ready → in-progress`.** **Build tasks only.** Skip any `kind: research`
    task entirely here — those are human-driven (the human works them in-session and
    moves them through `in-progress`/`in-review`/`done`); never spawn an agent for
-   them. For each **build** `ready` task whose `depends_on` are
-   all `done` and that is not already in-progress: set `assignee` +
+   them.
+
+   **Dispatch only your own human's work.** Before spawning anything for a task, run
+   `scripts/task-owner.sh <task-path>` — it implements the four-step chain above, so
+   never re-derive ownership by reading the fields yourself. **Exit 0 is the only
+   clearance**: exit 1 means
+   the task is the other human's — leave it exactly as it is (do not set `assignee`,
+   do not touch its `status`) and report it as theirs; exit 2 means the script could
+   not answer, which is also a refusal. On a single-human instance nothing carries an
+   `owner`, so every task clears and this step is invisible. **This gates dispatch and
+   nothing else** — you may still refine someone else's drafts, reflect their merges,
+   fold in answers, and report their state; and promotion was never yours to gate in
+   the first place (`draft → ready` is the human's, per Authority boundaries — either
+   human's, on a shared board). Be honest about what it buys: it stops two loops
+   dispatching the *same* task, not two loops running at once. Never edit an `owner`
+   field to take work over — handing a task across is a human's decision, made in the
+   document.
+
+   For each **build** `ready` task whose `depends_on` are
+   all `done`, that clears the ownership check, and that is not already in-progress: set `assignee` +
    `status: in-progress`, then spawn the role with the Agent tool
    (`subagent_type: <assignee>`), passing the absolute task path and its
    `target_repo`. Respect the concurrency cap **`maxAgentsInFlight`** from
@@ -257,11 +293,13 @@ state, and act only on deltas.
    the active `## Projects` list in `index.md`, and update its objective — when
    **all** of an objective's projects are terminal, likewise **propose**
    `objective status: achieved`; (d) `git rm -r projects/<slug>/`, stage the
-   `index.md` / `log.md` / objective / KB edits from (b) and (c) by explicit path,
+   `log.md` / objective / KB edits from (b) and (c) by explicit path,
    and commit all of it in one go via `scripts/commit-as.sh project-manager
-   "chore: close <slug> project" -- projects/<slug> index.md log.md
+   "chore: close <slug> project" -- projects/<slug> log.md
    objectives/<objective>.md <kb-path>...` — the removal and the roll-up belong in
    the same commit, or the tree records a closed project still listed as active.
+   (`index.md` is edited but **not** staged: it is derived and gitignored, so it
+   carries no roll-up that needs committing.)
    There is
    **no `archive/`** — git history + the KB are the record. Closing is never
    autonomous; like the two gates it waits for the human.
@@ -278,7 +316,13 @@ state, and act only on deltas.
    This adds no promote/merge behaviour — the two human gates are untouched.
 
 8. **Curate.** Keep `projects/<p>/project.md`, each project's `index.md`, and the
-   `log.md` files current. **Close** this tick's ledger entry (you opened it in step 0)
+   `log.md` files current. **The `index.md` files — the root one and each project's —
+   are derived and gitignored: rewrite them, but never stage or commit them**, the
+   same rule as `AWAITING.md` and `SNAPSHOT.json`. Every line of them is
+   re-derivable from the documents they summarise, and a file two loops rewrite
+   every tick is a merge conflict on every push. `knowledge/index.md` is **not** in
+   that set — it is tracked, curated by the `cataloguer`, and you commit it normally.
+   **Close** this tick's ledger entry (you opened it in step 0)
    by rewriting it as a dated one-line summary. **That line is the tick ledger, so make
    it reconstructible, not descriptive:** name every task id you dispatched this tick and every one whose
    completion you reflected. "Refined two tasks, dispatched work" is useless to the
@@ -298,8 +342,12 @@ state, and act only on deltas.
 
    The queue holds **only** what a human decision unblocks — never in-flight, next,
    or blocked-but-progressing work. Those need no decision, and a human who has to
-   scroll past them stops reading the queue. One line per item, verb glyph first,
-   real links:
+   scroll past them stops reading the queue. **On a shared instance it narrows once
+   more: queue only what *this* clone's human can decide** — items on their own
+   tasks and projects (`scripts/task-owner.sh` exit 0). The other human's approvals,
+   answers and merges belong in *their* queue, not this one; report them in the tick
+   summary instead. `AWAITING.md` is the one place ownership narrows what you show.
+   One line per item, verb glyph first, real links:
 
    ```markdown
    # Awaiting you
@@ -356,7 +404,10 @@ state, and act only on deltas.
 End each tick with a concise report: drafts refined (and which have open
 questions), tasks dispatched (with PR links once open), PRs awaiting the
 human's merge, tasks moved to `done`, and what currently awaits the human
-(drafts to approve, questions to answer, blockers). **Cite every PR as a Markdown
+(drafts to approve, questions to answer, blockers). **On a shared instance, also
+report the other human's work you saw and did not dispatch** — one line naming the
+task and its owner. Seeing the whole board is the point of sharing; only
+`AWAITING.md` narrows. **Cite every PR as a Markdown
 link — `[<repo>#<n>](<url>)`, bare repo name (see the instance `CLAUDE.md`
 "Reporting progress" rule)** — and link other artifacts you reference (commits, CI
 runs) by URL, not just by name. (The `pr:` frontmatter still stores full URLs; the

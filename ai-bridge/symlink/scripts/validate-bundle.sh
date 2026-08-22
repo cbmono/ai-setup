@@ -24,6 +24,24 @@
 #   · frontmatter refs:  15 of 115 dangling (13%). This was the motivating rot. `/close-project` removes a project
 #                        folder by design, so a surviving `depends_on:` or
 #                        `objective:` pointing into it breaks silently.
+#   · `Reference`:       the fifth knowledge kind, `knowledge/references/*.md`. It was
+#                        ALREADY collected (the location filter is `knowledge/<kind>/`,
+#                        not a list of four names) and already checked for type,
+#                        timestamp and dangling refs — measured on the one live
+#                        instance that has the directory: 7 documents, 0 findings. The
+#                        single gap was its `status`, unchecked because `Reference` had
+#                        no enum, so the exact drift class this script was built for —
+#                        one type's enum applied to another — was invisible there.
+#                        `current|superseded` is what all 7 already carry, so adding it
+#                        is a no-op on live data and a real check on the next edit.
+#                        Root documents typed `Reference` (SCHEMA.md, AUTONOMY.md) are
+#                        NOT in a schema-defined location, so no enum reaches them.
+#   · `owner`:           deliberately NOT checked. It is neither an enum nor a
+#                        structural reference — it names a person outside the bundle,
+#                        so nothing here can resolve it, and a warning about a name
+#                        this script cannot verify is exactly the noise that buries
+#                        real errors. `scripts/task-owner.sh` validates the shape at
+#                        the one moment it matters: when the loop decides to dispatch.
 #   · `id` / `updated`:  NOT required, and not added. No document in any instance
 #                        carried either. The file path is already the identifier —
 #                        a duplicate `id` can only drift from it — and OKF names the
@@ -77,6 +95,7 @@ enum_for() {
     Task)      echo "draft ready in-progress in-review blocked cancelled done" ;;
     Finding)   echo "current superseded" ;;
     Service)   echo "active deprecated" ;;
+    Reference) echo "current superseded" ;;
     *)         echo "" ;;
   esac
 }

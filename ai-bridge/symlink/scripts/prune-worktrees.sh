@@ -159,14 +159,24 @@ if [[ ! -f "$CONFIG" ]]; then
   exit 1
 fi
 
-# A string value from the flat config, with a leading ~ expanded to $HOME.
+# A string value for an OVERRIDABLE path key, with a leading ~ expanded to $HOME.
+# The gitignored instance.config.local.json wins over the tracked instance.config.json:
+# `reposRoot` and `worktreeRoot` are absolute paths on THIS machine, so on a bundle
+# shared by two humans the tracked value cannot be right for both. Absent local file
+# ⇒ behaviour unchanged. The full overridable set is documented in ONE place:
+# SCHEMA.md → "Per-machine config overrides".
 # `|| true`: with `set -o pipefail`, grep finding no such key would abort the
 # script here with no output at all, instead of reaching the explanation below.
+LOCAL_CONFIG=instance.config.local.json
 config_path() { # <key>
-  local v
-  v=$(grep -o "\"$1\"[[:space:]]*:[[:space:]]*\"[^\"]*\"" "$CONFIG" 2>/dev/null \
-    | head -1 | sed 's/.*:[[:space:]]*"//; s/"$//') || true
-  printf '%s' "${v/#\~/$HOME}"
+  local f v
+  for f in "$LOCAL_CONFIG" "$CONFIG"; do
+    [[ -f "$f" ]] || continue
+    v=$(grep -o "\"$1\"[[:space:]]*:[[:space:]]*\"[^\"]*\"" "$f" 2>/dev/null \
+      | head -1 | sed 's/.*:[[:space:]]*"//; s/"$//') || true
+    if [[ -n "$v" ]]; then printf '%s' "${v/#\~/$HOME}"; return 0; fi
+  done
+  printf ''
 }
 
 # Canonicalize (resolve symlinks) so path matching lines up with the resolved
@@ -177,7 +187,7 @@ canon() { ( cd "$1" 2>/dev/null && pwd -P ); }
 
 REPOS_ROOT=$(config_path reposRoot)
 if [[ -z "$REPOS_ROOT" || ! -d "$REPOS_ROOT" ]]; then
-  echo "prune-worktrees: reposRoot ('$REPOS_ROOT') not found — check $CONFIG." >&2
+  echo "prune-worktrees: reposRoot ('$REPOS_ROOT') not found — check $LOCAL_CONFIG / $CONFIG." >&2
   exit 1
 fi
 REPOS_ROOT=$(canon "$REPOS_ROOT")
