@@ -140,6 +140,11 @@ If `$ARGUMENTS` has no description, **ask** for a one-line goal before doing any
      `# Context`. **Build** tasks carry `target_repo` (omit if same as project
      default) + `pr:`; **research** tasks carry `artifacts: [ <deliverable path> ]`
      instead. **Never invent `acceptance_criteria`** — leave them for the PM's refine.
+     **And no placeholders when they *are* written** (PM refine, or a human): not
+     "add appropriate error handling", not "similar to <other task>", not "write
+     tests for the above". Each is unfalsifiable, so a reviewer cannot check it and
+     the agent that reads it must guess — which is the same failure as inventing
+     one, arrived at from the other direction. A criterion has to name the outcome.
    - For **research**, also create the `deliverables/` directory with a stub file per
      task (a title + a one-line "TODO: …" so the path exists and is committable).
    - `sources/` — always create it, with a short `sources/README.md` explaining that

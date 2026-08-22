@@ -11,11 +11,10 @@ ai-setup/ai-bridge/        # this template (lives in the ai-setup repo)
 ├── upgrade.sh                    # bring one stamped instance up to date after a pull (report; --apply)
 ├── symlink/                      # generic machinery → symlinked into instances (gitignored there)
 │   ├── SCHEMA.md  AUTONOMY.md  CONVENTIONS.md  agents/index.md  scripts/*.sh
-│   └── .claude/{agents/*, commands/{pm-loop,new-project,close-project,pr-review-request,answer,audit,todo,fanout}.md, hooks/{show-awaiting,show-todos}.sh, rules/*.md, settings.json}
+│   └── .claude/{agents/*, commands/{pm-loop,new-project,close-project,pr-review-request,answer,audit,fanout}.md, hooks/show-awaiting.sh, rules/*.md, settings.json}
 └── seed/                         # starting content → copied into an instance once (then yours)
     ├── instance.config.json  CLAUDE.md  README.md  index.md  log.md  .gitignore
     ├── bridge.code-workspace     # multi-root editor view; install.sh seeds it as <group>.code-workspace
-    ├── todos.md            # quick personal reminders (/todo); shown at session start
     └── objectives/  projects/  knowledge/{services,findings,runbooks,teams}/
 ```
 
@@ -293,7 +292,7 @@ every product-repo session (telling them they're a control panel that commits to
   path at install time — pins **new terminals** to the instance. Without it a
   multi-root workspace picks the terminal's folder separately from the editor's and
   can land in the group root, where the instance's `.claude/commands` doesn't exist,
-  so `/pm-loop`, `/new-project` and `/todo` are silently absent. Right-clicking a
+  so `/pm-loop` and `/new-project` are silently absent. Right-clicking a
   repo > *Open in Integrated Terminal* still overrides it, so per-repo terminals
   work. The setting ships **commented out** in `seed/bridge.code-workspace`, so an
   unstamped copy just loses the pin rather than pointing terminals at a directory
