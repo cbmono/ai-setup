@@ -104,7 +104,7 @@ if [ -d "$SEED_SRC" ]; then
         # placeholder; uncomment it with this instance's absolute path so every new
         # terminal in the workspace starts in the instance rather than the group
         # root — see the comment in seed/bridge.code-workspace for why the wrong
-        # cwd silently hides /pm-loop, /new-project and /todo. Whole-line
+        # cwd silently hides /pm-loop and /new-project. Whole-line
         # replacement, so a marker that ever stops matching degrades to "no pin"
         # rather than to a broken workspace file. Escaped for sed's replacement
         # side ('&' means "the match", '\' escapes, '|' is our delimiter) so a path
@@ -185,6 +185,43 @@ while IFS= read -r rel; do
   echo "  link  $rel"
 done <<EOF
 $(machinery_paths)
+EOF
+
+# 2b. Retire machinery the template no longer ships.
+#
+# When a capability is removed from symlink/, an instance stamped earlier keeps a symlink
+# pointing at a path that no longer exists. A dangling command or hook is worse than an
+# absent one: Claude Code registers the file that isn't there, and a SessionStart hook
+# whose script has vanished exits 127 on every launch.
+#
+# The test is deliberately narrow, and both halves are load-bearing: the link must point
+# INTO this template's symlink/ (so it is unambiguously one we created — `ours` decides
+# that, not a name match), AND its target must be gone.
+#
+# The SCAN is deliberately wide, though — the whole instance, not just .claude/ and
+# scripts/. `machinery_paths()` also places files at the instance ROOT (SCHEMA.md,
+# AUTONOMY.md, CONVENTIONS.md) and under agents/, so a narrower scan would miss exactly
+# the most load-bearing files. `ours` is what makes a wide scan safe: `repos/<name>`
+# links point at reposRoot, not into symlink/, so they are never candidates. `find` does
+# not follow symlinks, so it cannot descend into a linked repo; .git is pruned for speed. A link we made whose target we
+# deleted has exactly one possible meaning. Anything else — a real file, a link to
+# somewhere else, a link that still resolves — is left alone.
+#
+# Only removes the link. Never touches seed content or instance data: a `todos.md` left
+# behind by a retired feature is the human's own writing, so it is reported, not deleted.
+while IFS= read -r dst; do
+  [ -n "$dst" ] || continue
+  # "$TARGET" must be QUOTED inside the prefix operator: unquoted it is matched as a
+  # GLOB, so an instance path containing [ ] * or ? strips nothing, `rel` stays absolute,
+  # `ours` then tests "$TARGET/$TARGET/..." and returns false — silently skipping a
+  # genuinely dead link instead of retiring it. (SC2295.)
+  rel="${dst#"$TARGET"/}"
+  if ours "$rel" && [ ! -e "$dst" ]; then
+    rm -f "$dst"
+    echo "  retire $rel (no longer shipped by the template)"
+  fi
+done <<EOF
+$(find "$TARGET" -name .git -prune -o -type l -print 2>/dev/null | sort)
 EOF
 
 # 3. Rewrite the managed machinery block in the instance .gitignore.
