@@ -17,6 +17,7 @@ Defaults shipped by this repo. See the [top-level README](../README.md) for inst
     format-on-write.sh                # PostToolUse Write|Edit: prettier/biome if declared in package.json
     statusline.sh                     # statusLine: model · context% · session cost · lines · 5h limit
   scripts/                            # executable scripts the USER runs directly (not hooks, not commands)
+    codegraph-sync.sh                 # bring every CodeGraph index under a workspace root up to date
     deepseek-session.sh               # opt-in: launch a session against DeepSeek instead of Anthropic
   agents/                             # subagents (one .md per agent, YAML frontmatter)
   commands/                           # slash commands (one .md per command, no frontmatter)
