@@ -339,6 +339,63 @@ every instance. For permissions or env an instance needs on its own (e.g. allow
 `Bash` in that group's repos), put them in `.claude/settings.local.json` in the
 instance: it's local, gitignored, layered on top, and never touches the template.
 
+## Sharing one instance between two humans
+An instance can be shared: each human clones the same bundle repo and runs their
+own `/pm-loop`, so both see one board, one set of projects and one knowledge base,
+and can hand a project or a single task across. Three pieces make that safe, and
+**all three are no-ops on a single-human instance** — absence means today's
+behaviour, never an error.
+
+**1. `owner` gates dispatch.** Put `owner: <github-username>` on a `project.md`
+(the normal place) or on one `tasks/<id>.md` (overrides the project). A **GitHub
+username**, never an email — public, stable, and it keeps addresses out of tracked
+documents. Resolution is **task `owner:` → project `owner:` → this clone's
+`ownerGithubUser`**, so *no `owner:` anywhere means every task is this clone's*.
+`scripts/task-owner.sh <task-path>` is the resolver and **exit 0 is the only
+clearance**; the PM dispatches a `ready` build task only on 0.
+
+It gates **dispatch, not promotion**: either human may promote any task
+`draft → ready` — it is a shared board — and gating promotion would be gating the
+wrong verb. The loop still *sees and reports* the other human's tasks, which is the
+point of sharing; only `AWAITING.md` narrows, to decisions this human can act on.
+And **it is not a lock**: it stops two loops dispatching the *same* task, not two
+loops acting in the same tick window on tasks they each own, nor two humans pushing
+at once. Those stay ordinary git conflicts — pull before you push.
+
+**2. Identity stays per-machine.** `instance.config.json` is tracked, so its
+`authorEmail` would author both humans' commits as one person. Put your own in
+**`instance.config.local.json`** (gitignored; created by `install.sh` in the
+managed ignore list), which wins over the tracked file for identity keys only:
+
+```json
+{ "authorEmail": "you@example.com", "ownerGithubUser": "your-github-login" }
+```
+
+No local file ⇒ resolution is exactly what it was: `$CONTROL_PLANE_AUTHOR_EMAIL`,
+then the tracked `authorEmail`, then `git config user.email`. (A shared bundle can
+alternatively just delete `authorEmail` from the tracked file and let each clone
+fall through to its own `git config user.email`.) A **derived**
+`<username>@users.noreply.github.com` is deliberately *not* used: GitHub requires
+the ID-prefixed `<id>+<username>@…` form for accounts created after 2017-07-18, so
+a derived plain address silently fails to link to the account. Copy yours from
+GitHub → Settings → Emails instead.
+
+**3. The derived indexes are gitignored.** `index.md` (root) and
+`projects/*/index.md` are rewritten every tick from the documents they summarise, so
+two loops conflict on them on every push; they join `AWAITING.md` and `SNAPSHOT.json`
+as derived-and-ignored, and nothing is lost — `validate-bundle.sh` deliberately never
+validated them. (`install.sh` adds both lines to an instance's `.gitignore`; they are
+deliberately not in `seed/.gitignore`, which is itself an active `.gitignore` over
+this template's own `seed/` directory and would untrack the seed's own `index.md`.) `knowledge/index.md` stays **tracked**: it changes only when the KB
+changes, and every agent is told to scan it, so a fresh clone needs it present. On an
+instance whose `index.md` files are already committed the ignore line is inert, so
+`install.sh` prints the exact `git rm --cached` to run — it never untracks anything
+itself.
+
+Note the second clone is not a first stamp (`instance.config.json` arrives tracked),
+so `install.sh` there will **not** create `AWAITING.md` or `SNAPSHOT.json` — it says
+so, with the `touch` to turn each on.
+
 ## Verification gate
 Before any PR merges, it's checked by an **independent** reviewer — fresh context,
 judged on real signals (acceptance criteria met, CI actually green), never the

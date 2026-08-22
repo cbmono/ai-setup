@@ -35,7 +35,15 @@ Edit `instance.config.json`:
 - `worktreeRoot` — where agent build worktrees live. Keep it **outside** any synced
   folder (Dropbox/iCloud rewrite files inside a worktree mid-run). Absent this key,
   worktrees fall back to `<reposRoot>/_wt`, which is also still swept as the legacy root.
-- `authorEmail` — shared commit email for per-agent authorship.
+- `authorEmail` — commit email for per-agent authorship. **On a bundle shared with
+  another human, put yours in `instance.config.local.json` instead** (gitignored,
+  per-machine, and it wins over this file for identity keys) — this file is tracked,
+  so a shared value would author both people's commits as one person.
+- `ownerGithubUser` — optional; **your** GitHub username, for a shared bundle. With
+  `owner:` on a project or task, each human's loop dispatches only its own work
+  (`scripts/task-owner.sh`). Absent from both config files, and with no `owner:`
+  anywhere, every task is this clone's — the single-human default. Belongs in
+  `instance.config.local.json`, for the same reason as `authorEmail`.
 - `defaultRepo` — optional; default repo for `/pr-review-request` (bare name is
   qualified with `org`, or give `owner/name`).
 - `prReviewSlackChannel` — optional; channel name or id for `/pr-review-request`.

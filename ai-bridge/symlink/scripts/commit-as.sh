@@ -30,8 +30,24 @@
 # GENERIC TEMPLATE FILE — symlinked from the `ai-bridge` template; do not
 # edit per instance. The shared author email is resolved, in order, from:
 #   1. $CONTROL_PLANE_AUTHOR_EMAIL          (explicit override)
-#   2. "authorEmail" in <repo-root>/instance.config.json
-#   3. `git config user.email`
+#   2. "authorEmail" in <repo-root>/instance.config.local.json   (per-machine)
+#   3. "authorEmail" in <repo-root>/instance.config.json         (tracked, shared)
+#   4. `git config user.email`
+#
+# WHY STEP 2 EXISTS. `instance.config.json` is TRACKED, so on an instance shared by
+# two humans its `authorEmail` would author BOTH clones' commits as one person —
+# destroying the per-agent, per-human provenance this script exists to create.
+# `instance.config.local.json` is gitignored, so identity stays per-machine.
+# Only identity keys are read from it (`authorEmail` here, `ownerGithubUser` in
+# task-owner.sh); it is not a general config overlay, and anything else in it is
+# ignored. **Absence changes nothing**: no local file ⇒ steps 3 and 4 exactly as
+# before, which is why this is a no-op for a single-human instance.
+#
+# A shared instance can also simply DELETE `authorEmail` from the tracked file and
+# let every clone fall through to its own `git config user.email` (step 4). Both
+# work; the override file is preferred because it needs no edit to a tracked file
+# the other human also reads, and because `ownerGithubUser` needs a per-machine
+# home there anyway.
 #
 # WHY THIS EXISTS, AND WHY NO FIRST-PARTY FEATURE REPLACES IT (v2 audit, 2026-08).
 # Native background sessions commit, push their own branch and open draft PRs — a
@@ -106,17 +122,21 @@ fi
 
 repo_root="$(git rev-parse --show-toplevel)"
 
-# Resolve the shared author email (see header).
+# Resolve the shared author email (see header). The gitignored local file wins over
+# the tracked one, so a shared instance keeps per-machine authorship; an absent
+# local file leaves the previous behaviour untouched.
 config_email=""
-config_file="$repo_root/instance.config.json"
-if [ -f "$config_file" ]; then
+for config_file in "$repo_root/instance.config.local.json" "$repo_root/instance.config.json"; do
+  [ -f "$config_file" ] || continue
   # Portable extraction of the JSON string value for "authorEmail" (no jq dependency).
   config_email="$(sed -n 's/.*"authorEmail"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$config_file" | head -n1)"
-fi
+  if [ -n "$config_email" ]; then break; fi
+done
 AUTHOR_EMAIL="${CONTROL_PLANE_AUTHOR_EMAIL:-${config_email:-$(git config user.email || true)}}"
 [ -n "$AUTHOR_EMAIL" ] || {
   echo "error: no author email — set CONTROL_PLANE_AUTHOR_EMAIL, add \"authorEmail\" to" >&2
-  echo "       instance.config.json, or run: git config user.email \"...\"" >&2
+  echo "       instance.config.local.json (per-machine) or instance.config.json," >&2
+  echo "       or run: git config user.email \"...\"" >&2
   exit 2
 }
 

@@ -1,7 +1,7 @@
 # Knowledge Base — index
 
 Compact catalog of this control panel's OKF knowledge base (`Service`s, `Finding`s,
-`Runbook`s, `Team`s — types in `/SCHEMA.md`). **This index is the KB's lookup
+`Runbook`s, `Team`s, `Reference`s — types in `/SCHEMA.md`). **This index is the KB's lookup
 surface:** scan it to find prior work, then open only the specific doc(s) you need —
 **don't bulk-read `knowledge/`**. The `cataloguer` keeps one terse row per doc here
 (populated via the agent and as a byproduct of task work).
@@ -18,6 +18,11 @@ surface:** scan it to find prior work, then open only the specific doc(s) you ne
 
 ## Runbooks
 | Runbook | When to use | Path | Status |
+|---|---|---|---|
+| _(none yet)_ | | | |
+
+## References — durable specs & contracts
+| Reference | What it specifies | Path | Status |
 |---|---|---|---|
 | _(none yet)_ | | | |
 

@@ -11,7 +11,8 @@ be in context *before* the first read — by the time this file loads you are
 already reading a `knowledge/` doc.
 
 - `knowledge/` is an OKF knowledge base in this bundle — a `Service` catalog,
-  `Finding`s (decisions/learnings), `Runbook`s, and `Team`s (see `SCHEMA.md`).
+  `Finding`s (decisions/learnings), `Runbook`s, `Team`s, and `Reference`s
+  (durable specs/contracts) (see `SCHEMA.md`).
 - The `cataloguer` agent builds/refreshes it (read-only on product repos); task
   agents **capture `Finding`s as a byproduct** of their work and link them from
   the task.

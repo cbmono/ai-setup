@@ -88,6 +88,25 @@ doc knowledge/services/bad-service.md '---' 'type: Service' 'title: S' 'status: 
 doc knowledge/services/good-service.md '---' 'type: Service' 'title: S2' 'status: active' "timestamp: $TS" '---' 'body'
 # Below knowledge/<kind>/ is not a schema location and must be ignored.
 doc knowledge/findings/sources/raw-note.md '# a raw note a human dropped in'
+# The FIFTH knowledge kind. `knowledge/<kind>/` is a shape, not a list of four names,
+# so these documents were always collected and checked for type, timestamp and refs —
+# the one gap was `status`, because `Reference` carried no enum. A Finding's enum
+# applied to a Reference (`open`) is exactly the drift class this script exists for.
+doc knowledge/references/bad-ref.md '---' 'type: Reference' 'title: R' 'status: open' "timestamp: $TS" '---' 'body'
+doc knowledge/references/good-ref.md '---' 'type: Reference' 'title: R2' 'status: current' "timestamp: $TS" '---' 'body'
+# Declaring the enum also makes `status` REQUIRED on a Reference in a schema
+# location. Root documents typed `Reference` (SCHEMA.md, AUTONOMY.md) carry none and
+# are unaffected, because they are not in one — the `index.md`/`log.md` cases below
+# assert that side of it.
+doc knowledge/references/no-status-ref.md '---' 'type: Reference' 'title: R3' "timestamp: $TS" '---' 'body'
+# `owner` is deliberately NOT validated: it names a person outside the bundle, so
+# nothing here can resolve it. Both of these must be silent — including the second,
+# whose value is not a username at all (task-owner.sh judges the shape at dispatch,
+# where a refusal has somewhere to go). If a check for it is ever added, this fails.
+doc projects/live/tasks/task-014-owner.md '---' 'type: Task' 'title: Owned' 'status: draft' \
+  'owner: some-user' "timestamp: $TS" '---' 'body'
+doc projects/live/tasks/task-015-owner-odd.md '---' 'type: Task' 'title: OddOwner' 'status: draft' \
+  'owner: not a username!' "timestamp: $TS" '---' 'body'
 
 # --- files that must be IGNORED ------------------------------------------------
 # Navigation and content. None of these carries frontmatter, and validating them
@@ -139,6 +158,15 @@ assert "an invalid Service status is an error"       "$(saw "status 'retired' is
 assert "a valid Service status is silent"            "$(not_seen 'good-service.md')"
 assert "files below knowledge/<kind>/ are ignored"   "$(not_seen 'raw-note.md')"
 
+echo "== the fifth knowledge kind, and the field deliberately left unchecked =="
+assert "an invalid Reference status is an error" \
+  "$(saw "status 'open' is not valid for type Reference")"
+assert "a valid Reference status is silent"          "$(not_seen 'good-ref.md')"
+assert "a Reference must HAVE a status" \
+  "$(saw 'type Reference requires a status')"
+assert "an owner field is never validated"           "$(not_seen 'task-014-owner.md')"
+assert "…not even a malformed one"                   "$(not_seen 'task-015-owner-odd.md')"
+
 echo "== valid documents are silent =="
 for f in objectives/good.md projects/live/project.md projects/live/phases/1-a.md \
          projects/live/tasks/task-001-ok.md projects/live/tasks/task-013-answered.md \
@@ -157,7 +185,9 @@ assert "errors make it exit 1"                    "$([[ $RC -eq 1 ]] && echo 0 |
 assert "--strict also exits non-zero"             "$([[ $RC_STRICT -ne 0 ]] && echo 0 || echo 1)"
 
 echo "== a clean bundle passes, and --strict still passes with no warnings =="
-rm -f projects/live/tasks/task-00[2-9]*.md projects/live/tasks/task-01[02]*.md knowledge/services/bad-service.md
+rm -f projects/live/tasks/task-00[2-9]*.md projects/live/tasks/task-01[02]*.md \
+      knowledge/services/bad-service.md \
+      knowledge/references/bad-ref.md knowledge/references/no-status-ref.md
 set +e
 CLEAN="$(bash "$VALIDATOR" 2>&1)"; CRC=$?
 CLEAN_STRICT_RC=0; bash "$VALIDATOR" --strict >/dev/null 2>&1 || CLEAN_STRICT_RC=$?
