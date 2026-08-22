@@ -57,8 +57,11 @@ ok "…says why"                                   "$(grep -qi 'refusing to inst
 # Compare the RESOLVED path: mktemp hands back /var/... while git reports
 # /private/var/... on macOS, so an unresolved grep fails on a correct message. Third time
 # this exact trap has shown up in this repo (task-owner.sh, codegraph-sync.sh, here).
-M_REAL="$(cd "$M" && pwd -P)"
-ok "…names the main checkout to use instead"     "$(grep -q "$M_REAL" "$TMP/out" && echo yes || echo no)" yes
+ok "…tells you how to find the main tree"      "$(grep -q 'worktree list' "$TMP/out" && echo yes || echo no)" yes
+# It must NOT print a computed path: both derivations are wrong once the git metadata
+# lives apart from the working tree, and a confidently wrong path to paste is worse than
+# none. Asserted so nobody "improves" the message by deriving one.
+ok "…and does not guess a checkout path"       "$(grep -qE '^Run it from.*/(install|ai-bridge)' "$TMP/out" && echo no || echo yes)" yes
 ok "…and wrote NOTHING into the destination"     "$(find "$d2" -mindepth 1 | wc -l | tr -d ' ')" 0
 
 i2="$TMP/inst2"; mkdir -p "$i2"
@@ -81,6 +84,38 @@ printf '# c\n' > "$N/.claude/commands/x.md"
 d4="$TMP/dest4"; mkdir -p "$d4"
 rc="$(run_root "$N" "$d4")"
 ok "outside a git repo it does not refuse"       "$([ "$rc" -ne 2 ] && echo yes || echo no)" yes
+
+# --- separate git metadata: the case the first version got wrong -----------
+# With `git init --separate-git-dir`, .git is a FILE pointing elsewhere. In the main tree
+# --git-dir and --git-common-dir still agree, so the guard must not fire; from a linked
+# worktree they differ, so it must. And the message must not name a path, because every
+# way of deriving one is wrong in this layout.
+S="$TMP/sep"; SG="$TMP/sepgit"
+mkdir -p "$S/main" "$SG"
+cp "$REPO/install.sh" "$S/main/install.sh"; cp "$REPO/ai-bridge/install.sh" "$S/main/ai-bridge-install.sh"
+mkdir -p "$S/main/.claude/commands" "$S/main/ai-bridge/seed" "$S/main/ai-bridge/symlink/scripts"
+cp "$REPO/ai-bridge/install.sh" "$S/main/ai-bridge/install.sh"
+printf '# c\n' > "$S/main/.claude/commands/x.md"
+printf '{}\n' > "$S/main/ai-bridge/seed/instance.config.json"
+printf 'x\n' > "$S/main/ai-bridge/symlink/SCHEMA.md"
+printf '#!/usr/bin/env bash\nexit 0\n' > "$S/main/ai-bridge/symlink/scripts/s.sh"
+( cd "$S/main" && git init -q --separate-git-dir="$SG/real.git" . && git add -A \
+  && git -c user.name=t -c user.email=t@t commit -qm init )
+git -C "$S/main" worktree add -q "$S/wt" -b sepwt >/dev/null 2>&1
+
+d5="$TMP/dest5"; mkdir -p "$d5"
+ok "separate metadata, main tree: root installs"   "$(run_root "$S/main" "$d5")" 0
+i5="$TMP/inst5"; mkdir -p "$i5"
+ok "separate metadata, main tree: bridge stamps"   "$(run_bridge "$S/main" "$i5")" 0
+
+d6="$TMP/dest6"; mkdir -p "$d6"
+ok "separate metadata, worktree: root refuses"     "$(run_root "$S/wt" "$d6")" 2
+ok "…and wrote nothing"                            "$(find "$d6" -mindepth 1 | wc -l | tr -d ' ')" 0
+i6="$TMP/inst6"; mkdir -p "$i6"
+ok "separate metadata, worktree: bridge refuses"   "$(run_bridge "$S/wt" "$i6")" 2
+ok "…and stamped nothing"                          "$(find "$i6" -mindepth 1 | wc -l | tr -d ' ')" 0
+ok "…and still names no derived path"              "$(grep -qE '^Run it from.*/(install|ai-bridge)' "$TMP/out" && echo no || echo yes)" yes
+git -C "$S/main" worktree remove --force "$S/wt" 2>/dev/null
 
 printf '\n%s passed, %s failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]
