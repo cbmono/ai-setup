@@ -6,7 +6,7 @@ background AI agents working on this group's product repositories.
 
 This is an **instance** of the `ai-bridge` template. The generic machinery
 (`SCHEMA.md`, `agents/`, `scripts/`, the role agents, the `/pm-loop`,
-`/new-project`, `/close-project`, `/pr-review-request`, `/todo`, and `/fanout`
+`/new-project`, `/close-project`, `/pr-review-request`, and `/fanout`
 commands, and the
 `SessionStart` hooks) is **symlinked in** from the template and gitignored; this
 repo tracks only its own **content**: `objectives/`, `projects/`, `knowledge/`,
@@ -141,13 +141,6 @@ already exists and never recreates it. So `rm AWAITING.md` turns the queue off f
 good — a later installer re-run won't resurrect it — and `touch AWAITING.md` turns
 it back on. Derived and gitignored — never hand-edit it. With it off, ask the
 assistant directly and it reads the task docs.
-
-## Quick todos
-`/todo <text>` jots a reminder, `/todo` lists them, `/todo done <text>` closes one
-— all in a single `todos.md`. A `SessionStart` hook surfaces open todos when
-you launch Claude here. These are **lightweight notes** for you, separate from the
-formal `projects/` work agents execute — promote a todo to `/new-project` once it's
-real, trackable work.
 
 ## Re-link the machinery
 If the template moves or you add machinery, re-run the template's installer:

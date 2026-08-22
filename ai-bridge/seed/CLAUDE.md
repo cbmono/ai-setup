@@ -21,7 +21,6 @@ You steer; background agents do the work. **The core loop — memorise this:**
 | Start a new project | **`/new-project <description>`** — a build project (code → PRs), or add `kind=research` for docs/decks/assets (no repo). |
 | Close a finished project | **`/close-project <slug>`** — when its tasks are all done/cancelled: final KB consolidation, log the closeout, then **remove the folder** (git history + KB are the record; no archive). The PM flags candidates in the queue; you run it. |
 | Request grouped PR reviews | **`/pr-review-request <filter>`** |
-| Jot / list / close a quick reminder | **`/todo <text>`** · `/todo` to list · `/todo done <text>` (lightweight notes in `todos.md`, separate from formal `projects/` work) |
 | Fan a batch of independent ad-hoc asks out to parallel background agents | **`/fanout`** — or just give the assistant ≥2 independent asks at once and it acts as coordinator: dispatch each, report results as they land (see _Ad-hoc requests vs. the project loop_) |
 
 Your two gates: promote a task `draft → ready`, then merge the PR (build) or
