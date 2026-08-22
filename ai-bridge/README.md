@@ -399,7 +399,13 @@ one — zeros included, because `in-flight 0` is exactly the correction a sessio
 remembering three live dispatches needs — fences its output as untrusted data, and is
 capped by `PUSH_STATE_MAX` (default **12**) per list, reporting what it dropped. It reads
 `AWAITING.md` for a count only and never reshapes it; absent, it reports `off` rather than
-a `0` nobody measured. Covered by `ai-bridge/tests/push-state.test.sh`.
+a `0` nobody measured. Every value it injects is a **filename** — a project slug, a task
+id, a phase stem — and a filename may legally contain a newline, a carriage return or a
+tab, so each is encoded to one line before it enters the fence. That is the fence's
+integrity, not tidiness: a carriage return in a directory name could otherwise print the
+closing marker as its own line and put everything after it, this hook's own instruction
+included, outside the untrusted-data boundary. Covered by
+`ai-bridge/tests/push-state.test.sh`.
 
 ## Local code intelligence (codegraph, optional)
 Role agents navigate product repos faster with a local **CodeGraph** index than with
