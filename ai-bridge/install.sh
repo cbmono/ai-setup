@@ -196,7 +196,14 @@ EOF
 #
 # The test is deliberately narrow, and both halves are load-bearing: the link must point
 # INTO this template's symlink/ (so it is unambiguously one we created — `ours` decides
-# that, not a name match), AND its target must be gone. A link we made whose target we
+# that, not a name match), AND its target must be gone.
+#
+# The SCAN is deliberately wide, though — the whole instance, not just .claude/ and
+# scripts/. `machinery_paths()` also places files at the instance ROOT (SCHEMA.md,
+# AUTONOMY.md, CONVENTIONS.md) and under agents/, so a narrower scan would miss exactly
+# the most load-bearing files. `ours` is what makes a wide scan safe: `repos/<name>`
+# links point at reposRoot, not into symlink/, so they are never candidates. `find` does
+# not follow symlinks, so it cannot descend into a linked repo; .git is pruned for speed. A link we made whose target we
 # deleted has exactly one possible meaning. Anything else — a real file, a link to
 # somewhere else, a link that still resolves — is left alone.
 #
@@ -204,13 +211,17 @@ EOF
 # behind by a retired feature is the human's own writing, so it is reported, not deleted.
 while IFS= read -r dst; do
   [ -n "$dst" ] || continue
-  rel="${dst#$TARGET/}"
+  # "$TARGET" must be QUOTED inside the prefix operator: unquoted it is matched as a
+  # GLOB, so an instance path containing [ ] * or ? strips nothing, `rel` stays absolute,
+  # `ours` then tests "$TARGET/$TARGET/..." and returns false — silently skipping a
+  # genuinely dead link instead of retiring it. (SC2295.)
+  rel="${dst#"$TARGET"/}"
   if ours "$rel" && [ ! -e "$dst" ]; then
     rm -f "$dst"
     echo "  retire $rel (no longer shipped by the template)"
   fi
 done <<EOF
-$(find "$TARGET/.claude" "$TARGET/scripts" -type l 2>/dev/null | sort)
+$(find "$TARGET" -name .git -prune -o -type l -print 2>/dev/null | sort)
 EOF
 
 # 3. Rewrite the managed machinery block in the instance .gitignore.

@@ -69,6 +69,41 @@ assert "seed-shaped content is untouched"   "$(yes_if grep -q 'a note I wrote' "
 # Idempotent: a second sweep with nothing to do says nothing and still exits 0.
 assert "a repeat run retires nothing"       "$(no_if grep -q 'retire ' "$TMP/out4")"
 
+# --- a ROOT-level machinery file, which the first version of the sweep could not see.
+# machinery_paths() places SCHEMA.md, AUTONOMY.md and CONVENTIONS.md directly at the
+# instance root and more under agents/. The sweep originally scanned only .claude/ and
+# scripts/, so it missed exactly the most load-bearing files — and this harness mirrored
+# that scope, which is why it passed. Raised in review on PR #62.
+printf 'root machinery\n' > "$TPL/symlink/DOOMED-ROOT.md"
+mkdir -p "$TPL/symlink/agents"
+printf 'nested machinery\n' > "$TPL/symlink/agents/doomed-nested.md"
+bash "$TPL/install.sh" "$INST" >"$TMP/out5" 2>&1
+assert "a root machinery file links"        "$(yes_if test -L "$INST/DOOMED-ROOT.md")"
+assert "a nested one links too"             "$(yes_if test -L "$INST/agents/doomed-nested.md")"
+rm "$TPL/symlink/DOOMED-ROOT.md" "$TPL/symlink/agents/doomed-nested.md"
+bash "$TPL/install.sh" "$INST" >"$TMP/out6" 2>&1
+assert "a dangling ROOT link is swept"      "$(no_if test -L "$INST/DOOMED-ROOT.md")"
+assert "…and reported"                      "$(yes_if grep -q 'retire DOOMED-ROOT.md' "$TMP/out6")"
+assert "a dangling nested link is swept"    "$(no_if test -L "$INST/agents/doomed-nested.md")"
+# A repos/ link points at reposRoot, not into symlink/, so a whole-instance scan must
+# still leave it alone — this is what makes widening the scan safe.
+mkdir -p "$TMP/elsewhere" && ln -sfn "$TMP/elsewhere" "$INST/repos-decoy"
+bash "$TPL/install.sh" "$INST" >"$TMP/out7" 2>&1
+assert "a link outside symlink/ survives"   "$(yes_if test -L "$INST/repos-decoy")"
+
+# --- an instance path containing glob metacharacters (SC2295).
+# `${dst#$TARGET/}` expands TARGET as a PATTERN, so a `[` in the path strips nothing,
+# `rel` stays absolute, `ours` tests a doubled path and returns false — the dead link is
+# silently kept. Quoting it fixes that, and only this fixture can tell the difference.
+ODD="$TMP/od[d]group/_ai-bridge-odd"; mkdir -p "$ODD"
+bash "$TPL/install.sh" "$ODD" >"$TMP/out8" 2>&1
+printf 'doomed again\n' > "$TPL/symlink/DOOMED-TWICE.md"
+bash "$TPL/install.sh" "$ODD" >"$TMP/out9" 2>&1
+assert "glob-y path: the link is created"   "$(yes_if test -L "$ODD/DOOMED-TWICE.md")"
+rm "$TPL/symlink/DOOMED-TWICE.md"
+bash "$TPL/install.sh" "$ODD" >"$TMP/out10" 2>&1
+assert "glob-y path: the link is swept"     "$(no_if test -L "$ODD/DOOMED-TWICE.md")"
+
 echo
 printf 'pass=%d fail=%d\n' "$pass" "$fail"
 [[ $fail -eq 0 ]]

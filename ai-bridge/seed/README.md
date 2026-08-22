@@ -6,9 +6,9 @@ background AI agents working on this group's product repositories.
 
 This is an **instance** of the `ai-bridge` template. The generic machinery
 (`SCHEMA.md`, `agents/`, `scripts/`, the role agents, the `/pm-loop`,
-`/new-project`, `/close-project`, `/pr-review-request`, and `/fanout`
-commands, and the
-`SessionStart` hooks) is **symlinked in** from the template and gitignored; this
+`/new-project`, `/close-project`, `/pr-review-request`, `/answer`, `/audit` and
+`/fanout` commands, and the
+`SessionStart` hook) is **symlinked in** from the template and gitignored; this
 repo tracks only its own **content**: `objectives/`, `projects/`, `knowledge/`,
 `log.md`, and `instance.config.json`.
 
