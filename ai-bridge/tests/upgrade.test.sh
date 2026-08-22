@@ -212,6 +212,68 @@ assert "…and is not ported"            "$(hasnt 'PORTED    index.md' "$NOGIT_O
 assert "…and index.md was not written" \
   "$(yes_if cmp -s "$TPL/seed/index.md" "$INST/index.md")"
 
+echo "== the four review findings, as refusals =="
+
+# 1. A directory where a seeded FILE belongs. `-e` is true for it, so the old code fell
+#    through to `git hash-object`, whose failure inside an assignment's command
+#    substitution aborts the whole run under `set -e` — losing the report for every
+#    remaining file. It must classify this one and carry on.
+DIRCASE="$TMP/group/_ai-bridge-dircase"
+cp -R "$INST" "$DIRCASE"
+rm -f "$DIRCASE/index.md" && mkdir -p "$DIRCASE/index.md/somebody-made-this-a-folder"
+DIR_RC=0
+DIR_OUT="$(bash "$TPL/upgrade.sh" "$DIRCASE" --apply 2>&1)" || DIR_RC=$?
+assert "a directory at a seeded path is UNKNOWN" "$(has 'UNKNOWN   index.md' "$DIR_OUT")"
+assert "…and is not ported"                      "$(hasnt 'PORTED    index.md' "$DIR_OUT")"
+assert "…and the directory is untouched"         "$(yes_if test -d "$DIRCASE/index.md/somebody-made-this-a-folder")"
+# The whole point of the guard: one odd path must not cost the report for the others.
+# These assert on work that happens strictly AFTER the loop reaches index.md: the per-stage
+# `summary:` tally is printed once the loop has classified all nine seed files, and
+# "what's left for you" is the last thing the script prints. Asserting on CLAUDE.md or on
+# the "4/4" stage HEADER would pass either way, since both come first — that weaker pair
+# was in the first draft of this block and hid the abort completely.
+assert "…and every other file is still counted"  "$(has 'summary: 7 in sync' "$DIR_OUT")"
+assert "…and the run reaches its final summary"  "$(has "what.s left for you" "$DIR_OUT")"
+assert "…and the run still exits 0"              "$([[ $DIR_RC -eq 0 ]] && echo 0 || echo 1)"
+
+# 2. install.sh failing is not a success. It is the PREREQUISITE for every later stage,
+#    so a 0 exit there lets a caller treat "machinery never installed" as a clean run.
+BADTPL="$TMP/tpl-badinstall"
+cp -R "$TPL" "$BADTPL"
+printf '#!/usr/bin/env bash\necho "  boom"\nexit 7\n' > "$BADTPL/install.sh"
+chmod +x "$BADTPL/install.sh"
+BAD_RC=0
+BAD_OUT="$(bash "$BADTPL/upgrade.sh" "$INST" 2>&1)" || BAD_RC=$?
+assert "a failing install.sh is reported"   "$(has 'install.sh exited 7' "$BAD_OUT")"
+assert "…and it is listed as manual work"   "$(has 'install.sh failed' "$BAD_OUT")"
+assert "…and the run exits NON-zero"        "$([[ $BAD_RC -ne 0 ]] && echo 0 || echo 1)"
+
+# 3. Report-only must not overclaim. install.sh restores an ABSENT seed file by design
+#    (its seeds-if-absent contract), so "nothing changes" was false. What report-only
+#    really guarantees is that no instance CONTENT is rewritten.
+REPORT_OUT="$(bash "$TPL/upgrade.sh" "$INST" 2>&1)"
+assert "report mode does not claim nothing changes" \
+  "$(hasnt 'nothing changes' "$REPORT_OUT")"
+assert "report mode names what install.sh still writes" \
+  "$(has 'restores any ABSENT seed file' "$REPORT_OUT")"
+# And the claim it DOES make has to hold: a hand-diverged file stays byte-identical.
+assert "report mode leaves diverged content alone" \
+  "$(yes_if cmp -s "$TMP/claude.pristine" "$INST/CLAUDE.md")"
+
+# 4. AUTONOMY.md is the deletable delegated-autonomy capability, but it lives under
+#    symlink/ — so install.sh re-links it unconditionally and a per-instance `rm` is
+#    silently undone. Fail-OPEN on the capability that lets agents merge without asking,
+#    so the run has to say so out loud.
+AUT="$TMP/group/_ai-bridge-autonomy"
+cp -R "$INST" "$AUT"
+rm -f "$AUT/AUTONOMY.md"
+AUT_OUT="$(bash "$TPL/upgrade.sh" "$AUT" 2>&1)"
+assert "a re-linked AUTONOMY.md is flagged"  "$(has 'AUTONOMY WAS RE-ENABLED' "$AUT_OUT")"
+assert "…with the command to turn it off"    "$(has 'rm .*_ai-bridge-autonomy/AUTONOMY.md' "$AUT_OUT")"
+# Non-vacuous: an instance that still has it must NOT get the warning.
+STILL_OUT="$(bash "$TPL/upgrade.sh" "$INST" 2>&1)"
+assert "…and not warned when it was present" "$(hasnt 'AUTONOMY WAS RE-ENABLED' "$STILL_OUT")"
+
 echo
 printf 'pass=%d fail=%d\n' "$pass" "$fail"
 [[ $fail -eq 0 ]]

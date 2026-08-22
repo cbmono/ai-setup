@@ -150,12 +150,29 @@ echo "template: $TEMPLATE_DIR"
 if [ "$APPLY" -eq 1 ]; then
   echo "mode:     APPLY — the safe changes below WILL be written."
 else
-  echo "mode:     REPORT ONLY — nothing changes except the symlinks install.sh creates."
+  # Be exact about what a report-only run still writes. install.sh links machinery AND
+  # copies any *absent* seed file back (its documented seeds-if-absent contract), so
+  # "nothing changes" would be false. Stage 4 below — the part that rewrites content the
+  # instance has edited — is the part that truly waits for --apply.
+  echo "mode:     REPORT ONLY — no instance content is rewritten."
+  echo "          (install.sh below still links machinery and restores any ABSENT seed file.)"
 fi
 
 # ---------------------------------------------------------------- 1. machinery
 echo
 echo "== 1/4  machinery symlinks (install.sh) =============================="
+# Sampled BEFORE install.sh runs, because install.sh is about to undo it.
+#
+# `AUTONOMY.md` is the deletable delegated-autonomy capability: absent, every project is
+# `gated`, and `commit-as.sh` gates its promotion guard on the same presence check. But it
+# lives under symlink/, so it is MACHINERY — and install.sh re-links every machinery file
+# unconditionally, by design, because repairing broken links is the whole point of a
+# refresh. The two behaviours collide: `rm AUTONOMY.md` disables autonomy for one
+# instance, and the next refresh silently switches it back on. That is fail-OPEN on the
+# one capability that lets agents merge without asking, so it cannot pass unremarked.
+# Reporting it is this script's job; changing install.sh's machinery contract is not.
+autonomy_was_absent=no
+[ -e "$TARGET/AUTONOMY.md" ] || [ -L "$TARGET/AUTONOMY.md" ] || autonomy_was_absent=yes
 inst_rc=0
 bash "$INSTALL_SH" "$TARGET" > "$TMPD/install.out" 2>&1 || inst_rc=$?
 # install.sh prints one line per machinery file. Echo only the lines that mean
@@ -168,10 +185,21 @@ awk '
 ' "$TMPD/install.out"
 if [ "$inst_rc" -ne 0 ]; then
   echo "  install.sh exited $inst_rc — see the output above" >&2
+  # Count it, so the run exits non-zero. install.sh is the PREREQUISITE for everything
+  # below: the machinery symlinks it places are what the later stages read. Reporting a
+  # failed install through a 0 exit would let a caller (a CI step, a wrapper script, JM
+  # following the printed instructions) treat "machinery never installed" as success.
+  failed=$((failed+1))
   left "install.sh failed (exit $inst_rc) — fix that first, then re-run this script."
 fi
 NEW_LINKS="$(awk '/^  link  /{n++} END{print n+0}' "$TMPD/install.out")"
 echo "  summary: $NEW_LINKS new machinery symlink(s)."
+if [ "$autonomy_was_absent" = yes ] && { [ -e "$TARGET/AUTONOMY.md" ] || [ -L "$TARGET/AUTONOMY.md" ]; }; then
+  echo "  WARNING  AUTONOMY.md was absent and install.sh re-linked it." >&2
+  left "DELEGATED AUTONOMY WAS RE-ENABLED. AUTONOMY.md was absent in this instance"
+  left_more "(so every project was 'gated'), and install.sh re-linked it as machinery."
+  left_more "If that was deliberate, turn it off again:  rm $TARGET/AUTONOMY.md"
+fi
 
 # ---------------------------------------------------------------- 2. validate
 echo
@@ -297,6 +325,18 @@ while IFS= read -r rel; do
   if [ ! -e "$inst_f" ]; then
     report "absent" "$rel"
     detail "install.sh did not place it (a populated directory needs no placeholder)."
+    continue
+  fi
+  # `-e` is true for a directory, a symlink to one, a fifo. Everything below assumes a
+  # regular file: `git hash-object` and `cp` both fail on a directory, and since the hash
+  # is taken in an assignment's command substitution, `set -e` would abort the WHOLE
+  # upgrade there — losing the report for every remaining file instead of flagging this
+  # one. A seeded path replaced by a directory is a real instance shape (someone made
+  # `log.md/` a folder), so classify it and keep going.
+  if [ ! -f "$inst_f" ] || [ -L "$inst_f" ]; then
+    unknown=$((unknown+1))
+    report "UNKNOWN" "$rel"
+    detail "instance path is not a regular file — left untouched; compare it with $seed_f by hand."
     continue
   fi
   if cmp -s "$seed_f" "$inst_f"; then

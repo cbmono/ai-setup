@@ -441,6 +441,12 @@ evidence from this repo's git history:
 - The seed file has **never changed** since your instance was stamped → nothing to
   deliver, so it stays quiet even though your copy has grown (`log.md`, `index.md`, a
   `.gitignore` with the machinery block).
+- There is **no usable history to judge against** → reported as `UNKNOWN` and **never
+  ported**. Two ways to get here: the template you are running from has no git history
+  for that seed file (a shallow clone, a downloaded archive, a file added but never
+  committed), or the instance path is not a regular file any more (a seeded file replaced
+  by a directory or a symlink). Either way the script cannot tell an edit from a
+  divergence, so it refuses to guess — `diff` the two paths it names and port by hand.
 
 `migrate-bundle.sh` likewise leaves some things alone — a dangling reference, an
 unrecognised status, a document whose frontmatter never closes. Those need a decision,
@@ -467,7 +473,9 @@ instance up to date:
    changes it can prove are safe. See *After pulling `ai-setup`* above for what each
    verdict means.
 3. **Port what it hands back.** A seed file it reports as a `CONFLICT` is hand-diverged
-   and stays untouched — that is where your instance's own decisions live. In particular,
+   and stays untouched — that is where your instance's own decisions live. An `UNKNOWN`
+   also stays untouched, for a different reason: there was no history to judge it
+   against, so `diff` it against the seed path the report names and decide yourself. In particular,
    if `instance.config.json` lacks the model-routing block, add it — otherwise model
    routing stays off and everything runs on the session model:
    ```json
