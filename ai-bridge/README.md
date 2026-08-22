@@ -11,7 +11,7 @@ ai-setup/ai-bridge/        # this template (lives in the ai-setup repo)
 ├── upgrade.sh                    # bring one stamped instance up to date after a pull (report; --apply)
 ├── symlink/                      # generic machinery → symlinked into instances (gitignored there)
 │   ├── SCHEMA.md  AUTONOMY.md  CONVENTIONS.md  agents/index.md  scripts/*.sh
-│   └── .claude/{agents/*, commands/{pm-loop,new-project,close-project,pr-review-request,answer,audit,fanout}.md, hooks/show-awaiting.sh, rules/*.md, settings.json}
+│   └── .claude/{agents/*, commands/{pm-loop,new-project,close-project,pr-review-request,answer,audit,fanout}.md, hooks/{show-awaiting,push-state}.sh, rules/*.md, settings.json}
 └── seed/                         # starting content → copied into an instance once (then yours)
     ├── instance.config.json  CLAUDE.md  README.md  index.md  log.md  .gitignore
     ├── bridge.code-workspace     # multi-root editor view; install.sh seeds it as <group>.code-workspace
@@ -103,6 +103,16 @@ the gate then binds human merges too.
 The next tick treats anything after the ` --- ` as your answer, folds it into the task,
 and clears the question; the `draft` becomes promotable once the list empties. (Answering
 in chat during a session works too.)
+
+The cleared entry is **moved, not deleted** — it lands in the task's
+`answered_questions` list as one flat line, `<ISO 8601> · <the entry verbatim>`. Question
+and answer already share a line either side of the ` --- `, so moving it keeps both with
+no new parsing and no nested mapping. It is a **human audit record**: nothing reads it,
+no gate consults it, and `validate-bundle.sh` deliberately adds no check for it (a
+free-text list is neither an enum nor a reference, and a "missing delimiter" warning is
+the noise that buries real errors). `open_questions` still has to empty — that is the
+promotion signal. **No customer PII in an answer**: unlike a question you clear, this
+list persists for the life of the repo.
 
 **What needs you:** `AWAITING.md` is the instance's one status artifact — a queue of
 just the items a human decision unblocks (✅ approve · ❓ answer · 🔀 merge ·
@@ -368,6 +378,35 @@ regardless of the number: never two package installs against the **same repo's s
 once (the PM staggers deps-touching tasks across ticks). A role agent's own `Workflow`
 fan-out is a separate layer, bounded by the Workflow tool's own concurrency.
 
+## PR size
+`maxPrLoc` (in `instance.config.json`, **500** when the key is absent) is the diff size
+past which a PR-opening role agent proposes a split. It is a **heuristic that suggests,
+never a gate**: the agent says in the PR body which parts it would extract and then opens
+the PR anyway, because generated boilerplate, codemods, lockfiles and dense logic all
+move the real number and a line count cannot decide reviewability on its own. It is not a
+review criterion — no reviewer withholds clearance over it. An existing instance whose
+config predates the key needs no edit; add it only to move the threshold.
+
+## Per-turn state injection
+`push-state.sh` is a `UserPromptSubmit` hook: on every prompt it derives one line of
+**current** instance state — in-flight task ids, the awaiting count, active projects and
+their phase — and pushes it into context. `/pm-loop` is a long-lived session whose context
+still describes tick one after five ticks, and a stale roster is not corrected by an
+instruction to re-read; it is corrected by a **newer statement** of the truth, which is
+why the line says out loud that it supersedes any earlier count. It is **self-detecting**
+(silent outside an instance root, so it is safe to inherit anywhere), always prints inside
+one — zeros included, because `in-flight 0` is exactly the correction a session
+remembering three live dispatches needs — fences its output as untrusted data, and is
+capped by `PUSH_STATE_MAX` (default **12**) per list, reporting what it dropped. It reads
+`AWAITING.md` for a count only and never reshapes it; absent, it reports `off` rather than
+a `0` nobody measured. Every value it injects is a **filename** — a project slug, a task
+id, a phase stem — and a filename may legally contain a newline, a carriage return or a
+tab, so each is encoded to one line before it enters the fence. That is the fence's
+integrity, not tidiness: a carriage return in a directory name could otherwise print the
+closing marker as its own line and put everything after it, this hook's own instruction
+included, outside the untrusted-data boundary. Covered by
+`ai-bridge/tests/push-state.test.sh`.
+
 ## Local code intelligence (codegraph, optional)
 Role agents navigate product repos faster with a local **CodeGraph** index than with
 blind grep. It's opt-in and 100% local (no code leaves the machine) — the replacement
@@ -484,6 +523,8 @@ instance up to date:
                   "devops-engineer": "standard", "qa-reviewer": "deep",
                   "cataloguer": "light", "auditor": "deep", "plan-architect": "apex" }
    ```
+   `maxPrLoc` is optional in the same file — absent, the PR-size heuristic uses **500** —
+   so add it only if you want a different threshold.
    Optionally fold any new conventions from the template's `seed/CLAUDE.md` into your
    instance's `CLAUDE.md`.
 4. **Restart Claude Code** in the instance (`/exit`, then `claude`) so new agents and

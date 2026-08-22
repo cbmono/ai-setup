@@ -19,9 +19,15 @@ and stop.
    are more), grouped by task so the context is clear. Where you can propose plausible
    answers, offer them as options; otherwise take free-form.
 3. **Fold back.** For each answered question, bake the answer into the task itself
-   (`# Context`, a tightened `acceptance_criteria`, or `# Notes` as fits) and **delete
-   that entry** from `open_questions` — the same effect as the ` --- <answer>` delimiter,
-   applied here. Keep no answered-question history.
+   (`# Context`, a tightened `acceptance_criteria`, or `# Notes` as fits) and **move
+   that entry** out of `open_questions` into `answered_questions` — the same effect as
+   the ` --- <answer>` delimiter, applied here. Write the moved entry as one flat line —
+   the current ISO 8601 timestamp, then ` · `, then the original question with the
+   answer appended after ` --- `, e.g.
+   `2026-01-01T00:00:00Z · Q1: which region? --- eu-central-1`.
+   Make sure it is **gone from `open_questions`**: that list emptying is
+   what makes the draft promotable, so an entry left in both places blocks it forever.
+   `answered_questions` is a human audit record — nothing reads it (see `SCHEMA.md`).
 4. **Report** which tasks became clean (empty `open_questions`). Under `gated` they're
    now promotable by the human; where the project delegates promotion (`AUTONOMY.md`), the next `/pm-loop` tick will
    auto-promote the clean **build** tasks (research stays human-driven). This command
@@ -33,4 +39,6 @@ and stop.
   parks questions on the 🔴 board, and you clear them here (or by editing the task docs).
 - Commit is optional: the next `/pm-loop` tick commits the doc changes under the PM
   identity, or commit them yourself using this bundle's usual process.
-- No customer PII in answers written to task docs.
+- No customer PII in answers written to task docs — and note `answered_questions`
+  **keeps them for the life of the repo**, so an answer you would not commit is an
+  answer to give in person instead.
