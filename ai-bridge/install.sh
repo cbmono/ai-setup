@@ -224,3 +224,23 @@ fi
 echo "Done. Machinery symlinked & gitignored; seed content in place."
 echo "Next: edit instance.config.json, then run /pm-loop from this directory."
 echo "      (Set reposRoot first, then 'scripts/link-repos.sh' fills in repos/.)"
+
+# 5. One nudge, and only a nudge. A pull can bring a stricter SCHEMA.md, whose validator
+# reaches the instance instantly through its symlink and starts reporting errors against
+# documents written under the old rules — and nothing repairs them until someone runs
+# the migration. So say so, once, and point at upgrade.sh.
+#
+# Deliberately NOT the migration itself: this script is safe to run blindly precisely
+# because it only links and seeds-if-absent, and spending that property to save the user
+# one command would be a bad trade. Non-fatal, and silent unless the validator says
+# exactly "there are errors" (exit 1): absent (an instance older than the validator) or
+# clean says nothing, and any other exit code — 2 is "not an instance root" — is not
+# something a user can act on from here.
+if [ -e "$TARGET/scripts/validate-bundle.sh" ]; then
+  vrc=0
+  ( cd "$TARGET" && bash scripts/validate-bundle.sh ) >/dev/null 2>&1 || vrc=$?
+  if [ "$vrc" -eq 1 ]; then
+    echo "Note: this bundle has schema errors. To see and repair them, run:"
+    echo "      $TEMPLATE_DIR/upgrade.sh $TARGET"
+  fi
+fi

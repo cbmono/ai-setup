@@ -1,6 +1,6 @@
 ---
 paths:
-  - ".claude/output-styles/**"
+  - "/.claude/output-styles/**"
 ---
 
 # Output styles

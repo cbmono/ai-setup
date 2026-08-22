@@ -1,6 +1,6 @@
 ---
 paths:
-  - "knowledge/**"
+  - "/knowledge/**"
 ---
 
 # Knowledge base

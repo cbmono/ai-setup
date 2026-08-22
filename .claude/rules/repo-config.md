@@ -1,7 +1,7 @@
 ---
 paths:
-  - ".coderabbit.yaml"
-  - "install.sh"
+  - "/.coderabbit.yaml"
+  - "/install.sh"
 ---
 
 # Root config: CodeRabbit review config and the user-wide installer

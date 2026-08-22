@@ -27,6 +27,28 @@ edit here should be argued on adherence, never on cost.
 Measured on Claude Code 2.1.239 with an `InstructionsLoaded` hook, not inferred
 from the docs. These three properties decide most of the classifications below.
 
+0. **A pattern is only root-anchored if it starts with `/`.** Measured against
+   v2.1.239 with an `InstructionsLoaded` hook, reading root and nested copies of
+   one filename and inspecting `load_reason` / `globs` / `trigger_file_path`:
+
+   | `paths:` pattern | root file | nested file |
+   |---|---|---|
+   | `x.txt`, `*.txt`, `{x.txt}` | fires | **fires** |
+   | `/x.txt` | fires | does not fire |
+   | `./x.txt` | **does not fire** | does not fire |
+   | `a/x.txt` | fires | does not fire |
+   | `a/**` | fires | **fires** (matched `nest/a/…`) |
+   | `/a/**` | fires | does not fire |
+
+   So a bare filename matches that **basename in any directory**, a trailing
+   globstar is *not* anchored either, and `./x` is a silently dead rule. Anchor
+   every root-relative pattern with a leading `/`. **The official documentation is
+   wrong on both counts** — its table says `*.md` matches "Markdown files in the
+   project root", and its guidance advises against a leading slash. This was
+   raised as a review finding on the PR that introduced these rules and settled by
+   measurement rather than by trusting either the docs or the review; the same
+   discrepancy is why step 4 of *Verifying a change* insists on the hook.
+
 1. **A `paths:` glob is matched relative to the project directory and never
    matches a file outside it.** A rule globbing `**/*.ts` fired for
    `<project>/src/a.ts` and did **not** fire for a file in an `--add-dir`

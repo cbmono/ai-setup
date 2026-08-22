@@ -1,8 +1,8 @@
 ---
 paths:
-  - ".claude/settings.json"
-  - ".claude/settings.*.json"
-  - "ai-bridge/symlink/.claude/settings.json"
+  - "/.claude/settings.json"
+  - "/.claude/settings.*.json"
+  - "/ai-bridge/symlink/.claude/settings.json"
 ---
 
 # Settings, plugins, and permission patterns

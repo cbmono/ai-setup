@@ -1,7 +1,7 @@
 ---
 paths:
-  - ".claude/hooks/**"
-  - ".claude/scripts/**"
+  - "/.claude/hooks/**"
+  - "/.claude/scripts/**"
 ---
 
 # Hooks, the status line, and user-run scripts

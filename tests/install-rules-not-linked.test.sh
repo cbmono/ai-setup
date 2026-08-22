@@ -62,7 +62,11 @@ ok "re-run still leaves rules/ absent"        "$([ -e "$d/rules" ] && echo prese
 d="$(newdir 2)"
 mkdir -p "$d/rules"
 printf 'mine\n' > "$d/rules/personal.md"
-run "$d" >/dev/null
+# Capture the status: without this, the three checks below inspect only the
+# pre-existing directory and the uninstall path, so they all pass even when the
+# install failed outright and never got as far as looking at rules/.
+rc="$(run "$d")"
+ok "installer exits 0 with a user-owned rules/"  "$rc" 0
 ok "a user's own ~/.claude/rules is untouched" "$(cat "$d/rules/personal.md" 2>/dev/null)" mine
 ok "it was not replaced by a symlink"          "$([ -L "$d/rules" ] && echo link || echo real)" real
 CLAUDE_CONFIG_DIR="$d" bash "$INSTALL" --uninstall >"$TMP/out" 2>&1
@@ -71,16 +75,31 @@ ok "--uninstall leaves it in place"            "$(cat "$d/rules/personal.md" 2>/
 # --- absence is safe: no rules dir at all must not error --------------------
 # Matches the AUTONOMY.md pattern — deleting the capability disables it silently
 # rather than breaking the installer for everyone.
+# This case needs a repo WITHOUT .claude/rules. The first version got one by
+# `mv`-ing the real directory aside and moving it back — which mutates the
+# checkout every other agent and test in this repo is reading, and an interrupt
+# between the two moves leaves the repository missing a tracked directory. Copy
+# instead: a throwaway clone of the tracked tree, deleted from the copy only.
 d="$(newdir 3)"
-STASH="$TMP/stash"
-if [ -d "$REPO/.claude/rules" ]; then
-  mv "$REPO/.claude/rules" "$STASH"
-  rc="$(run "$d")"
-  mv "$STASH" "$REPO/.claude/rules"
-  ok "installer exits 0 with no rules/ in repo" "$rc" 0
-else
-  ok "installer exits 0 with no rules/ in repo" skipped skipped
-fi
+COPY="$TMP/repo-copy"
+rm -rf "$COPY"; mkdir -p "$COPY"
+# Only what install.sh reads: itself, plus the tracked .claude/ tree it discovers
+# via `git ls-files`. Needs to be a git repo for that discovery to work.
+( cd "$REPO" && git ls-files .claude install.sh ) | while IFS= read -r f; do
+  [ -n "$f" ] || continue
+  mkdir -p "$COPY/$(dirname "$f")"
+  cp "$REPO/$f" "$COPY/$f" 2>/dev/null || true
+done
+( cd "$COPY" && git init -q . && git add -A >/dev/null 2>&1 \
+  && git -c user.name=t -c user.email=t@t commit -qm fixture >/dev/null 2>&1 )
+rm -rf "$COPY/.claude/rules"
+( cd "$COPY" && git add -A >/dev/null 2>&1 \
+  && git -c user.name=t -c user.email=t@t commit -qm "drop rules" >/dev/null 2>&1 )
+CLAUDE_CONFIG_DIR="$d" bash "$COPY/install.sh" >"$TMP/out" 2>&1
+ok "installer exits 0 with no rules/ in repo" "$?" 0
+ok "…and links nothing named rules"           "$([ -e "$d/rules" ] && echo present || echo absent)" absent
+# Prove the real checkout was not disturbed, which is the property the rewrite buys.
+ok "the real repo still has .claude/rules"    "$([ -d "$REPO/.claude/rules" ] && echo yes || echo no)" yes
 
 printf '\n%s passed, %s failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]
