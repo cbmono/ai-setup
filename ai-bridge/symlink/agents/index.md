@@ -10,7 +10,7 @@ in `.claude/agents/<role>.md`; this is the routing reference.
 **Task assignees** — the PM dispatches human-approved `ready` build tasks to these:
 * [software-engineer](/.claude/agents/software-engineer.md) - features and bug fixes in product code
 * [devops-engineer](/.claude/agents/devops-engineer.md) - CI/CD, GitHub Actions, Helm, ArgoCD, Terraform, Docker images, observability
-* [qa-reviewer](/.claude/agents/qa-reviewer.md) - writing/extending tests, reviewing PRs, and reviewing a new project scaffold when no external reviewer is installed (the quality gate)
+* [qa-reviewer](/.claude/agents/qa-reviewer.md) - writing/extending tests, reviewing PRs, and reviewing a new project scaffold when no usable external reviewer is available (the quality gate)
 
 **Orchestration & read-only roles** — **never** task assignees (the PM invokes them, but they aren't dispatched a `ready` task):
 * [project-manager](/.claude/agents/project-manager.md) - orchestrator: refines, assigns, reviews, curates.

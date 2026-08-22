@@ -7,6 +7,7 @@
   "defaultRepo": null,
   "maxAgentsInFlight": 10,
   "codegraphSkip": "",
+  "externalReviewer": null,
   "prReviewSlackChannel": null,
   "roles": [
     "project-manager",

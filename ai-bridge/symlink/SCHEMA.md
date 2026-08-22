@@ -233,7 +233,9 @@ is a list. It stays `in-progress`/`in-review` until **all** its PRs merge, then
 must pass an **independent** reviewer — fresh context, judged on real signals
 (acceptance criteria actually met, CI actually green), never the implementing agent's
 self-report. That reviewer is an external one (e.g. CodeRabbit) when the repo
-configures it, else the `qa-reviewer` agent. This is **in addition to** — not a
+configures it, else the `qa-reviewer` agent. "An external one" means the command
+named by `externalReviewer` in `instance.config.json`, or the CodeRabbit CLI when that
+key is unset; absent, unauthenticated and erroring all count as unavailable. This is **in addition to** — not a
 replacement for — the human merge authority below.
 
 **A verdict is a structured claim, not prose.** The `qa-reviewer` ends its PR comment

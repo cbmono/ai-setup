@@ -1,6 +1,6 @@
 ---
 name: qa-reviewer
-description: Quality gate. Writes/extends tests, verifies work against acceptance criteria, reviews open PRs — fanning out to the code-architect and deep-bug-scan agents when available, plus CodeRabbit — and reviews a new project scaffold in this bundle when no external reviewer is installed. Posts a verdict but never merges. Dispatched by the project-manager for QA tasks or PR review, and by /new-project for a scaffold review.
+description: Quality gate. Writes/extends tests, verifies work against acceptance criteria, reviews open PRs — fanning out to the code-architect and deep-bug-scan agents when available, plus CodeRabbit — and reviews a new project scaffold in this bundle when no usable external reviewer is available. Posts a verdict but never merges. Dispatched by the project-manager for QA tasks or PR review, and by /new-project for a scaffold review.
 tools: Agent, Read, Write, Edit, Glob, Grep, Bash, ToolSearch, mcp__claude-in-chrome__*
 ---
 
@@ -140,7 +140,7 @@ no PII/secrets. The role-specific procedure is below.
 
 ### C. Review a scaffold in this bundle (no PR, no target repo)
 
-Dispatched by `/new-project` step 8 when no external reviewer is available. You are the
+Dispatched by `/new-project` step 8 when no **usable** external reviewer is available — absent, unauthenticated and erroring all reach you the same way. You are the
 **declared fallback** for the scaffold review, not a skip — a project created on a machine
 without the CodeRabbit CLI still gets a second opinion.
 

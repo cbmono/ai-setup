@@ -177,15 +177,21 @@ If `$ARGUMENTS` has no description, **ask** for a one-line goal before doing any
    fresh reviewer catches what a scaffolding pass cannot see in itself: a `depends_on`
    missing a real prerequisite, a cross-reference left stale by a rename, a design rule
    with a hole in it. Run it **after** step 7 so the scaffold is a reviewable diff.
-   **Skipped entirely on `kind=research`** and **under `--no-commit`** (no committed
-   scaffold to diff against). **Never block project creation on any of it.**
+   **The whole chain is skipped on `kind=research`** and **under `--no-commit`** (no
+   committed scaffold to diff against). When it does run, be precise about what blocks what:
+
+   * The project is **already created and committed** by step 7, so nothing here can block
+     creation.
+   * **Stage 1 errors block the rest of the chain** — they are defects in the scaffold you
+     just wrote, so fix them before spending a review session.
+   * **Reviewer verdicts (stages 2 and 3) are advisory** — you triage them; they gate nothing.
 
    The three stages run in order, cheapest first:
 
    | Stage | What | When it is skipped |
    |---|---|---|
-   | **1. `scripts/validate-bundle.sh`** | Deterministic. Dangling references, unknown enum values, missing required fields, a frontmatter/body mismatch. Free, no tokens, no false positives. | never |
-   | **2. External reviewer** (CodeRabbit CLI, or an equivalent) | Judgement on the scaffold's substance. | CLI absent or not signed in ⇒ fall through to stage 3 |
+   | **1. `scripts/validate-bundle.sh`** | Deterministic. Dangling references, unknown enum values, missing required fields, a frontmatter/body mismatch. Free, no tokens, no false positives. | never, once the chain runs at all |
+   | **2. External reviewer** — `externalReviewer` from `instance.config.json`, else the CodeRabbit CLI | Judgement on the scaffold's substance. | no *usable* reviewer — absent, unauthenticated or erroring — ⇒ fall through to stage 3 |
    | **3. `qa-reviewer` scaffold mode** | The **declared fallback**, not a skip. Schema-aware, so it does not raise the by-design findings an external reviewer does. | only when the human has said not to dispatch agents |
 
    **Stage 1 is not optional and runs first**, because the consistency class is exactly
@@ -215,16 +221,28 @@ If `$ARGUMENTS` has no description, **ask** for a one-line goal before doing any
    re-run until clean. Errors here are never "by design" — the validator only reports
    things the schema forbids.
 
-   Then resolve the external reviewer. The CodeRabbit CLI ships under two names, so try
-   `command -v cr` then `command -v coderabbit` and keep whichever resolves as `<cli>`.
-   None found, not signed in, or `<cli> doctor` erroring → **say so in one line and go to
-   step f (the fallback)** — do not stop.
+   Then resolve the external reviewer, in this order:
 
-   One environment note that will otherwise waste a run: CodeRabbit needs a base branch,
-   and an instance with **no git remote** has no `origin/HEAD` to infer one from. It fails
-   with *"Unable to determine base branch"*. Set it once per instance —
-   `git config coderabbit.baseBranch "$(git rev-parse --abbrev-ref HEAD)"` — and note that
-   a remote-less repo also falls back to the free CLI allowance.
+   1. **`externalReviewer` in `instance.config.json`**, when set — the command to run, so a
+      site that uses something other than CodeRabbit is not forced through the fallback.
+      This is what makes "or an equivalent" real rather than decorative. Resolve it with
+      `command -v`; if the named command is missing, say so and treat the reviewer as
+      unavailable — never silently substitute CodeRabbit for the one that was configured.
+   2. **The CodeRabbit CLI**, which ships under two names: try `command -v cr`, then
+      `command -v coderabbit`.
+
+   Keep whatever resolves as `<cli>`. Nothing resolving, not signed in, or `<cli> doctor`
+   erroring → **say so in one line and go to step e (the fallback)** — do not stop.
+   "No usable reviewer" is one condition: absent, unauthenticated and erroring all take
+   that same path.
+
+   One environment note that would otherwise waste a run: CodeRabbit resolves the base
+   branch from `origin/HEAD`, so an instance with **no git remote** fails with *"Unable to
+   determine base branch"*. Pass it explicitly instead —
+   **`--base "$(git rev-parse --abbrev-ref HEAD)"`** — rather than persisting
+   `git config coderabbit.baseBranch`, which the CLI's own error text suggests but which
+   writes to the human's repo config for a one-off review. A remote-less repo also falls
+   back to the free CLI allowance whatever you pass.
 
    **b. Run it scoped to the new project and wait for it** (a review takes ~1–2 min; run it
    synchronously and capture stdout — the triage in step c reads that output). Use the `<cli>`
@@ -267,7 +285,7 @@ If `$ARGUMENTS` has no description, **ask** for a one-line goal before doing any
    before calling it green; if either is missing, treat the run as indeterminate and say so
    rather than reporting a pass.
 
-   **e. No external reviewer ⇒ dispatch `qa-reviewer` in scaffold mode.** Not a skip. Brief
+   **e. No usable external reviewer ⇒ dispatch `qa-reviewer` in scaffold mode.** Not a skip. Brief
    it with the instance root, the project slug, and the pre-commit SHA from step 7, and ask
    for **mode C**. It reviews the committed bundle diff and writes its verdict into the
    project's `log.md` — there is no PR to comment on. Triage its findings exactly as in
