@@ -1,7 +1,7 @@
 ---
 description: Scaffold a new project under projects/<slug>/ — schema-valid files, registered in the bundle index/log and linked to its objective, with seed draft tasks. Supports build (code/PRs) and research (in-bundle deliverables) projects.
 argument-hint: <one-line project description>  [kind=build|research] [objective=<slug>] [repo=<name|owner/name>] [deliverables="a; b"] [--no-commit]
-allowed-tools: Bash(date:*), Bash(scripts/commit-as.sh:*), Bash(git add:*), Bash(ls:*), Read, Write, Edit, Glob
+allowed-tools: Bash(date:*), Bash(scripts/commit-as.sh:*), Bash(scripts/validate-bundle.sh:*), Bash(git add:*), Bash(git config:*), Bash(git rev-parse:*), Bash(command -v:*), Bash(cr:*), Bash(coderabbit:*), Bash(ls:*), Read, Write, Edit, Glob, Agent
 ---
 
 Scaffold a new **Project** in this bundle: the `projects/<slug>/` folder and its
@@ -173,13 +173,37 @@ If `$ARGUMENTS` has no description, **ask** for a one-line goal before doing any
    available authoring/brand/slides skills) and write the deliverable; the PM only
    tracks status — `done` when you approve the deliverable.
 
-8. **Second-opinion review of the scaffold — build projects only, CodeRabbit CLI, when
-   available.** A fresh reviewer catches what a scaffolding pass cannot see in itself: a
-   `depends_on` missing a real prerequisite, a cross-reference left stale by a rename, a
-   design rule with a hole in it. Run it **after** step 7 so the scaffold is a reviewable
-   diff. **Skipped entirely on `kind=research`** and **under `--no-commit`** (no committed
-   scaffold to diff against, so a committed review would see nothing). Skipped with a
-   one-line note when the CLI isn't there — **never block project creation on this.**
+8. **Second-opinion review of the scaffold — build projects only, in three stages.** A
+   fresh reviewer catches what a scaffolding pass cannot see in itself: a `depends_on`
+   missing a real prerequisite, a cross-reference left stale by a rename, a design rule
+   with a hole in it. Run it **after** step 7 so the scaffold is a reviewable diff.
+   **The whole chain is skipped on `kind=research`** and **under `--no-commit`** (no
+   committed scaffold to diff against). When it does run, be precise about what blocks what:
+
+   * The project is **already created and committed** by step 7, so nothing here can block
+     creation.
+   * **Stage 1 errors block the rest of the chain** — they are defects in the scaffold you
+     just wrote, so fix them before spending a review session.
+   * **Reviewer verdicts (stages 2 and 3) are advisory** — you triage them; they gate nothing.
+
+   The three stages run in order, cheapest first:
+
+   | Stage | What | When it is skipped |
+   |---|---|---|
+   | **1. `scripts/validate-bundle.sh`** | Deterministic. Dangling references, unknown enum values, missing required fields, a frontmatter/body mismatch. Free, no tokens, no false positives. | never, once the chain runs at all |
+   | **2. External reviewer** — `externalReviewer` from `instance.config.json`, else the CodeRabbit CLI | Judgement on the scaffold's substance. | no *usable* reviewer — absent, unauthenticated or erroring — ⇒ fall through to stage 3 |
+   | **3. `qa-reviewer` scaffold mode** | The **declared fallback**, not a skip. Schema-aware, so it does not raise the by-design findings an external reviewer does. | only when the human has said not to dispatch agents |
+
+   **Stage 1 is not optional and runs first**, because the consistency class is exactly
+   what a fresh scaffold gets wrong and a parser answers it for free. If it reports errors,
+   fix them before spending a review session — an external reviewer re-deriving a dangling
+   path by reading prose costs a full run to reach a conclusion `grep` already had.
+
+   *Why a declared fallback replaced "skip when the CLI is missing":* `SCHEMA.md`'s
+   merge-time gate has said all along that the independent reviewer is "an external one
+   when the repo configures it, **else the `qa-reviewer` agent**". Step 8 skipping to
+   nothing was the inconsistency, and a project scaffolded on a machine without the CLI got
+   no second opinion at all.
 
    *Why research is out:* what a code reviewer is good at — authorization holes, injection,
    the security shape of what the project describes — is what a research scaffold doesn't
@@ -189,12 +213,36 @@ If `$ARGUMENTS` has no description, **ask** for a one-line goal before doing any
    `sources/` holds only its README. The risk arrives when the human drops raw exports in
    later, which a creation-time review never sees either.
 
-   **a. Gate on applicability.** First, if `kind` is `research`, stop here — nothing below
-   runs. Then, if step 7 ran with `--no-commit`, stop here too (nothing
-   to review). Otherwise resolve the CodeRabbit CLI — it ships under two names, so try
-   `command -v cr` then `command -v coderabbit` and keep whichever resolves as `<cli>` for the
-   rest of this step. None found, not signed in, or `<cli> doctor` erroring → say so in one
-   line and stop. The project already exists and is committed; this step is additive.
+   **a. Gate on applicability, then run stage 1.** First, if `kind` is `research`, stop
+   here — nothing below runs. Then, if step 7 ran with `--no-commit`, stop here too.
+
+   Now run **`scripts/validate-bundle.sh`**. Zero errors is the gate for continuing. Any
+   error is a defect in the scaffold you just wrote: fix it, amend or add a commit, and
+   re-run until clean. Errors here are never "by design" — the validator only reports
+   things the schema forbids.
+
+   Then resolve the external reviewer, in this order:
+
+   1. **`externalReviewer` in `instance.config.json`**, when set — the command to run, so a
+      site that uses something other than CodeRabbit is not forced through the fallback.
+      This is what makes "or an equivalent" real rather than decorative. Resolve it with
+      `command -v`; if the named command is missing, say so and treat the reviewer as
+      unavailable — never silently substitute CodeRabbit for the one that was configured.
+   2. **The CodeRabbit CLI**, which ships under two names: try `command -v cr`, then
+      `command -v coderabbit`.
+
+   Keep whatever resolves as `<cli>`. Nothing resolving, not signed in, or `<cli> doctor`
+   erroring → **say so in one line and go to step e (the fallback)** — do not stop.
+   "No usable reviewer" is one condition: absent, unauthenticated and erroring all take
+   that same path.
+
+   One environment note that would otherwise waste a run: CodeRabbit resolves the base
+   branch from `origin/HEAD`, so an instance with **no git remote** fails with *"Unable to
+   determine base branch"*. Pass it explicitly instead —
+   **`--base "$(git rev-parse --abbrev-ref HEAD)"`** — rather than persisting
+   `git config coderabbit.baseBranch`, which the CLI's own error text suggests but which
+   writes to the human's repo config for a one-off review. A remote-less repo also falls
+   back to the free CLI allowance whatever you pass.
 
    **b. Run it scoped to the new project and wait for it** (a review takes ~1–2 min; run it
    synchronously and capture stdout — the triage in step c reads that output). Use the `<cli>`
@@ -237,7 +285,16 @@ If `$ARGUMENTS` has no description, **ask** for a one-line goal before doing any
    before calling it green; if either is missing, treat the run as indeterminate and say so
    rather than reporting a pass.
 
-   **e. Record the verdicts.** Add a dated bullet to the project's `log.md` naming what you
+   **e. No usable external reviewer ⇒ dispatch `qa-reviewer` in scaffold mode.** Not a skip. Brief
+   it with the instance root, the project slug, and the pre-commit SHA from step 7, and ask
+   for **mode C**. It reviews the committed bundle diff and writes its verdict into the
+   project's `log.md` — there is no PR to comment on. Triage its findings exactly as in
+   step c; its verdict is advisory, like the external one, and never gates creation.
+
+   Being schema-aware, it should not raise the by-design findings in step c's list. If it
+   does, that is a defect in the agent worth fixing rather than a finding worth triaging.
+
+   **f. Record the verdicts.** Add a dated bullet to the project's `log.md` naming what you
    applied **and what you rejected, with the reason** — and make sure that entry is committed,
    not just the accepted fixes. Stage `log.md` alongside the fixes so they land in one commit,
    or record it in a follow-up commit if the fixes already landed; an uncommitted verdict
