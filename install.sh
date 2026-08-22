@@ -59,6 +59,46 @@ ADOPTABLE_KEYS="statusLine outputStyle"
 # ---------------------------------------------------------------------------
 
 REPO_ROOT="$(cd "$(dirname "$0")" && pwd)"
+SRC_DIR_FOR_GUARD="$REPO_ROOT"
+# Refuse to install from a git WORKTREE.
+#
+# Both installers derive their source from `dirname $0` and then create symlinks that
+# point AT that path — `~/.claude/*` here, an instance's whole machinery set in
+# ai-bridge/install.sh. A linked worktree is temporary by design: `ExitWorktree` or
+# `git worktree remove` deletes it, and every symlink created from it dangles the moment
+# it goes. That failure is silent — nothing errors at install time, and it surfaces later
+# as commands and hooks that have simply vanished.
+#
+# Not hypothetical: this project's own convention is to work on a branch in a worktree,
+# which puts a checkout of this very script one `cd` away from the wrong answer. It was
+# recorded as a structural hazard during a plan review and went unfixed until now.
+#
+# The test is `--git-dir` vs `--git-common-dir`: equal in the main working tree, different
+# in a linked one (the former becomes <main>/.git/worktrees/<name>). Both are asked for in
+# absolute form, because one side is otherwise relative and the comparison would always
+# differ. A plain `git init` repo — what the test fixtures build — is a MAIN tree, so this
+# never fires there; outside git entirely it cannot fire at all.
+if command -v git >/dev/null 2>&1; then
+  _gd="$(git -C "$SRC_DIR_FOR_GUARD" rev-parse --absolute-git-dir 2>/dev/null || true)"
+  _gc="$(git -C "$SRC_DIR_FOR_GUARD" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)"
+  if [ -n "$_gd" ] && [ -n "$_gc" ] && [ "$_gd" != "$_gc" ]; then
+    cat >&2 <<GUARDEOF
+error: refusing to install from a git worktree.
+
+  source:      $SRC_DIR_FOR_GUARD
+  worktree of: $(dirname "$_gc")
+
+Every symlink this creates would point into the worktree, and deleting the worktree
+(ExitWorktree, or git worktree remove) would silently break all of them — nothing
+fails now, the commands and hooks just disappear later.
+
+Run it from the main checkout instead:
+  $(dirname "$_gc")/$(basename "$0")
+GUARDEOF
+    exit 2
+  fi
+fi
+
 REPO_CLAUDE="$REPO_ROOT/.claude"
 # Honour CLAUDE_CONFIG_DIR: when it's set, Claude Code reads settings, agents, and
 # hooks from there instead of ~/.claude, so installing into $HOME would put the
