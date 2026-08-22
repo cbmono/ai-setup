@@ -24,6 +24,54 @@
 set -euo pipefail
 
 TEMPLATE_DIR="$(cd "$(dirname "$0")" && pwd)"
+SRC_DIR_FOR_GUARD="$TEMPLATE_DIR"
+# Refuse to install from a git WORKTREE.
+#
+# Both installers derive their source from `dirname $0` and then create symlinks that
+# point AT that path — `~/.claude/*` here, an instance's whole machinery set in
+# ai-bridge/install.sh. A linked worktree is temporary by design: `ExitWorktree` or
+# `git worktree remove` deletes it, and every symlink created from it dangles the moment
+# it goes. That failure is silent — nothing errors at install time, and it surfaces later
+# as commands and hooks that have simply vanished.
+#
+# Not hypothetical: this project's own convention is to work on a branch in a worktree,
+# which puts a checkout of this very script one `cd` away from the wrong answer. It was
+# recorded as a structural hazard during a plan review and went unfixed until now.
+#
+# The test is `--git-dir` vs `--git-common-dir`: equal in the main working tree, different
+# in a linked one (the former becomes <main>/.git/worktrees/<name>). Both are asked for in
+# absolute form, because one side is otherwise relative and the comparison would always
+# differ. A plain `git init` repo — what the test fixtures build — is a MAIN tree, so this
+# never fires there; outside git entirely it cannot fire at all.
+#
+# The message deliberately does NOT compute the main checkout's path. Both obvious
+# derivations are wrong once the git metadata lives apart from the working tree
+# (`git init --separate-git-dir`, or a `.git` file pointing elsewhere): `dirname` of the
+# common dir yields the metadata's parent, and even `git worktree list` reports the git
+# dir rather than the main tree in that setup — measured both. Printing a confidently
+# wrong path to paste is worse than printing none, so it names the command that always
+# knows instead of guessing. Don't "improve" this by deriving it.
+if command -v git >/dev/null 2>&1; then
+  _gd="$(git -C "$SRC_DIR_FOR_GUARD" rev-parse --absolute-git-dir 2>/dev/null || true)"
+  _gc="$(git -C "$SRC_DIR_FOR_GUARD" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)"
+  if [ -n "$_gd" ] && [ -n "$_gc" ] && [ "$_gd" != "$_gc" ]; then
+    cat >&2 <<GUARDEOF
+error: refusing to install from a git worktree.
+
+  source:      $SRC_DIR_FOR_GUARD
+  git dir:     $_gd
+
+Every symlink this creates would point into the worktree, and deleting the worktree
+(ExitWorktree, or git worktree remove) would silently break all of them — nothing
+fails now, the commands and hooks just disappear later.
+
+Run it from the repository's MAIN working tree instead. To find it:
+  git -C $SRC_DIR_FOR_GUARD worktree list      # the first entry is the main tree
+GUARDEOF
+    exit 2
+  fi
+fi
+
 SYMLINK_SRC="$TEMPLATE_DIR/symlink"
 SEED_SRC="$TEMPLATE_DIR/seed"
 BEGIN_MARK="# >>> ai-bridge machinery (symlinked) >>>"
