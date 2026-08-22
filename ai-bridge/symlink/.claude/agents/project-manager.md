@@ -82,11 +82,20 @@ state, and act only on deltas.
    (e.g. `"Q1: Which region should we default to? --- eu-central-1"`) — treat any
    text after the ` --- ` delimiter as the answer; answering in-session works too.
    When one or more are answered, bake each answer into the task itself —
-   `# Context`, a tightened `acceptance_criteria`, or `# Notes` as fits — and
-   **delete that entry from `open_questions`**. Keep no answered-question history:
-   `open_questions` holds only questions still awaiting an answer, so a `draft`
-   becomes clean once the list empties — promotable by the human, or by you on the next
-   tick where the project delegates promotion.
+   `# Context`, a tightened `acceptance_criteria`, or `# Notes` as fits — and then
+   **MOVE that entry out of `open_questions` into `answered_questions`** rather than
+   deleting it: prefix it with the current ISO 8601 timestamp and ` · `, and keep the
+   entry text **verbatim**. Question and answer already share one line either side of
+   the ` --- ` delimiter, so moving the line preserves both. A question that has become
+   **moot** moves the same way, with the reason as its answer. `answered_questions` is
+   an audit record for humans — nothing reads it, and no gate consults it.
+   `open_questions` still holds only questions awaiting an answer, so a `draft`
+   becomes clean once **that** list empties — promotable by the human, or by you on the next
+   tick where the project delegates promotion. Moving an entry must never leave it in
+   both lists: `open_questions` emptying is the promotion signal, and a copy left behind
+   silently blocks the draft forever.
+   **No customer PII in `answered_questions`** — it is human prose that now persists for
+   the life of the repo, under the same rule as all task/project/log/deliverable text.
 
    **Optional approach critique (advisory).** For a genuinely complex **`kind:
    build`** task — spans multiple files/services, or its `acceptance_criteria` had

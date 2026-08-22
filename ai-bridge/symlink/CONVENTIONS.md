@@ -38,6 +38,15 @@ got here.
   ride the deterministic checks. Never tick a box because everything else passed.
 - Run the repo's build, lint, and tests green before opening a PR. If you can't
   get them green, report rather than open the PR.
+- **PR size is a heuristic that suggests a split, never a gate.** Before opening, check
+  the diff against **`maxPrLoc`** in `instance.config.json` (**absent that key, 500**);
+  past it, say so in the PR body and propose the split you would make — by phase, by
+  layer, or as a stack — and note the parts you would extract. Then **open the PR
+  anyway**: generated boilerplate, codemods, lockfiles and dense logic all move the real
+  number, so a line count cannot decide reviewability on its own, and a task that
+  legitimately needs one large change must not be blocked by arithmetic. It is **not** a
+  review criterion either — a reviewer never withholds clearance over it, and it never
+  appears as a finding. If the split is obviously right and cheap, do it before opening.
 - **Self-review before you open the PR (a pre-filter, not the gate).** On your own diff,
   run a review and fix what it flags *first*: dispatch `code-architect` if it's installed
   in `~/.claude/agents/`, else do a careful pass yourself (correctness, edge cases,

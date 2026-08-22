@@ -132,6 +132,12 @@ ticks, regardless of how long a tick runs.
   the field is inert. See the PM agent's "Authority boundaries". When `autonomy` is unset,
   act as `gated`.
 - Reconcile doc `status:` against live `gh`/`git` before acting; act only on deltas.
+- **An answered question is MOVED, never deleted.** Folding an answer in shifts that
+  `open_questions` entry into the task's `answered_questions` list — one flat line,
+  `<ISO 8601> · <the entry verbatim>` (see `SCHEMA.md`). `open_questions` must still
+  **empty**, because that is the signal promotion keys on; an entry left in both lists
+  blocks the draft forever. `answered_questions` is a human audit record — nothing reads
+  it — and it carries **no customer PII**, since it persists for the life of the repo.
 - Concurrency cap: **at most `maxAgentsInFlight` role agents in flight** (from
   `instance.config.json`; fall back to 5 if the key is absent), and each must use its own
   worktree under the instance's `worktreeRoot` (from `instance.config.json`, never

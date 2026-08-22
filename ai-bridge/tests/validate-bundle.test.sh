@@ -46,6 +46,17 @@ doc projects/live/tasks/task-001-ok.md '---' 'type: Task' 'title: Ok' 'status: r
 doc knowledge/findings/good.md '---' 'type: Finding' 'title: F' 'category: learning' \
   'status: current' "timestamp: $TS" '---' 'body'
 
+# A task carrying the free-text `answered_questions:` audit list. Asserted SILENT on
+# purpose: that key is deliberately NOT machine-read, so the validator must have no
+# opinion about it. There is no error class here with one right answer — a free-text
+# list is neither an enum nor a reference — and a "missing ` --- ` delimiter" warning is
+# precisely the noise this file's header says buries real errors. If someone later adds
+# a check for it, this assertion is what fails.
+doc projects/live/tasks/task-013-answered.md '---' 'type: Task' 'title: Answered' 'status: ready' \
+  'objective: /objectives/good.md' 'open_questions: [ ]' \
+  'answered_questions: [ "2026-01-01T00:00:00Z · Q1: which region? --- eu-central-1", "2026-01-02T00:00:00Z · Q2: moot, the endpoint was removed" ]' \
+  "timestamp: $TS" '---' 'body'
+
 # --- one document per failure class -------------------------------------------
 doc projects/live/tasks/task-002-bad-status.md '---' 'type: Task' 'title: Bad' \
   'status: activ' "timestamp: $TS" '---' 'body'
@@ -130,7 +141,8 @@ assert "files below knowledge/<kind>/ are ignored"   "$(not_seen 'raw-note.md')"
 
 echo "== valid documents are silent =="
 for f in objectives/good.md projects/live/project.md projects/live/phases/1-a.md \
-         projects/live/tasks/task-001-ok.md knowledge/findings/good.md; do
+         projects/live/tasks/task-001-ok.md projects/live/tasks/task-013-answered.md \
+         knowledge/findings/good.md; do
   assert "no complaint about $f" "$(not_seen "$f")"
 done
 
