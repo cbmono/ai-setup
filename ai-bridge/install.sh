@@ -306,6 +306,41 @@ echo "      (Set reposRoot first, then 'scripts/link-repos.sh' fills in repos/.)
 # exactly "there are errors" (exit 1): absent (an instance older than the validator) or
 # clean says nothing, and any other exit code — 2 is "not an instance root" — is not
 # something a user can act on from here.
+# Retired seed content — REPORT, never remove. See ai-bridge/RETIRED for why the
+# machinery sweep (step 2b) may delete and this may not: a symlink into this template
+# whose target is gone has one possible meaning; a seed file the human has owned since it
+# was copied does not. Absence of the manifest, or an empty one, is silence — not an error.
+RETIRED_LIST="$TEMPLATE_DIR/RETIRED"
+if [ -f "$RETIRED_LIST" ]; then
+  retired_found=0
+  while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in ''|'#'*) continue ;; esac
+    # <path><TAB><reason>; a line with no tab is all path and no reason.
+    rpath="${line%%	*}"
+    reason="${line#*	}"
+    [ "$reason" = "$rpath" ] && reason="no longer shipped by the template"
+    [ -n "$rpath" ] || continue
+    # Refuse a path that escapes the instance root. The manifest is our own file, so this
+    # is not about a hostile author — it is that `../victim.md` would make the printed
+    # `rm` command operate OUTSIDE the instance, and a human pasting a command this script
+    # handed them has every reason to trust it. Reject rather than normalise: a path with
+    # `..` in it is a mistake in the manifest, and silently rewriting a mistake into a
+    # different path is how you delete the wrong file.
+    case "$rpath" in
+      /*|~*)      echo "  warn  RETIRED entry ignored (not instance-relative): $rpath" >&2; continue ;;
+      ..|../*|*/..|*/../*) echo "  warn  RETIRED entry ignored (escapes the instance root): $rpath" >&2; continue ;;
+    esac
+    # Only ever report something that is actually there, and only a real file — a
+    # leftover symlink is step 2b's business, not this list's.
+    if [ -f "$TARGET/$rpath" ] && [ ! -L "$TARGET/$rpath" ]; then
+      [ "$retired_found" -eq 0 ] && echo "Retired content still present (yours to keep or delete):"
+      retired_found=$((retired_found+1))
+      echo "  stale $rpath — $reason"
+      echo "        rm $(printf '%q' "$TARGET/$rpath")"
+    fi
+  done < "$RETIRED_LIST"
+fi
+
 if [ -e "$TARGET/scripts/validate-bundle.sh" ]; then
   vrc=0
   ( cd "$TARGET" && bash scripts/validate-bundle.sh ) >/dev/null 2>&1 || vrc=$?
