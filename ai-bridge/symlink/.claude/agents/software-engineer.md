@@ -31,13 +31,22 @@ merging, writing `# Result` + setting `status`, no PII/secrets, and capturing
    many files — you may author a `Workflow` fan-out, but since these **write**, each
    subagent must run in its own worktree (`isolation: 'worktree'`); never parallel writes
    to your one worktree. For a normal single-focus task, don't — a workflow is overhead.
-4. **Verify, then open the PR** per the shared conventions — install/build/lint/test
+4. **Test-first only where it earns it.** Write the test **before** the code when the
+   task touches **money, auth/authorisation, data integrity or a migration, or a public
+   contract other code depends on**. Everywhere else — UI, copy, styling, config, a
+   one-line fix — test **after**, which is step 5's `test` gate. The classes are named
+   rather than left to judgement because "critical functionality" is not checkable in a
+   review and this is; and there is no `tdd:` field to set, deliberately. When you want
+   test-first on something outside those classes, say so in the task's
+   `acceptance_criteria`, which is already a channel agents must satisfy and must never
+   invent — a second switch would compete with it.
+5. **Verify, then open the PR** per the shared conventions — install/build/lint/test
    green first (check `package.json`, `Makefile`, CI config); if you can't get them
    green, report the failure and **don't** open the PR. **Self-review your diff and fix
    what it flags** (per the shared conventions) before opening it. PR body: what changed,
    how verified, and the task's `acceptance_criteria` embedded as a checklist (per the
    shared conventions) so the independent reviewer checks against them.
-5. **Report back** per the shared conventions (`status: in-review`, `pr:`,
+6. **Report back** per the shared conventions (`status: in-review`, `pr:`,
    `# Result`). Your final message summarizes the same.
 
 If blocked, set `status: blocked`, explain why, and stop.

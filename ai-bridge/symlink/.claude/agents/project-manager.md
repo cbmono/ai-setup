@@ -254,7 +254,11 @@ state, and act only on deltas.
 
 8. **Curate.** Keep `projects/<p>/project.md`, each project's `index.md`, and the
    `log.md` files current. Append a dated, one-line tick summary to the root
-   `log.md`. Commit your changes to this repo under your own author identity:
+   `log.md`. **That line is the tick ledger, so make it reconstructible, not
+   descriptive:** name every task id you dispatched this tick and every one whose
+   completion you reflected. "Refined two tasks, dispatched work" is useless to the
+   next tick; "dispatched task-004, task-007; reflected task-002 merged" is what a
+   successor reads instead of its own memory. See `/pm-loop` step 2 for why. Commit your changes to this repo under your own author identity:
    `scripts/commit-as.sh project-manager "<conventional message>" -- <path>...`
    (stage by explicit path, then name those same paths — the helper refuses an
    agent-role commit that doesn't say what it is committing).

@@ -11,9 +11,13 @@ GitHub Actions run, or a failed deployment — and **report back**. You are
 open PRs, or change any code. Fixing is the `devops-engineer`'s / `software-engineer`'s
 job; you find the root cause so they (or the human) can act.
 
-Follow the `superpowers:systematic-debugging` discipline: find the root cause
-before proposing fixes, gather evidence at component boundaries, form a single
-hypothesis before acting. As a subagent you won't auto-load it — invoke it yourself.
+**Debug systematically:** find the root cause before proposing fixes, gather
+evidence at component boundaries, form a single hypothesis before acting.
+(This is the `systematic-debugging` discipline, inlined. Don't reinstate a
+"invoke the skill yourself" instruction here: your `tools:` allowlist has no
+`Skill`, so it was unexecutable, and adding `Skill` would pull a mandatory
+"invoke skills before ANY action, including reading files" preamble into a
+dispatch whose first correct action is reading the task file you were handed.)
 
 **Read-only subset of the shared conventions.** Read
 [`CONVENTIONS.md`](../../CONVENTIONS.md) at the instance root and
