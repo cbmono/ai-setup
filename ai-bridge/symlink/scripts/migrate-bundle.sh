@@ -11,10 +11,14 @@
 # then re-run with --apply.
 #
 # WHAT IT FIXES (mechanical — one right answer, no judgement):
-#   · Finding `status` outside `current|superseded`. Observed values are `open` and
-#     `active`, both of which mean "still applies" ⇒ `current`.
-#   · Service `status` outside `active|deprecated`. Observed value is `current`,
-#     which is the Finding enum applied to a Service ⇒ `active`.
+#   · Finding `status` of exactly `open` or `active` — both mean "still applies" ⇒
+#     `current`. A Finding with NO status ⇒ `current`.
+#   · Service `status` of exactly `current` — the Finding enum applied to a Service
+#     ⇒ `active`. A Service with NO status ⇒ `active`.
+#   The mapping list is CLOSED. Any other unrecognised value — a typo, or a lifecycle
+#   state this script has never seen — is reported for a human, never normalised: the
+#   original carries a meaning the script cannot read, and overwriting it would
+#   destroy that meaning while looking like a repair. Same rule as the timestamp.
 #   · A missing `timestamp`. Filled from **git**: the author date of the commit that
 #     added the file. That is real provenance, not a guess. A file git does not know
 #     is reported and skipped — inventing a date would be worse than leaving the
@@ -60,10 +64,25 @@ act() { # <file> <what>
 hold() { printf '  HUMAN    %s\n           %s\n' "$1" "$2"; human=$((human+1)); }
 skip() { printf '  SKIPPED  %s\n           %s\n' "$1" "$2"; skipped=$((skipped+1)); }
 
+# A temporary file BESIDE the target, carrying the target's mode.
+#
+# Two reasons it cannot live in $TMPDIR: `mktemp` creates mode 0600, and renaming
+# that over a document would silently make every repaired file 0600; and if $TMPDIR
+# is on another filesystem, `mv` degrades to copy-and-remove, so an interruption can
+# leave a half-written document. Same-directory rename is atomic and keeps the mode.
+temp_beside() { # <file>
+  local f="$1" d t m
+  d="$(dirname "$f")"
+  t="$(mktemp "$d/.migrate-bundle.XXXXXX")"
+  m="$(stat -f '%Lp' "$f" 2>/dev/null || stat -c '%a' "$f" 2>/dev/null || echo 644)"
+  chmod "$m" "$t" 2>/dev/null || true
+  printf '%s\n' "$t"
+}
+
 # Replace a frontmatter scalar in place, only inside the frontmatter block.
 set_field() { # <file> <key> <value>
   local f="$1" k="$2" v="$3" tmp
-  tmp="$(mktemp "${TMPDIR:-/tmp}/migrate-bundle.XXXXXX")"
+  tmp="$(temp_beside "$f")"
   awk -v key="$k" -v val="$v" '
     BEGIN { n=0; done=0 }
     /^---$/ { n++; print; next }
@@ -75,7 +94,7 @@ set_field() { # <file> <key> <value>
 # Insert a frontmatter scalar just before the closing delimiter.
 add_field() { # <file> <key> <value>
   local f="$1" k="$2" v="$3" tmp
-  tmp="$(mktemp "${TMPDIR:-/tmp}/migrate-bundle.XXXXXX")"
+  tmp="$(temp_beside "$f")"
   awk -v key="$k" -v val="$v" '
     BEGIN { n=0 }
     /^---$/ { n++; if (n==2) print key ": " val; print; next }
@@ -118,14 +137,16 @@ while IFS= read -r file; do
     Finding)
       case "$status" in
         current|superseded) : ;;
-        "") act "$rel" "Finding has no status -> current"; [[ $APPLY -eq 0 ]] || add_field "$file" status current ;;
-        *)  act "$rel" "Finding status '$status' -> current"; [[ $APPLY -eq 0 ]] || set_field "$file" status current ;;
+        "")            act "$rel" "Finding has no status -> current"; [[ $APPLY -eq 0 ]] || add_field "$file" status current ;;
+        open|active)   act "$rel" "Finding status '$status' -> current"; [[ $APPLY -eq 0 ]] || set_field "$file" status current ;;
+        *)             hold "$rel" "Finding status '$status' is not a mapping this script knows — decide it by hand" ;;
       esac ;;
     Service)
       case "$status" in
         active|deprecated) : ;;
-        "") act "$rel" "Service has no status -> active"; [[ $APPLY -eq 0 ]] || add_field "$file" status active ;;
-        *)  act "$rel" "Service status '$status' -> active"; [[ $APPLY -eq 0 ]] || set_field "$file" status active ;;
+        "")        act "$rel" "Service has no status -> active"; [[ $APPLY -eq 0 ]] || add_field "$file" status active ;;
+        current)   act "$rel" "Service status 'current' -> active"; [[ $APPLY -eq 0 ]] || set_field "$file" status active ;;
+        *)         hold "$rel" "Service status '$status' is not a mapping this script knows — decide it by hand" ;;
       esac ;;
   esac
 

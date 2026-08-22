@@ -37,6 +37,10 @@ doc knowledge/findings/open.md '---' 'type: Finding' 'title: F1' 'status: open' 
 doc knowledge/findings/active.md '---' 'type: Finding' 'title: F2' 'status: active' "timestamp: $TS" '---' 'body'
 doc knowledge/findings/nostatus.md '---' 'type: Finding' 'title: F3' "timestamp: $TS" '---' 'body'
 doc knowledge/services/current.md '---' 'type: Service' 'title: S1' 'status: current' "timestamp: $TS" '---' 'body'
+# NOT a mapping the script knows: it carries a meaning the script cannot read, so it
+# must be reported and left alone rather than normalised into a fixed value.
+doc knowledge/findings/unsupported.md '---' 'type: Finding' 'title: F5' 'status: wibble' "timestamp: $TS" '---' 'body'
+doc knowledge/services/unsupported.md '---' 'type: Service' 'title: S2' 'status: retired' "timestamp: $TS" '---' 'body'
 # timestamp from git
 doc projects/live/tasks/task-001-nots.md '---' 'type: Task' 'title: T1' 'status: draft' '---' 'body'
 # dangling ref — must be reported, never rewritten
@@ -51,6 +55,10 @@ doc knowledge/findings/untracked-nots.md '---' 'type: Finding' 'title: F4' 'stat
 pass=0; fail=0
 assert() { if [[ "$2" == 0 ]]; then printf '  PASS  %s\n' "$1"; pass=$((pass+1));
            else printf '  FAIL  %s\n' "$1"; fail=$((fail+1)); fi; }
+
+# A distinctive mode, to catch a repair that silently rewrites permissions.
+chmod 664 knowledge/findings/open.md
+MODE_BEFORE="$(stat -f '%Lp' knowledge/findings/open.md 2>/dev/null || stat -c '%a' knowledge/findings/open.md)"
 
 BEFORE="$(find . -name '*.md' -exec shasum {} \; | sort)"
 DRY="$(bash "$MIGRATE" 2>&1)"
@@ -67,6 +75,12 @@ assert "Finding active -> current"    "$(printf '%s' "$DRY" | grep -q "Finding s
 assert "Finding with no status"       "$(printf '%s' "$DRY" | grep -q 'Finding has no status' && echo 0 || echo 1)"
 assert "Service current -> active"    "$(printf '%s' "$DRY" | grep -q "Service status 'current' -> active" && echo 0 || echo 1)"
 assert "missing timestamp from git"   "$(printf '%s' "$DRY" | grep -q 'author date of the commit' && echo 0 || echo 1)"
+
+echo "== an unestablished status is reported, never normalised =="
+assert "an unknown Finding status is held for a human" \
+  "$(printf '%s' "$DRY" | grep -q "Finding status 'wibble' is not a mapping" && echo 0 || echo 1)"
+assert "an unknown Service status is held for a human" \
+  "$(printf '%s' "$DRY" | grep -q "Service status 'retired' is not a mapping" && echo 0 || echo 1)"
 
 echo "== the refusals =="
 assert "a date git cannot supply is SKIPPED, not invented" \
@@ -93,6 +107,14 @@ assert "the untracked file was NOT given a date" \
 assert "a valid Finding kept its status" "$(grep -q '^status: current' knowledge/findings/ok.md && echo 0 || echo 1)"
 assert "frontmatter still closes properly" \
   "$([[ "$(grep -c '^---$' knowledge/findings/nostatus.md)" == 2 ]] && echo 0 || echo 1)"
+assert "an unknown Finding status survived --apply" \
+  "$(grep -q '^status: wibble' knowledge/findings/unsupported.md && echo 0 || echo 1)"
+assert "an unknown Service status survived --apply" \
+  "$(grep -q '^status: retired' knowledge/services/unsupported.md && echo 0 || echo 1)"
+assert "a repaired file keeps its original mode" \
+  "$([[ "$(stat -f '%Lp' knowledge/findings/open.md 2>/dev/null || stat -c '%a' knowledge/findings/open.md)" == "$MODE_BEFORE" ]] && echo 0 || echo 1)"
+assert "no temp file was left behind" \
+  "$(find . -name '.migrate-bundle.*' | grep -q . && echo 1 || echo 0)"
 
 echo "== idempotence =="
 SECOND="$(bash "$MIGRATE" 2>&1)"
@@ -101,7 +123,8 @@ assert "a second run fixes nothing more" \
 
 echo "== the validator agrees, apart from what needs a human =="
 set +e; VOUT="$(bash "$VALIDATE" 2>&1)"; set -e
-assert "no enum errors remain"      "$(printf '%s' "$VOUT" | grep -q 'is not valid for type' && echo 1 || echo 0)"
+assert "only the unestablished statuses still fail the enum check" \
+  "$([[ "$(printf '%s' "$VOUT" | grep -c 'is not valid for type')" == 2 ]] && echo 0 || echo 1)"
 assert "the dangling ref still errors" "$(printf '%s' "$VOUT" | grep -q 'dangling reference' && echo 0 || echo 1)"
 
 echo "== refusing to run outside an instance root =="
