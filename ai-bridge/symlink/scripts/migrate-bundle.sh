@@ -56,26 +56,33 @@ done
 
 fixed=0; skipped=0; human=0; failed=0
 
-act() { # <file> <what>
-  if [[ $APPLY -eq 1 ]]; then printf '  FIXED    %s\n           %s\n' "$1" "$2"
-  else printf '  WOULD FIX %s\n           %s\n' "$1" "$2"; fi
-  fixed=$((fixed+1))
+# One write path, and the label comes AFTER the verification.
+#
+# The first attempt at this fix printed FIXED before writing and corrected the count
+# afterwards — so a caller reading stdout still saw a false success, which is the very
+# bug being fixed. In apply mode nothing is announced until the field has been read
+# back and matches.
+fix_field() { # <file> <rel> <what> <key> <value> <add|set>
+  local f="$1" rel="$2" what="$3" k="$4" v="$5" mode="$6" got rc=0
+  if [[ $APPLY -eq 0 ]]; then
+    printf '  WOULD FIX %s\n           %s\n' "$rel" "$what"
+    fixed=$((fixed+1)); return 0
+  fi
+  case "$mode" in
+    add) add_field "$f" "$k" "$v" || rc=$? ;;
+    set) set_field "$f" "$k" "$v" || rc=$? ;;
+  esac
+  got="$(field "$f" "$k")"
+  if [[ $rc -eq 0 && "$got" == "$v" ]]; then
+    printf '  FIXED    %s\n           %s\n' "$rel" "$what"
+    fixed=$((fixed+1))
+  else
+    printf '  FAILED   %s\n           %s — the write did not land (found %s)\n' \
+      "$rel" "$what" "${got:-nothing}" >&2
+    failed=$((failed+1))
+  fi
 }
 
-# Report a write that was claimed but did not land. Never silent: a migration that
-# says FIXED without changing the file is worse than one that says nothing.
-unfixed() { # <file> <what>
-  printf '  FAILED   %s\n           %s\n' "$1" "$2" >&2
-  fixed=$((fixed-1)); failed=$((failed+1))
-}
-
-# Run a write, then confirm the field really carries the value. Any mismatch is
-# reported as FAILED rather than counted as a fix.
-verify_write() { # <file> <key> <value> <rel> <what>
-  local got
-  got="$(field "$1" "$2")"
-  [[ "$got" == "$3" ]] || unfixed "$4" "$5 — the write did not land (found '${got:-nothing}')"
-}
 hold() { printf '  HUMAN    %s\n           %s\n' "$1" "$2"; human=$((human+1)); }
 skip() { printf '  SKIPPED  %s\n           %s\n' "$1" "$2"; skipped=$((skipped+1)); }
 
@@ -85,19 +92,19 @@ skip() { printf '  SKIPPED  %s\n           %s\n' "$1" "$2"; skipped=$((skipped+1
 # that over a document would silently make every repaired file 0600; and if $TMPDIR
 # is on another filesystem, `mv` degrades to copy-and-remove, so an interruption can
 # leave a half-written document. Same-directory rename is atomic and keeps the mode.
-temp_beside() { # <file>
+temp_beside() { # <file> — prints a temp path, or returns 1 if it cannot make one
   local f="$1" d t m
   d="$(dirname "$f")"
-  t="$(mktemp "$d/.migrate-bundle.XXXXXX")"
+  t="$(mktemp "$d/.migrate-bundle.XXXXXX" 2>/dev/null)" || return 1
   m="$(stat -f '%Lp' "$f" 2>/dev/null || stat -c '%a' "$f" 2>/dev/null || echo 644)"
   chmod "$m" "$t" 2>/dev/null || true
   printf '%s\n' "$t"
 }
 
 # Replace a frontmatter scalar in place, only inside the frontmatter block.
-set_field() { # <file> <key> <value>
+set_field() { # <file> <key> <value> — returns non-zero if the write cannot be made
   local f="$1" k="$2" v="$3" tmp
-  tmp="$(temp_beside "$f")"
+  tmp="$(temp_beside "$f")" || return 1
   awk -v key="$k" -v val="$v" '
     BEGIN { n=0; done=0 }
     /^---$/ { n++; print; next }
@@ -107,9 +114,9 @@ set_field() { # <file> <key> <value>
 }
 
 # Insert a frontmatter scalar just before the closing delimiter.
-add_field() { # <file> <key> <value>
+add_field() { # <file> <key> <value> — returns non-zero if the write cannot be made
   local f="$1" k="$2" v="$3" tmp
-  tmp="$(temp_beside "$f")"
+  tmp="$(temp_beside "$f")" || return 1
   awk -v key="$k" -v val="$v" '
     BEGIN { n=0 }
     /^---$/ { n++; if (n==2) print key ": " val; print; next }
@@ -161,19 +168,15 @@ while IFS= read -r file; do
     Finding)
       case "$status" in
         current|superseded) : ;;
-        "")            act "$rel" "Finding has no status -> current"
-                       [[ $APPLY -eq 0 ]] || { add_field "$file" status current; verify_write "$file" status current "$rel" "Finding status"; } ;;
-        open|active)   act "$rel" "Finding status '$status' -> current"
-                       [[ $APPLY -eq 0 ]] || { set_field "$file" status current; verify_write "$file" status current "$rel" "Finding status"; } ;;
+        "")            fix_field "$file" "$rel" "Finding has no status -> current" status current add ;;
+        open|active)   fix_field "$file" "$rel" "Finding status '$status' -> current" status current set ;;
         *)             hold "$rel" "Finding status '$status' is not a mapping this script knows — decide it by hand" ;;
       esac ;;
     Service)
       case "$status" in
         active|deprecated) : ;;
-        "")        act "$rel" "Service has no status -> active"
-                   [[ $APPLY -eq 0 ]] || { add_field "$file" status active; verify_write "$file" status active "$rel" "Service status"; } ;;
-        current)   act "$rel" "Service status 'current' -> active"
-                   [[ $APPLY -eq 0 ]] || { set_field "$file" status active; verify_write "$file" status active "$rel" "Service status"; } ;;
+        "")        fix_field "$file" "$rel" "Service has no status -> active" status active add ;;
+        current)   fix_field "$file" "$rel" "Service status 'current' -> active" status active set ;;
         *)         hold "$rel" "Service status '$status' is not a mapping this script knows — decide it by hand" ;;
       esac ;;
   esac
@@ -181,8 +184,8 @@ while IFS= read -r file; do
   if [[ -z "$(field "$file" timestamp)" ]]; then
     added="$(git_added_date "$file")"
     if [[ -n "$added" ]]; then
-      act "$rel" "timestamp missing -> $added (author date of the commit that added it)"
-      [[ $APPLY -eq 0 ]] || { add_field "$file" timestamp "$added"; verify_write "$file" timestamp "$added" "$rel" "timestamp"; }
+      fix_field "$file" "$rel" "timestamp missing -> $added (author date of the commit that added it)" \
+        timestamp "$added" add
     else
       skip "$rel" "timestamp missing and git does not know this file — refusing to invent a date"
     fi

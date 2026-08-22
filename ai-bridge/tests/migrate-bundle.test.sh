@@ -105,7 +105,9 @@ assert "knowledge/findings/ok.md untouched"  "$(printf '%s' "$DRY" | grep -q 'fi
 assert "knowledge/services/ok.md untouched" "$(printf '%s' "$DRY" | grep -q 'services/ok.md' && echo 1 || echo 0)"
 
 echo "== --apply writes, and only the right things =="
-APPLY_OUT="$(bash "$MIGRATE" --apply 2>&1 || true)"
+cp projects/live/tasks/task-003-unterminated.md "$TMP/unterminated.pristine"
+APPLY_RC=0
+APPLY_OUT="$(bash "$MIGRATE" --apply 2>&1)" || APPLY_RC=$?
 assert "Finding open became current"   "$(grep -q '^status: current' knowledge/findings/open.md && echo 0 || echo 1)"
 assert "Finding active became current" "$(grep -q '^status: current' knowledge/findings/active.md && echo 0 || echo 1)"
 assert "Finding gained a status"       "$(grep -q '^status: current' knowledge/findings/nostatus.md && echo 0 || echo 1)"
@@ -126,12 +128,40 @@ assert "a repaired file keeps its original mode" \
   "$([[ "$(stat -f '%Lp' knowledge/findings/open.md 2>/dev/null || stat -c '%a' knowledge/findings/open.md)" == "$MODE_BEFORE" ]] && echo 0 || echo 1)"
 assert "no temp file was left behind" \
   "$(find . -name '.migrate-bundle.*' | grep -q . && echo 1 || echo 0)"
-assert "the unterminated file gained no timestamp" \
-  "$(grep -q '^timestamp:' projects/live/tasks/task-003-unterminated.md && echo 1 || echo 0)"
-assert "the unterminated file is byte-unchanged" \
-  "$([[ "$(grep -c '^---$' projects/live/tasks/task-003-unterminated.md)" == 1 ]] && echo 0 || echo 1)"
-assert "--apply reports 0 FAILED writes" \
-  "$(printf '%s' "$APPLY_OUT" | grep -q '0 FAILED' && echo 0 || echo 1)"
+assert "the unterminated file is byte-identical to before" \
+  "$(cmp -s "$TMP/unterminated.pristine" projects/live/tasks/task-003-unterminated.md && echo 0 || echo 1)"
+assert "apply mode reports it SKIPPED" \
+  "$(printf '%s\n' "$APPLY_OUT" | grep -A1 'task-003-unterminated' | grep -q 'never closes' && echo 0 || echo 1)"
+assert "apply mode never prints FIXED for it" \
+  "$(printf '%s\n' "$APPLY_OUT" | grep -B1 'task-003-unterminated' | grep -q 'FIXED' && echo 1 || echo 0)"
+assert "--apply reports 0 FAILED writes"  "$(printf '%s' "$APPLY_OUT" | grep -q '0 FAILED' && echo 0 || echo 1)"
+assert "--apply exits 0 when every write landed" "$([[ $APPLY_RC -eq 0 ]] && echo 0 || echo 1)"
+
+echo "== a write that cannot land reports FAILED and exits 1 =="
+# An unwritable directory makes the beside-the-target temp file impossible, so the
+# write genuinely cannot happen. The run must say FAILED on stderr, must NOT print
+# FIXED for that path, and must exit 1 — a caller reading stdout alone must never
+# see a success it did not get.
+mkdir -p knowledge/runbooks
+doc knowledge/runbooks/locked.md '---' 'type: Finding' 'title: L' 'status: open' "timestamp: $TS" '---' 'body'
+chmod 555 knowledge/runbooks
+set +e
+FAIL_OUT="$(bash "$MIGRATE" --apply 2>&1)"; FAIL_RC=$?
+FAIL_STDOUT="$(bash "$MIGRATE" --apply 2>/dev/null)"
+set -e
+chmod 755 knowledge/runbooks
+assert "a write that cannot land exits 1"     "$([[ $FAIL_RC -eq 1 ]] && echo 0 || echo 1)"
+assert "it is reported as FAILED"             "$(printf '%s' "$FAIL_OUT" | grep -q 'FAILED' && echo 0 || echo 1)"
+# The per-file FAILED line goes to stderr; the summary legitimately reports the
+# count on stdout, so match the per-file shape, not the word.
+assert "the per-file FAILED line goes to stderr" \
+  "$(printf '%s\n' "$FAIL_STDOUT" | grep -qE '^  FAILED ' && echo 1 || echo 0)"
+assert "the stderr stream carries the per-file FAILED line" \
+  "$(printf '%s\n' "$FAIL_OUT" | grep -qE '^  FAILED ' && echo 0 || echo 1)"
+assert "stdout never claims FIXED for it"     "$(printf '%s\n' "$FAIL_STDOUT" | grep -B1 'locked.md' | grep -q 'FIXED' && echo 1 || echo 0)"
+assert "the unwritable file kept its status"  "$(grep -q '^status: open' knowledge/runbooks/locked.md && echo 0 || echo 1)"
+assert "the summary counts the failure"       "$(printf '%s' "$FAIL_OUT" | grep -qE '[1-9][0-9]* FAILED' && echo 0 || echo 1)"
+rm -f knowledge/runbooks/locked.md
 
 echo "== idempotence =="
 SECOND="$(bash "$MIGRATE" 2>&1)"

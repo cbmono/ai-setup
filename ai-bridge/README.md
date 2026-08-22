@@ -395,6 +395,40 @@ instance, so a clone on another machine has the committed instance data but
 **dangling** machinery until you re-run `install.sh` there. That's intentional —
 the machinery is sourced from `ai-setup`, not vendored into each instance.
 
+## After pulling `ai-setup` — what each instance needs
+
+A `git pull` here updates the template. What that means for an existing instance
+depends on *what* changed, and only two of the four cases need you to do anything:
+
+| What changed in the pull | Reaches an instance how | You must |
+|---|---|---|
+| An **edited** `symlink/` file (script, agent, command, `SCHEMA.md`) | Instantly, through the existing symlink | nothing |
+| A **new** `symlink/` file | Not at all until its symlink exists | `ai-bridge/install.sh <instance>` — once per instance |
+| A **`seed/`** file (`CLAUDE.md`, `README.md`, `index.md`, …) | Never — seed is copied only when absent, so instance data is never clobbered | port the change by hand, per instance |
+| A **schema** change | The machinery updates, the *data* does not | `scripts/validate-bundle.sh`, then `scripts/migrate-bundle.sh` (report), then `--apply` |
+
+The last row is the one that bites: the validator ships instantly through its
+symlink and starts reporting errors against documents written under the old rules.
+That is working as intended — the errors were already there — but nothing fixes them
+until someone runs the migration.
+
+Run it per instance, and read the report before applying:
+
+```bash
+cd ~/workspace/<group>/_ai-bridge-<group>
+scripts/validate-bundle.sh          # what is wrong
+scripts/migrate-bundle.sh           # what a migration would change (report only)
+scripts/migrate-bundle.sh --apply   # write it
+scripts/validate-bundle.sh          # confirm; anything left needs a human
+```
+
+`migrate-bundle.sh` deliberately leaves some things alone — a dangling reference, an
+unrecognised status, a document whose frontmatter never closes. Those need a decision,
+not a rewrite, and it names each one.
+
+**Order matters when a pull brings both a new file and a schema change:** install
+first (so the scripts exist), then migrate.
+
 ## Updating the machinery
 Edit files under `symlink/` here and commit to `ai-setup`. Because instances
 symlink them, every instance picks up the change immediately — re-run `install.sh`
