@@ -47,14 +47,50 @@ command -v codegraph >/dev/null 2>&1 || {
 say() { [ "$QUIET" -eq 1 ] || printf '%s\n' "$1"; }
 
 ok=0; failed=0; empty=0
+
+# DISCOVER FIRST, then sync — two reasons, both of which bit the first version.
+#
+# 1. Overlapping roots. `codegraph-sync.sh ~/workspace ~/workspace/alteos` found every
+#    alteos index twice and synced it twice — with --full, a full reindex twice — while
+#    the summary counted it twice too. Canonicalising each repo with `pwd -P` and
+#    de-duplicating the whole set before the loop fixes the work and the count together.
+#    `pwd -P` rather than string comparison because /var vs /private/var on macOS makes
+#    two spellings of one path (the same trap that silently broke task-owner.sh).
+#
+# 2. `find` failing inside a command substitution is invisible. It can emit a partial
+#    list and exit non-zero — an unreadable directory is enough — and neither a
+#    here-document nor a pipe surfaces that status, so the script reported success on
+#    incomplete discovery. The status is captured explicitly now, and a discovery failure
+#    counts as a failure: syncing 3 of 30 indexes and exiting 0 is the worst outcome
+#    available, because it looks exactly like syncing all 30.
+FOUND="$(mktemp "${TMPDIR:-/tmp}/codegraph-sync.XXXXXX")"
+trap 'rm -f "$FOUND"' EXIT
 for root in "${ROOTS[@]}"; do
   [ -d "$root" ] || { echo "codegraph-sync: no such directory: $root" >&2; failed=$((failed+1)); continue; }
   # -maxdepth 4 covers <root>/<group>/<repo>/.codegraph and one nesting level beyond.
   # `-type d` and no -L: an index reached only through a symlink belongs to whoever owns
   # the real path, and syncing it from here would be acting on someone else's repo.
-  while IFS= read -r idx; do
-    [ -n "$idx" ] || continue
-    repo="$(dirname "$idx")"
+  find_rc=0
+  find "$root" -maxdepth 4 -name .codegraph -type d -print 2>/dev/null >> "$FOUND" || find_rc=$?
+  if [ "$find_rc" -ne 0 ]; then
+    echo "  FAILED  discovery under $root (find exited $find_rc) — the list below may be incomplete" >&2
+    failed=$((failed+1))
+  fi
+done
+
+# Canonicalise, then de-duplicate. A repo whose parent has since vanished is dropped
+# quietly here rather than failing the run: `find` listed it, so it existed a moment ago.
+CANON="$(mktemp "${TMPDIR:-/tmp}/codegraph-canon.XXXXXX")"
+trap 'rm -f "$FOUND" "$CANON"' EXIT
+while IFS= read -r idx; do
+  [ -n "$idx" ] || continue
+  real="$(cd "$(dirname "$idx")" 2>/dev/null && pwd -P)" || continue
+  [ -n "$real" ] && printf '%s
+' "$real"
+done < "$FOUND" | sort -u > "$CANON"
+
+  while IFS= read -r repo; do
+    [ -n "$repo" ] || continue
     rel="${repo#"$HOME"/}"
     before="$(cd "$repo" && codegraph status --json 2>/dev/null | sed -n 's/.*"lastIndexed":"\([^"]*\)".*/\1/p')"
     if [ "$FULL" -eq 1 ]; then ( cd "$repo" && codegraph index . >/dev/null 2>&1 )
@@ -75,10 +111,7 @@ for root in "${ROOTS[@]}"; do
     if [ "$before" = "$after" ]; then say "  ok      $rel  (already current, $nodes nodes)"
     else                              say "  synced  $rel  ($before -> $after, $nodes nodes)"; fi
     ok=$((ok+1))
-  done <<EOF
-$(find "$root" -maxdepth 4 -name .codegraph -type d 2>/dev/null | sort)
-EOF
-done
+  done < "$CANON"
 
 say ""
 say "codegraph-sync: $ok index(es) up to date, $failed failed, $empty empty."
