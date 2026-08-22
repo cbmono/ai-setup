@@ -23,6 +23,12 @@ Defaults shipped by this repo. See the [top-level README](../README.md) for inst
   output-styles/                      # opt-in reply formats (one .md per style, YAML frontmatter)
     brief.md                          # "Brief": outcome first, then Needs-you as numbered steps with URLs
   skills/                             # auto-invocable capabilities; see skills/README.md
+  rules/                              # path-scoped instructions (`paths:` glob) — load only on a matching read
+    ai-bridge.md                      # paths: ai-bridge/**            — layout + its 8 load-bearing invariants
+    hooks-and-scripts.md              # paths: .claude/{hooks,scripts}/** — status line, hook paths, DeepSeek
+    output-styles.md                  # paths: .claude/output-styles/** — Brief vs the built-in Concise
+    repo-config.md                    # paths: .coderabbit.yaml, install.sh
+    settings-and-permissions.md       # paths: .claude/settings*.json   — baseline, plugins, permission shapes
 
 # Auto-created on first run by their respective commands (gitignored, never committed):
   potential-bugs.md                   # /scan output (append-only sink)
@@ -177,12 +183,13 @@ And it only arrives by `git pull` where `~/.claude/settings.json` is a **symlink
 
 The `ai-bridge/` subtree consumes this: a project opts in with `browser: claude-for-chrome`, and `ai-bridge/symlink/SCHEMA.md` → "Browser access" holds the agent-facing rules (browser-first, degrade when absent, writes ask-first unless the project's autonomy delegates them).
 
-## Commands vs skills
+## Commands vs skills vs rules
 
-Claude Code has two distinct mechanisms. This repo uses mostly **commands**, plus one **skill** (`test-locators`).
+Claude Code has three distinct mechanisms. This repo uses mostly **commands**, plus one **skill** (`test-locators`) and a set of **rules**.
 
 - **Commands** (`.claude/commands/foo.md`) — invoked only when the user types `/foo`. No frontmatter. Best for explicit checkpoints.
 - **Skills** (`.claude/skills/foo/SKILL.md` with `name` + `description` frontmatter) — Claude can auto-invoke via the `Skill` tool when the description matches user intent. Use only if you want proactive invocation.
+- **Rules** (`.claude/rules/foo.md` with a `paths:` glob list) — instructions, not workflows. They load **only when Claude reads a file the glob matches**, so they carry no cost when unmatched (unlike a skill, whose name and description stay in context every turn). This is where per-area conventions live instead of bloating the root `CLAUDE.md`. Three things to know before writing one: a glob is matched **relative to the project directory** and never matches a file outside it; a rule fires on a **read**, so it cannot govern a file being created from scratch; and a rule with no `paths:` — including one whose frontmatter fails to parse — loads unconditionally at session start. These rules are **not** installed into `~/.claude` (`install.sh` excludes them): they describe this repo's own files, and as user-level rules the globs would match a consumer's unrelated `install.sh` or `.coderabbit.yaml`.
 
 Most things here are explicit user actions (commit, verify, grill, scan) and stay commands; reach for a skill only when proactive, no-typing invocation is genuinely wanted — `test-locators` is the one case so far (it fires while building frontend, not on a typed command).
 

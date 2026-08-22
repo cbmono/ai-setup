@@ -14,6 +14,7 @@ tmp/
 !.claude/commands/
 !.claude/hooks/
 !.claude/output-styles/
+!.claude/rules/
 !.claude/scripts/
 !.claude/skills/
 
