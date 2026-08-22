@@ -36,7 +36,18 @@
 #   · no filesystem path reaches the page — an instance is identified by its directory
 #     NAME, because a published board should not carry anybody's home directory.
 # A malformed snapshot is a visible card, not a crash: a broken instance must not be
-# able to blank the board for the others.
+# able to blank the board for the others. That promise has TWO halves, because a
+# snapshot can be broken in two different ways, and only one of them is a parse error:
+#   · UNPARSEABLE (bad JSON, or a top level that is not an object) — the instance is
+#     dropped and rendered as a named "Unreadable snapshot" note, so a human sees it.
+#   · WRONG TYPES in valid JSON (`"tasks": "many"`, a non-string `group`) — the file
+#     parses, so nothing above catches it; the wrong type surfaces later at an int()
+#     or a sort comparison, and an uncaught ValueError/TypeError there means NO output
+#     file is written at all. Every number therefore goes through toint() and `group`
+#     is forced to str(), so the drifted field degrades to 0 while the instance and
+#     every other instance still render. Coercion, not a note, is deliberate here: a
+#     single junk count is not worth hiding a whole instance's real work behind a
+#     warning card. Do not reintroduce a bare int() on snapshot data.
 #
 # WHY python3 AND NOT awk. Every other script here is bash + awk on purpose, so it
 # ships into an instance unchanged. This one needs two things awk does badly and a
@@ -105,8 +116,12 @@ def resolve_dirs(argv):
     cfg = Path("instance.config.json")
     if cfg.is_file():
         try:
-            listed = json.loads(cfg.read_text(encoding="utf-8")).get("boardInstances") or []
-        except (ValueError, OSError):
+            parsed = json.loads(cfg.read_text(encoding="utf-8"))
+            # A config whose top level is a list/string/number parses fine but has no
+            # .get — an AttributeError here would end the run in a traceback instead of
+            # the documented fallback, so shape is checked, not assumed.
+            listed = (parsed.get("boardInstances") or []) if isinstance(parsed, dict) else []
+        except (ValueError, OSError, UnicodeDecodeError):
             listed = []
             print("build-board: instance.config.json is unreadable; falling back to this instance.", file=sys.stderr)
         if isinstance(listed, list) and listed:
@@ -138,8 +153,9 @@ for d in dirs:
         print(f"build-board: {d}/SNAPSHOT.json is malformed — rendering a note.", file=sys.stderr)
         continue
     data["_dir"] = d.name or str(d)   # name, not path — see the note above
-    if not data.get("group"):
-        data["group"] = d.name.removeprefix("_ai-bridge-") or str(d)
+    # str(), not just truthiness: a non-string group (say 5) survives a `not` test and
+    # then makes the awaiting sort compare int with str, which raises TypeError.
+    data["group"] = str(data.get("group") or "") or d.name.removeprefix("_ai-bridge-") or str(d)
     instances.append(data)
 
 def tolist(v):
@@ -147,6 +163,17 @@ def tolist(v):
 
 def todict(v):
     return v if isinstance(v, dict) else {}
+
+def toint(v, default=0):
+    """Every number in a snapshot is untrusted input. A syntactically valid file can
+    still carry `"tasks": "many"`, and a bare int() there raises ValueError before a
+    single byte is written — so ONE drifted instance would blank the board for every
+    other instance, breaking the header's promise that a malformed snapshot is a
+    visible card rather than a crash. Coerce, never trust."""
+    try:
+        return int(v)
+    except (TypeError, ValueError):
+        return default
 
 # ---------------------------------------------------------------- awaiting queue
 awaiting = []
@@ -302,7 +329,7 @@ wh("</style>")
 
 w('<div class="wrap">')
 w("<h1>Bridge Board</h1>")
-total_tasks = sum(int(todict(i.get("counts")).get("tasks") or 0) for i in instances)
+total_tasks = sum(toint(todict(i.get("counts")).get("tasks")) for i in instances)
 w('<p class="sub">{} instance(s) · {} project(s) · {} task(s) · {} awaiting you</p>'.format(
     len(instances),
     sum(len(tolist(i.get("projects"))) for i in instances),
@@ -378,15 +405,15 @@ else:
                 w(f'<p class="pdesc">{e(proj.get("description"))}</p>')
 
             prog = todict(proj.get("phase_progress"))
-            ptot = int(prog.get("total") or 0)
-            pdone = int(prog.get("done") or 0)
+            ptot = toint(prog.get("total"))
+            pdone = toint(prog.get("done"))
             if ptot:
                 pct = max(0, min(100, round(100 * pdone / ptot)))
                 w(f'<div class="progress">Phases {pdone}/{ptot} done'
                   f'<div class="bar"><span style="width:{pct}%"></span></div></div>')
                 w('<ul class="phaselist">')
                 for ph in sorted((todict(p) for p in tolist(proj.get("phases"))),
-                                 key=lambda p: (int(p.get("order") or 0), str(p.get("title") or ""))):
+                                 key=lambda p: (toint(p.get("order")), str(p.get("title") or ""))):
                     w(f'<li>{e(ph.get("order"))}. {e(ph.get("title"))} — {e(ph.get("status"))}</li>')
                 w("</ul>")
 

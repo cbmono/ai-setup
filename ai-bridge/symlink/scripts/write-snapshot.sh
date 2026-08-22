@@ -169,7 +169,13 @@ list_filled() { # <frontmatter> <key>
 count_questions() { # <frontmatter>
   local r n
   r="$(list_region "$1" open_questions)"
-  n="$(printf '%s\n' "$r" | grep -oE '\bQ[0-9]+[.:]' | grep -c . || true)"
+  # `\b` is a GNU extension, NOT in POSIX ERE. It happens to work on this machine's
+  # BSD grep 2.6.0-FreeBSD, which advertises GNU compatibility — but this script ships
+  # into instances on machines we never see, and a grep without it silently degrades
+  # the count to the 1 fallback rather than erroring. The bracket form is POSIX and
+  # counts identically: the leading character it also consumes is irrelevant, because
+  # the result is piped to `grep -c .`, which counts LINES, not captures.
+  n="$(printf '%s\n' "$r" | grep -oE '(^|[^A-Za-z0-9_])Q[0-9]+[.:]' | grep -c . || true)"
   if [[ "${n:-0}" -gt 0 ]]; then printf '%s' "$n"
   elif list_filled "$1" open_questions; then printf '1'
   else printf '0'; fi
@@ -209,7 +215,7 @@ while IFS= read -r pfile; do
     ph_order="$(fmenum "$phfm" order)"
     case "$ph_order" in ''|*[!0-9]*) ph_order=0 ;; esac
     ph_total=$((ph_total+1))
-    [[ "$ph_status" == done ]] && ph_done=$((ph_done+1))
+    [[ "$ph_status" == "done" ]] && ph_done=$((ph_done+1))
     phases_json="$phases_json${phases_json:+,}
       {\"file\": $(jstr "$(basename "$phfile")"), \"order\": $ph_order, \"title\": $(jstr "$ph_title"), \"status\": $(jstr "$ph_status")}"
   done <<EOF
@@ -273,7 +279,7 @@ EOF
   # A close proposal, same rule as the PM's step 6: every task terminal, at least
   # one task, project not already done. Never an action — the board only shows it.
   awaiting_close=false
-  if [[ $t_count -gt 0 && $t_terminal -eq $t_count && "$p_status" != done ]]; then
+  if [[ $t_count -gt 0 && $t_terminal -eq $t_count && "$p_status" != "done" ]]; then
     awaiting_close=true; awaiting_total=$((awaiting_total+1))
   fi
 

@@ -79,6 +79,26 @@ OUT_OF_BUNDLE="/tmp/SECRET-OUT-OF-BUNDLE-ROOT"
 HOSTILE_TITLE='<script>alert(1)</script> & <b>bold</b>'
 HOSTILE_ESCAPED='&lt;script&gt;alert(1)&lt;/script&gt;'
 
+echo "== shell portability of the shipped scripts =="
+# These two scripts get symlinked into instances on machines this repo never sees, so
+# a GNU-only regex escape is a silent wrong ANSWER rather than an error: `\b` in an ERE
+# degrades count_questions to its 1-item fallback on a grep that does not implement it.
+# NOTE, honestly: this machine's /usr/bin/grep is BSD grep 2.6.0-FreeBSD, which DOES
+# support \b — verified, including that it is a true word boundary and not a literal
+# `b`. So no runtime fixture can demonstrate the difference here, and asserting one
+# would be a test that passes for the wrong reason. The portable POSIX bracket form is
+# used instead, and THIS is the assertion that holds the line: a static check that the
+# escape has not come back. It is the only form of this test that can actually fail.
+# Comment lines are stripped first: the fix's own comment NAMES the escape it removed,
+# and that prose is the record of why. Only executable lines are checked.
+no_gnu_escape() { # <file> <escape letter>
+  sed 's/^[[:space:]]*#.*$//' "$1" | grep -q "\\\\$2" && return 1 || return 0
+}
+for f in "$WRITER" "$BOARD"; do
+  assert "no GNU-only \\b escape in $(basename "$f")" "$(yes_if no_gnu_escape "$f" b)"
+  assert "no GNU-only \\s escape in $(basename "$f")" "$(yes_if no_gnu_escape "$f" s)"
+done
+
 # ---------------------------------------------------------------- fixture instances
 new_instance() { # <dir> — the minimum the writer requires of an instance root
   mkdir -p "$1"
@@ -267,16 +287,43 @@ cp "$SNAP" "$TMP/first.json"
 assert "SNAPSHOT_NOW pins generated_at (byte-identical re-run)" "$(yes_if cmp -s "$TMP/first.json" "$SNAP")"
 
 echo "== the field allowlist =="
-# The documented set, and nothing else. Extraction is a "key": heuristic, which is
-# exact for this fixture because none of its titles contains a quote-colon pair.
-# One line on purpose: the membership test below is `case " $k "`, and a newline in
-# this string would report the keys either side of it as unexpected.
+# The documented set, and nothing else.
+#
+# This PARSES the JSON rather than grepping it. The previous version matched
+# `"[A-Za-z_][A-Za-z0-9_]*":`, which only ever sees identifier-shaped keys — a
+# perfectly valid `"source-path"` or `"document body"` was invisible to it, so a
+# snapshot could carry a field outside the allowlist while this assertion reported
+# green. Since the allowlist is a data-governance boundary rather than a format,
+# a check that can be walked around is worse than no check: it certifies the
+# boundary while not testing it. Recursing over the parsed object also covers keys
+# at any depth, which the flat text scan only did by accident.
 ALLOWED=' _schema _sensitivity _carries group generated_at counts projects tasks awaiting slug title description kind status autonomy awaiting_close phase_progress done total phases file order id assignee phase in_flight open_questions prs repo number url '
-EXTRA=""
-for k in $(grep -oE '"[A-Za-z_][A-Za-z0-9_]*":' "$SNAP" | tr -d '":' | sort -u); do
-  case "$ALLOWED" in *" $k "*) ;; *) EXTRA="$EXTRA $k" ;; esac
-done
+extra_keys() { # <json file> <allowed> -> the keys present but not allowed
+  python3 - "$1" "$2" <<'PYK'
+import json, sys
+allowed = set(sys.argv[2].split())
+def keys(v):
+    if isinstance(v, dict):
+        for k, child in v.items():
+            yield k
+            yield from keys(child)
+    elif isinstance(v, list):
+        for child in v:
+            yield from keys(child)
+with open(sys.argv[1], encoding="utf-8") as fh:
+    print(" ".join(sorted(set(keys(json.load(fh))) - allowed)))
+PYK
+}
+EXTRA="$(extra_keys "$SNAP" "$ALLOWED")"
 assert "no key outside the documented set is emitted${EXTRA:+ (saw:$EXTRA)}" "$(eq "$EXTRA" "")"
+# …and PROVE that check can actually fail. A non-identifier key is exactly the shape
+# the old grep could not see, so it is the shape this fixture plants.
+printf '%s\n' '{"group":"g","counts":{"tasks":1},"source-path":"/home/someone/bundle"}' > "$TMP/badkey.json"
+BADKEY="$(extra_keys "$TMP/badkey.json" "$ALLOWED")"
+assert "a non-identifier key IS caught (the old grep missed it)" "$(eq "$BADKEY" "source-path")"
+printf '%s\n' '{"group":"g","projects":[{"slug":"s","document body":"leak"}]}' > "$TMP/badkey2.json"
+BADKEY2="$(extra_keys "$TMP/badkey2.json" "$ALLOWED")"
+assert "…and one with a space, nested inside a list" "$(eq "$BADKEY2" "document body")"
 assert "a task description never reaches the snapshot"   "$(fhasnt "$SECRET_DESC" "$SNAP")"
 assert "no document body reaches the snapshot"           "$(fhasnt "$SECRET_BODY" "$SNAP")"
 assert "open-question TEXT never reaches the snapshot"    "$(fhasnt "$SECRET_QUESTION" "$SNAP")"
@@ -399,7 +446,24 @@ done < <(grep -oE 'href="[^"]*"' "$HTML" | sed 's/^href="//; s/"$//')
 assert "every http(s) href is a PR link${BAD_HREF:+ (saw:$BAD_HREF)}" "$(eq "$BAD_HREF" "")"
 assert "no src= attribute at all"       "$(fhasnt 'src=' "$HTML")"
 assert "no @import in the stylesheet"   "$(fhasnt '@import' "$HTML")"
-assert "no url() fetch in the stylesheet" "$(yes_if sh -c '! grep -qE "url\(\s*[\"'\'']?(https?:|//)" "$1"' _ "$HTML")"
+# EVERY url(), not just an absolute one: `url(assets/icon.svg)` is a fetch too, and
+# the header promises no CSS resource reference at all. The old pattern also used
+# `\s`, which is a GNU extension rather than POSIX ERE — so it was a portability trap
+# on top of being too narrow.
+no_css_url() { # <html file> -> 0 when no <style> block contains url(
+  python3 - "$1" <<'PYU'
+import re, sys
+html = open(sys.argv[1], encoding="utf-8").read()
+blocks = re.findall(r"<style\b[^>]*>(.*?)</style>", html, re.I | re.S)
+sys.exit(0 if all(not re.search(r"url\s*\(", b, re.I) for b in blocks) else 1)
+PYU
+}
+assert "no url() fetch in the stylesheet" "$(yes_if no_css_url "$HTML")"
+# Prove the strengthened check fails on a RELATIVE url(), which the old one passed.
+printf '%s\n' '<style>.a{background:url(assets/icon.svg)}</style>' > "$TMP/relurl.html"
+assert "…and a relative url() is now rejected" "$(eq "$(yes_if no_css_url "$TMP/relurl.html")" 1)"
+printf '%s\n' '<style>.a{color:red}</style><p>url(not-in-css)</p>' > "$TMP/txturl.html"
+assert "…while url( outside a <style> block is not a false alarm" "$(yes_if no_css_url "$TMP/txturl.html")"
 assert "no <link rel=stylesheet>"       "$(fhasnt '<link' "$HTML")"
 assert "no <iframe>"                    "$(fhasnt '<iframe' "$HTML")"
 
@@ -459,10 +523,66 @@ cp "$ALPHA/instance.config.json" "$TMP/goodcfg" && cp "$TMP/badcfg-cfg" "$ALPHA/
 D4="$( cd "$ALPHA" && bash "$BOARD" --out "$TMP/d4.html" 2>&1 )"
 assert "an unreadable config falls back to this instance" "$(has '1 instance(s)' "$D4")"
 assert "…and says so on stderr"                           "$(has 'unreadable' "$D4")"
+# A config that PARSES but whose top level is not an object. This is a different
+# failure from "not JSON at all" above: json.loads succeeds, so the except clause is
+# never reached, and a bare .get() on the result raises AttributeError — which was
+# NOT in the caught tuple, so the run ended in a traceback instead of the documented
+# fallback. One case per JSON top-level type that has no .get.
+for shape in '["a","b"]' '"just-a-string"' '5' 'null' 'true'; do
+  printf '%s\n' "$shape" > "$ALPHA/instance.config.json"
+  RC=0; OUT="$( cd "$ALPHA" && bash "$BOARD" --out "$TMP/dshape.html" 2>&1 )" || RC=$?
+  assert "a config whose top level is $shape falls back, exit 0" "$(eq "$RC" 0)"
+  assert "…rendering just this instance"   "$(has '1 instance(s)' "$OUT")"
+  assert "…with no Python traceback"       "$(hasnt 'Traceback' "$OUT")"
+done
 cp "$TMP/goodcfg" "$ALPHA/instance.config.json"
 NOSUCH="$( cd "$TMP" && bash "$BOARD" --out "$TMP/d5.html" "$TMP/no-such-instance" 2>&1 )"
 assert "a named directory that does not exist is skipped, not fatal" "$(has 'no such directory' "$NOSUCH")"
 assert "…and the empty board explains how an instance joins" "$(fhas 'touch SNAPSHOT.json' "$TMP/d5.html")"
+
+echo "== a drifted snapshot cannot blank the board =="
+# THE MAJOR CASE. These snapshots are syntactically valid JSON, so the malformed-file
+# path above never sees them — the wrong TYPES surface later, at int() and at a sort
+# comparison. A bare int("many") raises ValueError before a single byte of output is
+# written, so one drifted instance took the whole board down with it, including every
+# healthy instance on the same page. That directly contradicts the header's promise
+# that a malformed snapshot is a visible card rather than a crash.
+#
+# Each case therefore asserts BOTH halves: this instance survives, AND the healthy
+# instance beside it still renders. A fix that swallows the drift by dropping every
+# instance would pass the first half alone.
+DRIFT="$TMP/group/_ai-bridge-drift"
+mkdir -p "$DRIFT"
+drift_case() { # <label> <snapshot json>
+  printf '%s\n' "$2" > "$DRIFT/SNAPSHOT.json"
+  local rc=0 out
+  # rm FIRST. Without this the file survives from the previous case, and both the
+  # "an output file is written" and "healthy instance still renders" assertions pass
+  # by reading STALE output — green while the run they claim to describe crashed.
+  rm -f "$TMP/drift.html"
+  out="$( cd "$TMP" && bash "$BOARD" --out "$TMP/drift.html" "$ALPHA" "$DRIFT" 2>&1 )" || rc=$?
+  assert "$1: exits 0"                       "$(eq "$rc" 0)"
+  assert "$1: an output file is written"      "$(yes_if test -s "$TMP/drift.html")"
+  assert "$1: no traceback"                   "$(hasnt 'Traceback' "$out")"
+  assert "$1: the healthy instance still renders" "$(fhas 'CI hardening' "$TMP/drift.html")"
+}
+drift_case "a non-numeric task count" \
+  '{"group":"drift","counts":{"tasks":"many","projects":1,"awaiting":0},"projects":[]}'
+drift_case "a non-numeric phase total" \
+  '{"group":"drift","counts":{"tasks":1},"projects":[{"slug":"p","title":"Drifted","status":"active","phase_progress":{"total":"two","done":"one"},"phases":[],"tasks":[]}]}'
+drift_case "a non-numeric phase order" \
+  '{"group":"drift","counts":{"tasks":1},"projects":[{"slug":"p","title":"Drifted","status":"active","phase_progress":{"total":2,"done":1},"phases":[{"order":"first","title":"A","status":"active"},{"order":2,"title":"B","status":"done"}],"tasks":[]}]}'
+# A non-string group is the TypeError variant: it survives a truthiness test, so it
+# reached the awaiting sort still an int and compared int with str there. It needs an
+# awaiting item to reach that sort at all, which is why this fixture carries one.
+drift_case "a non-string group" \
+  '{"group":5,"counts":{"tasks":1},"projects":[{"slug":"p","title":"Drifted","status":"active","tasks":[{"id":"task-001","title":"T","status":"blocked","awaiting":"unblock","open_questions":0,"prs":[]}]}]}'
+# ANCHORED to the tab-label markup on purpose. A bare `fhas 5` passes on any page:
+# the stylesheet alone contains "5" 39 times, so it would report green even if the
+# coercion dropped the group entirely. The assertion has to name where it appears.
+assert "…and the non-string group is rendered as a tab label" \
+  "$(yes_if grep -qE '<label for="tab-[0-9]+"[^>]*>5 ' "$TMP/drift.html")"
+rm -rf "$DRIFT"
 
 echo "== installer: on by first stamp, off by deletion, forever =="
 INST="$TMP/group/_ai-bridge-stamped"
