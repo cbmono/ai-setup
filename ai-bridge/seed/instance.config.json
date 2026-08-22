@@ -5,6 +5,7 @@
   "worktreeRoot": "~/agent-worktrees",
   "boardInstances": [],
   "authorEmail": "you@example.com",
+  "ownerGithubUser": null,
   "defaultRepo": null,
   "maxAgentsInFlight": 10,
   "maxPrLoc": 500,

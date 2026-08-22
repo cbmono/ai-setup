@@ -50,7 +50,8 @@ candidates) and ask which to close.
    commit — reference it as "removed in the closing commit".)
 
 4. **Roll up status.** Set `project.md` `status: done`. Remove the project's bullet
-   from the active `## Projects` list in `index.md`. Update its objective's
+   from the active `## Projects` list in `index.md` (derived and gitignored — edit
+   it, but it is not part of step 7's commit). Update its objective's
    "Projects serving this objective" list to mark it delivered; if **all** of that
    objective's projects are now terminal, **ask** whether to set the objective
    `status: achieved` (don't flip it silently).
@@ -93,7 +94,7 @@ candidates) and ask which to close.
      dependency. Never drop it silently.
 
 7. **Remove, validate, then commit.** Unless `--dry-run`: `git rm -r projects/<slug>/`, stage the
-   `index.md` / `log.md` / objective / KB edits by explicit path, and commit via
+   `log.md` / objective / KB edits by explicit path, and commit via
    `scripts/commit-as.sh human "chore: close <slug> project" -- <path>...`. **Run
    `scripts/validate-bundle.sh` after the `git rm` and before committing** — validating
    beforehand cannot see a reference that only dangles once the folder is gone, which

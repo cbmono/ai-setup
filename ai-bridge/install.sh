@@ -283,6 +283,69 @@ if ! grep -qE '^/?repos/?$' "$gi"; then
 GI
 fi
 
+# 3b. Two more ignores, appended once each if missing — OUTSIDE the managed block,
+# for the same reason as /repos/ above.
+#
+# Why appended here at all: the seed is copied only if ABSENT, so an instance stamped
+# before these lines existed would never receive them, and both are load-bearing.
+# `instance.config.local.json` holds per-machine IDENTITY (authorEmail,
+# ownerGithubUser) — committing it would push one human's identity into a bundle the
+# other reads, which is the exact failure the file exists to prevent. The derived
+# indexes are rewritten every tick, so on a shared bundle they conflict on every push.
+#
+# And why the INDEX lines live ONLY here, never in seed/.gitignore: that file is an
+# active .gitignore inside the template's own `seed/` directory, so a `/index.md`
+# line in it matches `ai-bridge/seed/index.md` and silently stops the template from
+# tracking its own seed file. Measured — it broke the upgrade.sh fixture, which
+# re-inits a repo over a copy of seed/. `instance.config.local.json` has no such
+# collision (no seed file is named that), so it is in both places, harmlessly.
+if ! grep -qxF 'instance.config.local.json' "$gi"; then
+  cat >> "$gi" <<'GI'
+
+# Per-machine identity overrides (authorEmail, ownerGithubUser), winning over the
+# TRACKED instance.config.json for those keys only. Never commit it: a shared bundle
+# would otherwise author both humans' commits as one person.
+instance.config.local.json
+GI
+fi
+# Each line is guarded SEPARATELY. A single guard on the root line would silently
+# skip the per-project one whenever only the root line was already present, and the
+# two are not interchangeable. The match is EXACT (`-qxF`), not `^/?index\.md$` like
+# /repos/ above: a bare `index.md` line is a different pattern that also swallows
+# `knowledge/index.md`, so it must not be read as "already handled".
+if ! grep -qxF '/index.md' "$gi" || ! grep -qxF '/projects/*/index.md' "$gi"; then
+  cat >> "$gi" <<'GI'
+
+# Derived navigation indexes — the root one and each project's, rewritten by every
+# /pm-loop tick from the documents they summarise. A view, not source.
+# `knowledge/index.md` is deliberately NOT ignored: it is the KB's curated lookup
+# surface, changes only when the KB changes, and a fresh clone needs it present.
+GI
+  grep -qxF '/index.md' "$gi"             || echo '/index.md' >> "$gi"
+  grep -qxF '/projects/*/index.md' "$gi"  || echo '/projects/*/index.md' >> "$gi"
+fi
+
+# A .gitignore line is INERT for a file git already tracks, so on an instance whose
+# index.md files are committed this change would silently do nothing. Report the exact
+# command instead of running it: untracking a file is a commit the human makes and the
+# other clone then pulls (which deletes their copy until the next tick or install
+# re-creates it). Report-only, like RETIRED and prune-worktrees.sh.
+if [ -d "$TARGET/.git" ] || [ -f "$TARGET/.git" ]; then
+  tracked_idx="$( ( cd "$TARGET" && git ls-files -- index.md 'projects/*/index.md' 2>/dev/null ) || true )"
+  if [ -n "$tracked_idx" ]; then
+    echo "Derived indexes are still tracked here (now gitignored, so the ignore is inert):"
+    while IFS= read -r ti; do
+      [ -n "$ti" ] || continue
+      echo "  tracked $ti"
+    done <<EOF
+$tracked_idx
+EOF
+    echo "        To untrack them (keeps the files on disk), from $TARGET:"
+    echo "          git rm --cached -- index.md 'projects/*/index.md'"
+    echo "        …then commit. Needed only if this bundle is shared by more than one human."
+  fi
+fi
+
 # 4. Product-repo view — one symlink per repo under TARGET/repos/, so the peer
 # repos are reachable from inside the instance without being nested in it.
 # Best-effort by design: a fresh instance still has the placeholder reposRoot, and

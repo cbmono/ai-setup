@@ -47,7 +47,12 @@
 #       the task doc for the question itself. AWAITING.md carries that text; the
 #       board does not;
 #     · any author identity (`authorEmail`), any filesystem path outside this bundle
-#       (`reposRoot`, `worktreeRoot`), any URL other than a PR URL.
+#       (`reposRoot`, `worktreeRoot`), any URL other than a PR URL;
+#     · `owner:` — on a bundle shared by two humans this names a PERSON, and the
+#       board's HTML can be published. It is identity, so it belongs with
+#       `authorEmail` on this list, not with `assignee` (which is a role slug and
+#       names nobody). A shared board is read by people who already know whose
+#       project is whose; a published page is not.
 #
 # Titles ARE carried: a board without them is unreadable. They are written by humans
 # and could say anything, so **this file is exactly as sensitive as the task documents
