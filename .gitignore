@@ -17,6 +17,20 @@ tmp/
 !.claude/rules/
 !.claude/scripts/
 !.claude/skills/
+# ...but skills are allow-listed ONE BY ONE, unlike the dirs above.
+#
+# Why this one is different: `.claude/skills/` is a DROP-IN directory. Installing any
+# third-party skill puts a new subdirectory here, and with the bare `!.claude/skills/`
+# re-include above, `git add -A -- .claude` then sweeps it into a PUBLIC repo — which is
+# exactly what happened: `graphify` plus three symlinks (`computer-use`, `orca-cli`,
+# `orchestration`) pointing at a `.agents/` path that exists under ~/.claude but not here,
+# so the repo shipped three DEAD links. `install.sh` discovers what to link with
+# `git ls-files .claude`, so every consumer would have got them in their own ~/.claude.
+#
+# Adding a line here is the deliberate act of shipping a skill to every consumer.
+.claude/skills/*
+!.claude/skills/README.md
+!.claude/skills/test-locators/
 
 # Tracked defaults (files)
 !.claude/MEMORY.md
