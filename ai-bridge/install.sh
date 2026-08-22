@@ -287,6 +287,16 @@ if [ -f "$RETIRED_LIST" ]; then
     reason="${line#*	}"
     [ "$reason" = "$rpath" ] && reason="no longer shipped by the template"
     [ -n "$rpath" ] || continue
+    # Refuse a path that escapes the instance root. The manifest is our own file, so this
+    # is not about a hostile author — it is that `../victim.md` would make the printed
+    # `rm` command operate OUTSIDE the instance, and a human pasting a command this script
+    # handed them has every reason to trust it. Reject rather than normalise: a path with
+    # `..` in it is a mistake in the manifest, and silently rewriting a mistake into a
+    # different path is how you delete the wrong file.
+    case "$rpath" in
+      /*|~*)      echo "  warn  RETIRED entry ignored (not instance-relative): $rpath" >&2; continue ;;
+      ..|../*|*/..|*/../*) echo "  warn  RETIRED entry ignored (escapes the instance root): $rpath" >&2; continue ;;
+    esac
     # Only ever report something that is actually there, and only a real file — a
     # leftover symlink is step 2b's business, not this list's.
     if [ -f "$TARGET/$rpath" ] && [ ! -L "$TARGET/$rpath" ]; then

@@ -9,7 +9,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repo is
 
-Public, opinionated Claude Code defaults for Node.js / TypeScript projects. It ships subagents, user-invocable slash commands, a permissions baseline, and a CLAUDE.md template that users drop into consumer projects. No application code, no build, no test suite. Work here is editing markdown and JSON under `.claude/` plus the top-level `README.md`.
+Public, opinionated Claude Code defaults for Node.js / TypeScript projects. It ships subagents, user-invocable slash commands, a permissions baseline, and a CLAUDE.md template that users drop into consumer projects. No application code and no build step. **It does have a test suite**: POSIX shell harnesses under `tests/` and `ai-bridge/tests/` covering the installers and the `ai-bridge/` scripts — run them all before pushing. So work here is markdown and JSON under `.claude/`, the top-level `README.md`, and **shell** under `tests/`, `.claude/hooks/`, `.claude/scripts/`, `install.sh` and `ai-bridge/`. This sentence used to read "no test suite … markdown and JSON", which was true when it was written and has been false for a while; a reviewer reading it as policy asked for shell changes to be removed. If you add a new kind of file here, fix this line in the same commit.
 
 ## Layout
 

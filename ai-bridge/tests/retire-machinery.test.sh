@@ -142,6 +142,26 @@ ln -sfn "$TMP/gone-forever" "$SEEDY/linky.md"
 OUT4="$(bash "$TPL/install.sh" "$SEEDY" 2>&1)"
 assert "a symlink is not reported as stale"  "$(hasnt 'stale linky.md' "$OUT4")"
 
+# --- a manifest entry that escapes the instance root is refused, not reported.
+# `../victim.md` would make the printed `rm` operate OUTSIDE the instance, and a human
+# pasting a command this script handed them has every reason to trust it.
+printf 'escapee\n' > "$TMP/group/victim.md"
+printf '../victim.md\tretired\n' > "$TPL/RETIRED"
+OUT5="$(bash "$TPL/install.sh" "$SEEDY" 2>&1)"
+assert "an escaping entry is not reported"   "$(hasnt 'stale \.\./victim.md' "$OUT5")"
+assert "…no rm command is printed for it"    "$(hasnt 'rm .*victim.md' "$OUT5")"
+assert "…it is warned about instead"         "$(has 'escapes the instance root' "$OUT5")"
+assert "…and the outside file is untouched"  "$(yes_if grep -q 'escapee' "$TMP/group/victim.md")"
+printf '/etc/passwd\tretired\n' > "$TPL/RETIRED"
+OUT6="$(bash "$TPL/install.sh" "$SEEDY" 2>&1)"
+assert "an absolute entry is refused"        "$(has 'not instance-relative' "$OUT6")"
+assert "…and prints no rm"                   "$(hasnt 'rm /etc/passwd' "$OUT6")"
+# A path merely CONTAINING dots is fine — only a `..` component escapes.
+printf 'my..notes.md\tretired\n' > "$TPL/RETIRED"
+printf 'dotty\n' > "$SEEDY/my..notes.md"
+OUT7="$(bash "$TPL/install.sh" "$SEEDY" 2>&1)"
+assert "a dotted filename is NOT refused"    "$(has 'stale my\.\.notes.md' "$OUT7")"
+
 echo
 printf 'pass=%d fail=%d\n' "$pass" "$fail"
 [[ $fail -eq 0 ]]
