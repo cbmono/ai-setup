@@ -41,6 +41,11 @@ doc knowledge/services/current.md '---' 'type: Service' 'title: S1' 'status: cur
 # must be reported and left alone rather than normalised into a fixed value.
 doc knowledge/findings/unsupported.md '---' 'type: Finding' 'title: F5' 'status: wibble' "timestamp: $TS" '---' 'body'
 doc knowledge/services/unsupported.md '---' 'type: Service' 'title: S2' 'status: retired' "timestamp: $TS" '---' 'body'
+# Frontmatter that opens and never closes. add_field inserts before the SECOND
+# delimiter, so with only one it silently no-ops — and the script once printed FIXED
+# for that non-write, on a real bundle. A false success is worse than the error it
+# claims to fix, so this is a regression test, not a hypothetical.
+doc projects/live/tasks/task-003-unterminated.md '---' 'type: Task' 'title: T3' 'status: draft' 'body, no closing delimiter'
 # timestamp from git
 doc projects/live/tasks/task-001-nots.md '---' 'type: Task' 'title: T1' 'status: draft' '---' 'body'
 # dangling ref — must be reported, never rewritten
@@ -82,6 +87,12 @@ assert "an unknown Finding status is held for a human" \
 assert "an unknown Service status is held for a human" \
   "$(printf '%s' "$DRY" | grep -q "Service status 'retired' is not a mapping" && echo 0 || echo 1)"
 
+echo "== an unterminated frontmatter block is skipped, never falsely fixed =="
+assert "unterminated frontmatter is SKIPPED" \
+  "$(printf '%s' "$DRY" | grep -q 'opens but never closes' && echo 0 || echo 1)"
+assert "it is never reported as a fix" \
+  "$(printf '%s' "$DRY" | grep -A1 'task-003-unterminated' | grep -qE 'WOULD FIX|FIXED' && echo 1 || echo 0)"
+
 echo "== the refusals =="
 assert "a date git cannot supply is SKIPPED, not invented" \
   "$(printf '%s' "$DRY" | grep -q 'refusing to invent a date' && echo 0 || echo 1)"
@@ -94,7 +105,7 @@ assert "knowledge/findings/ok.md untouched"  "$(printf '%s' "$DRY" | grep -q 'fi
 assert "knowledge/services/ok.md untouched" "$(printf '%s' "$DRY" | grep -q 'services/ok.md' && echo 1 || echo 0)"
 
 echo "== --apply writes, and only the right things =="
-bash "$MIGRATE" --apply >/dev/null 2>&1
+APPLY_OUT="$(bash "$MIGRATE" --apply 2>&1 || true)"
 assert "Finding open became current"   "$(grep -q '^status: current' knowledge/findings/open.md && echo 0 || echo 1)"
 assert "Finding active became current" "$(grep -q '^status: current' knowledge/findings/active.md && echo 0 || echo 1)"
 assert "Finding gained a status"       "$(grep -q '^status: current' knowledge/findings/nostatus.md && echo 0 || echo 1)"
@@ -115,6 +126,12 @@ assert "a repaired file keeps its original mode" \
   "$([[ "$(stat -f '%Lp' knowledge/findings/open.md 2>/dev/null || stat -c '%a' knowledge/findings/open.md)" == "$MODE_BEFORE" ]] && echo 0 || echo 1)"
 assert "no temp file was left behind" \
   "$(find . -name '.migrate-bundle.*' | grep -q . && echo 1 || echo 0)"
+assert "the unterminated file gained no timestamp" \
+  "$(grep -q '^timestamp:' projects/live/tasks/task-003-unterminated.md && echo 1 || echo 0)"
+assert "the unterminated file is byte-unchanged" \
+  "$([[ "$(grep -c '^---$' projects/live/tasks/task-003-unterminated.md)" == 1 ]] && echo 0 || echo 1)"
+assert "--apply reports 0 FAILED writes" \
+  "$(printf '%s' "$APPLY_OUT" | grep -q '0 FAILED' && echo 0 || echo 1)"
 
 echo "== idempotence =="
 SECOND="$(bash "$MIGRATE" 2>&1)"

@@ -54,12 +54,27 @@ done
   exit 2
 }
 
-fixed=0; skipped=0; human=0
+fixed=0; skipped=0; human=0; failed=0
 
 act() { # <file> <what>
   if [[ $APPLY -eq 1 ]]; then printf '  FIXED    %s\n           %s\n' "$1" "$2"
   else printf '  WOULD FIX %s\n           %s\n' "$1" "$2"; fi
   fixed=$((fixed+1))
+}
+
+# Report a write that was claimed but did not land. Never silent: a migration that
+# says FIXED without changing the file is worse than one that says nothing.
+unfixed() { # <file> <what>
+  printf '  FAILED   %s\n           %s\n' "$1" "$2" >&2
+  fixed=$((fixed-1)); failed=$((failed+1))
+}
+
+# Run a write, then confirm the field really carries the value. Any mismatch is
+# reported as FAILED rather than counted as a fix.
+verify_write() { # <file> <key> <value> <rel> <what>
+  local got
+  got="$(field "$1" "$2")"
+  [[ "$got" == "$3" ]] || unfixed "$4" "$5 — the write did not land (found '${got:-nothing}')"
 }
 hold() { printf '  HUMAN    %s\n           %s\n' "$1" "$2"; human=$((human+1)); }
 skip() { printf '  SKIPPED  %s\n           %s\n' "$1" "$2"; skipped=$((skipped+1)); }
@@ -128,6 +143,15 @@ while IFS= read -r file; do
   [[ -n "$file" ]] || continue
   rel="${file#./}"
   head -1 "$file" | grep -q '^---$' || { skip "$rel" "no frontmatter — a content decision, not a migration"; continue; }
+  # An unterminated frontmatter block has no closing delimiter to insert before, so
+  # add_field would silently no-op while this script reported a fix. Skip it: the
+  # document is malformed, which is a content decision, and validate-bundle.sh names
+  # it precisely. This guard exists because the script DID once report FIXED for a
+  # write it never made — a false success is worse than the error it claimed to fix.
+  [[ "$(grep -c '^---$' "$file")" -ge 2 ]] || {
+    skip "$rel" "frontmatter opens but never closes — add the missing '---' by hand, then re-run"
+    continue
+  }
 
   type="$(field "$file" type)"
   [[ -n "$type" ]] || { skip "$rel" "no type — a content decision, not a migration"; continue; }
@@ -137,15 +161,19 @@ while IFS= read -r file; do
     Finding)
       case "$status" in
         current|superseded) : ;;
-        "")            act "$rel" "Finding has no status -> current"; [[ $APPLY -eq 0 ]] || add_field "$file" status current ;;
-        open|active)   act "$rel" "Finding status '$status' -> current"; [[ $APPLY -eq 0 ]] || set_field "$file" status current ;;
+        "")            act "$rel" "Finding has no status -> current"
+                       [[ $APPLY -eq 0 ]] || { add_field "$file" status current; verify_write "$file" status current "$rel" "Finding status"; } ;;
+        open|active)   act "$rel" "Finding status '$status' -> current"
+                       [[ $APPLY -eq 0 ]] || { set_field "$file" status current; verify_write "$file" status current "$rel" "Finding status"; } ;;
         *)             hold "$rel" "Finding status '$status' is not a mapping this script knows — decide it by hand" ;;
       esac ;;
     Service)
       case "$status" in
         active|deprecated) : ;;
-        "")        act "$rel" "Service has no status -> active"; [[ $APPLY -eq 0 ]] || add_field "$file" status active ;;
-        current)   act "$rel" "Service status 'current' -> active"; [[ $APPLY -eq 0 ]] || set_field "$file" status active ;;
+        "")        act "$rel" "Service has no status -> active"
+                   [[ $APPLY -eq 0 ]] || { add_field "$file" status active; verify_write "$file" status active "$rel" "Service status"; } ;;
+        current)   act "$rel" "Service status 'current' -> active"
+                   [[ $APPLY -eq 0 ]] || { set_field "$file" status active; verify_write "$file" status active "$rel" "Service status"; } ;;
         *)         hold "$rel" "Service status '$status' is not a mapping this script knows — decide it by hand" ;;
       esac ;;
   esac
@@ -154,7 +182,7 @@ while IFS= read -r file; do
     added="$(git_added_date "$file")"
     if [[ -n "$added" ]]; then
       act "$rel" "timestamp missing -> $added (author date of the commit that added it)"
-      [[ $APPLY -eq 0 ]] || add_field "$file" timestamp "$added"
+      [[ $APPLY -eq 0 ]] || { add_field "$file" timestamp "$added"; verify_write "$file" timestamp "$added" "$rel" "timestamp"; }
     else
       skip "$rel" "timestamp missing and git does not know this file — refusing to invent a date"
     fi
@@ -175,8 +203,10 @@ done <<< "$FILE_LIST"
 
 echo "---"
 if [[ $APPLY -eq 1 ]]; then
-  printf 'migrate-bundle: %d fixed, %d left for a human, %d skipped.\n' "$fixed" "$human" "$skipped"
+  printf 'migrate-bundle: %d fixed, %d left for a human, %d skipped, %d FAILED.\n' \
+    "$fixed" "$human" "$skipped" "$failed"
   echo "Now run: scripts/validate-bundle.sh"
+  [[ $failed -eq 0 ]] || exit 1
 else
   printf 'migrate-bundle: %d would be fixed, %d need a human, %d skipped. (report only — nothing changed)\n' \
     "$fixed" "$human" "$skipped"
