@@ -47,7 +47,8 @@ usage() {
 deepseek-session.sh — run one Claude Code session against DeepSeek.
 
   deepseek-session.sh                 start a session on DeepSeek
-  deepseek-session.sh --print-env     show the env it would set (key redacted), then exit
+  deepseek-session.sh --print-env     show the env it would set, then exit
+                                      (the key is never printed, not even a fragment)
   deepseek-session.sh --help          show this help
 
 Any other arguments are passed through to `claude` verbatim.
@@ -142,12 +143,17 @@ if [ -z "$KEY" ]; then
   exit 1
 fi
 
-# Redacted preview — never print the key itself, this banner is shown every run
-# and often ends up pasted into issues or shared terminals.
-if [ "${#KEY}" -gt 8 ]; then
-  KEY_HINT="${KEY:0:5}…${KEY: -3}"
-else
-  KEY_HINT="(short — check it)"
+# The key is NEVER printed, not even a fragment. A "redacted preview" of the first
+# five and last three characters is still key material: it survives into the
+# scrollback of a banner shown on every run, which routinely ends up pasted into an
+# issue or shown on a shared screen, and a prefix identifies the credential well
+# enough to correlate it with a leak from somewhere else. Standing rule — never
+# echo, print, or log secrets or environment variables.
+#
+# The one thing the old preview was genuinely useful for — spotting a truncated
+# paste — needs no characters at all, so it stays as a length check.
+if [ "${#KEY}" -le 8 ]; then
+  echo "warning: the DeepSeek key from $KEY_SOURCE is only ${#KEY} characters — check it." >&2
 fi
 
 export ANTHROPIC_BASE_URL="$BASE_URL"
@@ -170,7 +176,7 @@ unset ANTHROPIC_API_KEY
 if [ "$PRINT_ENV" -eq 1 ]; then
   cat <<ENVDUMP
 ANTHROPIC_BASE_URL=$ANTHROPIC_BASE_URL
-ANTHROPIC_AUTH_TOKEN=$KEY_HINT   # redacted, from $KEY_SOURCE
+ANTHROPIC_AUTH_TOKEN=(set — never printed; source: $KEY_SOURCE)
 ANTHROPIC_DEFAULT_OPUS_MODEL=$ANTHROPIC_DEFAULT_OPUS_MODEL
 ANTHROPIC_DEFAULT_SONNET_MODEL=$ANTHROPIC_DEFAULT_SONNET_MODEL
 ANTHROPIC_DEFAULT_HAIKU_MODEL=$ANTHROPIC_DEFAULT_HAIKU_MODEL
@@ -194,7 +200,7 @@ command -v claude >/dev/null 2>&1 || {
   echo "│ backend : $BASE_URL"
   echo "│ models  : $MODEL_PRO (opus/sonnet/fable) · $MODEL_FLASH (haiku)"
   echo "│ subagent: $SUBAGENT_MODEL"
-  echo "│ key     : $KEY_HINT  ← $KEY_SOURCE"
+  echo "│ key     : (set — never printed) ← $KEY_SOURCE"
   echo "│ cwd     : $PWD"
   echo "│"
   echo "│ NOT Anthropic. Every prompt, file read, and tool result in"
