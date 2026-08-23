@@ -12,7 +12,7 @@ Two layers, and you can use either one on its own:
 
 | Layer | What it is | Use it if… |
 | --- | --- | --- |
-| **[`ai-bridge/`](#layer-1-ai-bridge--the-control-panel) — the control panel** | A folder that acts as mission control for a group of repos: projects, tasks, a background project-manager loop, role agents, a knowledge base. **This is the point of the repo.** | You want work happening while you're not watching |
+| **[`ai-bridge`](https://github.com/cbmono/ai-bridge) — the control panel** *(now its own repo)* | A folder that acts as mission control for a group of repos: projects, tasks, a background project-manager loop, role agents, a knowledge base. | You want work happening while you're not watching |
 | **[`.claude/`](#layer-2-the-claude-code-defaults) — the defaults** | Agents, slash commands, permissions, and hooks for everyday Claude Code use (`/plan`, `/grill`, `/verify`, `/scan`, …) | You just want a better-configured Claude Code |
 
 Built for Opus 4.8, Node.js/TypeScript projects, and stacked pull requests.
@@ -23,174 +23,25 @@ Built for Opus 4.8, Node.js/TypeScript projects, and stacked pull requests.
 
 # Layer 1: `ai-bridge` — the control panel
 
-An **instance** of the control panel is a small git repo that sits beside your product repos. It holds no application code — only the state of the work: what you're trying to achieve, what's in flight, what's blocked, and what the agents have learned. Agents read from it and write back to it; you steer from it.
+**This layer now lives in its own repo: [github.com/cbmono/ai-bridge](https://github.com/cbmono/ai-bridge).**
 
-One instance per *group* of repos (work, a side project, a client), so those worlds stay separate.
+An **instance** of the control panel is a small git repo that sits beside your product
+repos. It holds no application code — only the state of the work: what you're trying to
+achieve, what's in flight, what's blocked, and what the agents have learned. Agents read
+from it and write back to it; you steer from it. One instance per *group* of repos (work, a
+side project, a client), so those worlds stay separate.
 
-> Under the hood it's an [Open Knowledge Format (OKF)](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md) **Knowledge Bundle** — a plain-markdown, schema'd way of storing projects, tasks, and findings. You never have to think about that; the commands write the files for you.
+It used to be a subtree of this repo. It outgrew that: it has its own test suite, its own
+path-scoped rules, its own release cadence, and a config layer of its own — none of which
+belong in a repo whose job is `~/.claude` defaults. Splitting it also ended the duplication
+that made both copies drift.
 
-## The core loop
+Nothing here depends on it, and nothing there depends on this — but they compose, and the
+control panel's agents are written assuming Layer 2 is installed.
 
-This is the part to memorise. Four steps, two of them yours:
-
-```
-  /new-project  →  the PM refines it  →  ①  YOU approve  →  agents build in the
-     (you)          into draft tasks       (draft → ready)    background, open PRs
-                                                                      │
-                       project closed  ←  ②  YOU merge  ←─────────────┘
-```
-
-| Step | Command | What happens |
-| --- | --- | --- |
-| **1. Describe the work** | `/new-project <description>` | Scaffolds a project folder with seed tasks, all marked `draft`. It asks a few questions (which repo? how autonomous? does it need a browser?) and nothing is dispatchable yet. |
-| **2. Let the PM sharpen it** | `/pm-loop` | The project-manager agent fills in acceptance criteria, and where it genuinely can't decide, writes down numbered **open questions** for you. |
-| **① Your first gate** | *`/answer`, then edit the task* | Answer its questions, then promote the task by changing `status: draft` to `status: ready` in the task file. **Only a human can do this.** Nothing gets built without it. |
-| **3. Let it run** | `/pm-loop 10m` | Each tick: dispatches `ready` tasks to role agents (which work in their own git worktrees, in the background), watches their PRs, reflects merges back, and refreshes the awaiting-you queue. |
-| **② Your second gate** | *(merge on GitHub)* | You merge the PR — or, for a research project, approve the deliverable. **Only a human does this too** by default — unless you've explicitly delegated that gate for a project. |
-| **4. Wrap up** | `/close-project <slug>` | Consolidates what was learned into the knowledge base, logs the closeout, and deletes the project folder. Git history + the knowledge base are the record. |
-
-**The mindset: steer, don't watch.** You should mostly see *results and questions*, not every intermediate step. If you find yourself reading agent output line by line, you're using it wrong — check `AWAITING.md` and get on with something else.
-
-## The commands you'll actually use
-
-All of these run from inside a control-panel instance (`cd` there, then `claude`).
-
-| Command | What it does |
-| --- | --- |
-| **`/pm-loop`** | One safe, idempotent tick of the loop — refine drafts, dispatch `ready` tasks, reflect merges. Add a gap (`/pm-loop 10m`) to keep looping. Say "DRY RUN" to see what it *would* do without spawning anything. |
-| **`/new-project <description>`** | Start work. Add `kind=research` for doc/deck/asset projects that produce deliverables instead of code. |
-| **`/answer`** | Answers all the PM's pending questions interactively in one batch, instead of editing each task file by hand. |
-| **`/close-project <slug>`** | Close a finished project (the PM flags candidates; you pull the trigger). |
-| **`/audit`** | The slow counter-metric. Weekly-ish: checks whether all this throughput is actually moving your stated goals. See [Are the agents actually helping?](#are-the-agents-actually-helping) |
-| **`/fanout`** | Send a batch of independent one-off asks to parallel background agents. (Just giving the session ≥2 independent asks does this automatically.) |
-| **`/pr-review-request <filter>`** | Find related open, green PRs and draft a grouped review-request message. |
-
-A `SessionStart` hook means that when you open Claude in an instance, it greets you with what's awaiting you — you don't have to remember to ask.
-
-There is deliberately **no status command**. The one status artifact is `AWAITING.md`: a queue of just the items a human decision unblocks (✅ approve · ❓ answer · 🔀 merge · ⛔ unblock · 🏁 close), rewritten by each `/pm-loop` tick and injected at session start. In-flight and upcoming work is left out — it needs no decision from you, and a board you scroll past is a board you stop reading. It's **on by default and off by deletion**: `ai-bridge/install.sh` creates the file when it first stamps out an instance, and after that the loop refreshes it only if it exists and never recreates it. So `rm AWAITING.md` turns the queue off for good — even across installer re-runs — and `touch AWAITING.md` turns it back on.
-
-## Answering the PM's questions
-
-When a task is blocked on a decision only you can make, the PM writes numbered questions into the task document:
-
-```
-Q1: which region should we default to?
-```
-
-Answer it by appending ` --- ` and your answer, right there in the file:
-
-```
-Q1: which region should we default to? --- eu-central-1
-```
-
-The next tick folds it in and clears the question. Once the list is empty, the task is promotable. `/answer` does this for you conversationally, and answering in chat during a session works too.
-
-The cleared entry is **moved, not deleted** — it lands in the task's `answered_questions:` list as one flat line, `<ISO 8601> · <the entry verbatim>`, so the decision and its reason stay readable next to the work they shaped. Nothing reads that list; it is there for you. Which is also the caution: an answer you would not want kept for the life of the repo (anything with customer PII in it) is one to give in person instead. Two smaller things in the same layer: a `UserPromptSubmit` hook restates the instance's **current** state — in-flight tasks, awaiting count, active projects — on every turn, because a loop running for hours otherwise keeps acting on the roster it saw at tick one; and `maxPrLoc` in `instance.config.json` (**500** when the key is absent) makes a role agent *propose* a PR split when a diff runs long, without ever blocking the PR.
-
-## How much do you have to babysit it?
-
-Each project has an **autonomy** setting, chosen when you create it:
-
-| Mode | What you do | What the loop does |
-| --- | --- | --- |
-| **`gated`** (default) | Approve every task, merge every PR | Refines, dispatches, reports. Never promotes, never merges. |
-| **`yolo`** (`/new-project … /yolo`) | Answer questions, watch for drift with `/audit` | Also promotes fully-refined drafts with no open questions, and merges a PR once its independent review is clean and CI is fully green (merging the exact verified commit). Build tasks only — research stays human-driven. |
-
-`yolo` is genuinely all-out. Pair it with `/audit` — that's the check that catches a loop quietly gaming itself.
-
-## Who's on the team
-
-Role agents load **only** when you launch Claude inside an instance — they never pollute your global `~/.claude`.
-
-| Agent | Role |
-| --- | --- |
-| **`project-manager`** | Runs the loop: refines drafts, asks you questions, dispatches work, tracks PRs, reflects merges, proposes closures. Never promotes and never merges. |
-| **`software-engineer`** | Implements tasks in the product repos, on a branch/worktree, and opens a PR. Never merges. |
-| **`devops-engineer`** | Same, for CI, infrastructure, and deployment work. |
-| **`qa-reviewer`** | The independent review gate when the repo has no external reviewer configured. Judges the PR against the task's acceptance criteria, with fresh context. |
-| **`cataloguer`** | Builds and refreshes the knowledge base. Read-only on product repos. |
-| **`auditor`** | Read-only drift check, dispatched by `/audit`. Never acts. |
-| **`oncall-guide`** | Diagnoses a red build, failed CI run, or broken deploy — including from a pasted PR number. Read-only: it reports the root cause and ranked next steps, it never fixes. Dispatched in the background whenever you ask "why is this failing?" |
-
-## Where the work lives
-
-```
-_ai-bridge-<group>/
-├── objectives/       what you're actually trying to achieve
-├── projects/         active work → each with tasks (draft → ready → in-review → done)
-├── knowledge/        services, findings, runbooks, teams — what's been learned
-├── log.md            the durable event log
-└── AWAITING.md       what needs a decision from you (derived; delete it to opt out)
-```
-
-Projects come in two kinds:
-
-- **`build`** (default) — ships code to a repo as pull requests. Agents execute; you merge.
-- **`research`** — produces deliverables *inside* the bundle (docs, marp/pptx decks, assets). No repo, no PRs, human-driven. These are the strategic entry points: their conclusions graduate into `knowledge/` and spawn objectives and build projects.
-
-**The knowledge base is pull-based.** It's never auto-loaded into context (that would bloat every session). Agents scan a one-line-per-entry index first and open only the two or three documents that matter — so nobody re-derives what the last agent already figured out.
-
-## The safety rails
-
-The things that stop a fleet of background agents from making a mess:
-
-- **Two human authorities.** Promoting `draft → ready` and merging the PR are both yours **by default** — the PM does neither, and it has no way to grant itself either one. A project can explicitly delegate one or both to the loop (see the autonomy table above); absent that, they stay yours absolutely.
-- **Nobody grades their own homework.** Before any PR merges it's checked by an **independent** reviewer with fresh context — CodeRabbit where the repo configures it, otherwise the `qa-reviewer` agent — judged on real signals (acceptance criteria met, CI actually green), never the implementing agent's say-so. The implementing agent self-reviews first, but that's a cheap pre-filter, not the gate.
-- **One review per PR.** Left at defaults, CodeRabbit re-reviews on *every push* and replies to *every comment*, so a PR whose findings an agent then fixes burns several paid sessions re-confirming a clean diff. Agents fix, push, and reply once — they never ask for a re-review to confirm their own fix. Pin it in the target repo's `.coderabbit.yaml` (`auto_incremental_review: false`, `chat.auto_reply: false`); [this repo's own](./.coderabbit.yaml) is a working example.
-- **Isolation.** Each agent gets its own git worktree and its own package store, so parallel work can't corrupt a shared checkout. Finished worktrees get reclaimed automatically.
-- **No PII, no secrets.** Never in task documents, commits, PR text, logs, or the knowledge base.
-- **Per-agent authorship.** Commits inside the control panel are attributed to the role that made them, so `git shortlog` tells you who did what. (Never in the product repos — many forbid AI attribution.)
-
-## Are the agents actually helping?
-
-`/pm-loop` optimises throughput. **`/audit`** is the independent check that the throughput is moving your real goals — run it weekly, or after a batch of projects close. The read-only `auditor` grounds each objective's success criteria against live `gh`/`git` reality and flags the four ways a busy control panel drifts:
-
-1. **Goodhart** — lots of tasks closed, goal unmoved
-2. **Measurement decay** — knowledge that's gone stale
-3. **Green but not progressing** — projects that look healthy and aren't
-4. **Weakened anchors** — a human gate or the verification gate quietly slipping, or a project with delegated merge authority merging PRs no independent reviewer cleared
-
-It writes a dated report to `log.md` and **never acts**. Responding is your call.
-
-## Setting up a control panel
-
-First [install the defaults](#getting-started), then stamp out an instance:
-
-```bash
-mkdir -p ~/workspace/<group>/_ai-bridge-<group>
-~/path/to/ai-setup/ai-bridge/install.sh ~/workspace/<group>/_ai-bridge-<group>
-cd ~/workspace/<group>/_ai-bridge-<group>
-$EDITOR instance.config.json          # set org, reposRoot, worktreeRoot, authorEmail
-git init && git add -A && git commit -m "chore: bootstrap control panel"
-gh repo create <user>/_ai-bridge-<group> --private --source=. --push
-```
-
-Then `claude` — from inside that directory — and run `/pm-loop` as a DRY RUN to see the shape of things.
-
-A few things worth knowing:
-
-- **The instance lives *beside* your product repos, never above them.** The group folder (`~/workspace/<group>/`) is a plain directory, not a repo. Nesting the instance above the repos would tell every product-repo session it's a control panel.
-- **The leading underscore** pins it to the top of the folder listing and keeps it visible (unlike a dotfile).
-- **Launch Claude from the instance directory.** Your editor's open folder doesn't decide which config loads — the working directory does.
-- **The machinery is symlinked, not copied**, so a `git pull` on `ai-setup` updates every instance immediately. Your instance data is copied once and never clobbered. Re-run `install.sh` only when the template *adds* new files.
-- **Want one tree in your editor?** Open the seeded `<group>.code-workspace` (VS Code / Cursor / Antigravity) for a multi-root view. Zed users: open the group folder.
-
-**One `/pm-loop` per clone at a time.** The "one tick at a time" guarantee is per session and there's no cross-session lock — a second session looping the same working tree would double-dispatch tasks and race pushes.
-
-**Sharing an instance with someone else** is a different case and is supported: you each clone the bundle and run your own loop, seeing one board, one set of projects and one knowledge base. Four settings make it safe, and every one of them is a no-op on a single-human instance — `owner: <github-login>` on a project (or a single task) so each loop **dispatches only its own human's work** (it gates *dispatch*, never promotion, and it is not a lock); `defaultOwner` in the tracked config, so work nobody owns is still dispatched by exactly one clone; a `people` map recording who is who, so each clone authors its commits as its own human from a one-line `instance.config.local.json`; and the derived `index.md` files **gitignored** — for an instance whose copies are already committed, `install.sh` prints the exact `git rm --cached` to run, since a gitignore rule does nothing to a file git already tracks; it never untracks anything itself. That local file also carries this machine's paths (`reposRoot`, `worktreeRoot`). Details: [`ai-bridge/README.md` → Sharing one instance between two humans](ai-bridge/README.md#sharing-one-instance-between-two-humans).
-
-## Tuning: cost, speed, and depth
-
-Set in `instance.config.json`:
-
-- **`models` + `roleTiers`** — routes each role to a cost-appropriate model (`light`/`standard`/`deep`/`apex`, mapped to aliases like haiku/sonnet/opus/fable so they track the latest release). The PM bumps a complex task up a tier and drops a trivial one down. Omit both and everything just uses the session model.
-- **`maxAgentsInFlight`** (default **10**) — how many role agents run at once. With worktree isolation this is a throughput/cost throttle, not a safety lock: raise it on a big machine, lower it on a laptop.
-
-**Optional: local code intelligence.** Agents navigate a repo faster with a [CodeGraph](https://www.npmjs.com/package/@colbymchenry/codegraph) index than with blind grep. It's opt-in and 100% local — `npm i -g @colbymchenry/codegraph`, `codegraph install`, then `scripts/index-kb.sh` from the instance root. No index present, and agents just grep as before.
-
-**Optional: browser access.** A project can let its agents drive a real Chrome — read a logged-in page, click through a flow, screenshot — with `browser: claude-for-chrome`. See [Browser control](#browser-control-claude-for-chrome) for what that involves.
-
-→ **Full technical reference: [`ai-bridge/README.md`](ai-bridge/README.md)** — schema, upgrade path, per-instance settings, the lot.
+→ **Setup, the core loop, the commands, the schema, sharing an instance, the board:**
+[`cbmono/ai-bridge`](https://github.com/cbmono/ai-bridge). Start with its README; the
+deep reference is in its `docs/`.
 
 ---
 
@@ -215,7 +66,7 @@ cd ~/path/to/ai-setup
 
 Then in any project: `claude`, then `/init` to bootstrap the project's `CLAUDE.md`. Project-state files (`/scan`, `/techdebt`, `/plan` outputs) land in the project's local `.claude/`, created lazily on first write.
 
-Note that `install.sh` deliberately never touches `ai-bridge/` — the control panel installs into per-group instances, not into `~/.claude`.
+Note that `install.sh` is scoped to `.claude` — the control panel is a separate repo with its own installer, and installs into per-group instances rather than into `~/.claude`.
 
 ## Agents (`.claude/agents/`)
 
@@ -267,7 +118,6 @@ Instructions — not workflows — that load **only when Claude reads a file mat
 
 | Rule                          | `paths:`                             | Covers                                                                 |
 | ----------------------------- | ------------------------------------ | ---------------------------------------------------------------------- |
-| **ai-bridge**                 | `ai-bridge/**`                       | The subtree's layout and its nine load-bearing invariants              |
 | **hooks-and-scripts**         | `.claude/hooks/**`, `.claude/scripts/**` | Status-line contract, absolute hook paths, the DeepSeek launcher   |
 | **output-styles**             | `.claude/output-styles/**`           | Why `Brief` survives the built-in `Concise`, marker discipline         |
 | **repo-config**               | `.coderabbit.yaml`, `install.sh`     | One-review-per-PR config; the installer's display-only key contract    |
@@ -442,7 +292,7 @@ Two behaviors worth knowing before you rely on it:
 > | --- | --- |
 > | `~/.claude/settings.json` is a **symlink** to this repo (what `install.sh` does when you had none) | **Yes**, automatically |
 > | You have your **own real** `~/.claude/settings.json` | **No.** `install.sh` deliberately never edits it, so add the rule yourself (below) |
-> | ai-bridge **instances** | **Yes** — they read `ai-bridge/symlink/.claude/settings.json`, which is symlinked, so no per-machine step |
+> | ai-bridge **instances** | **Yes** — they read the control-panel repo's `symlink/.claude/settings.json`, which is symlinked, so no per-machine step |
 >
 > If you're in the middle row, add this to your own `settings.json` (or `settings.local.json`) — one line, no need to adopt the whole baseline:
 >
@@ -655,7 +505,7 @@ Key behaviours worth internalizing:
 - **Add a command:** drop an `.md` file in `.claude/commands/` — the filename (minus `.md`) becomes the `/command`. Use `$ARGUMENTS` for user-supplied args. No frontmatter needed. **Don't put a `README.md` in `.claude/commands/`** — Claude Code scans every `.md` there as a command, so a README becomes `/README`. See [`.claude/README.md`](./.claude/README.md) for the command-vs-skill distinction.
 - **Add an agent:** drop an `.md` file in `.claude/agents/` with YAML frontmatter (`name`, `description`, optional `model`, `isolation: worktree`).
 - **Adjust permissions:** edit `.claude/settings.json` for team-shared rules, `.claude/settings.local.json` for this machine only.
-- **Change the control panel's machinery:** edit files under `ai-bridge/symlink/` — every instance picks the change up immediately, since they symlink it. Keep it generic: org, repo, path, team, and channel names belong in an instance's `instance.config.json`, never in the template.
+- **Change the control panel's machinery:** that lives in [`cbmono/ai-bridge`](https://github.com/cbmono/ai-bridge) now, not here — edit `symlink/` there and every instance picks the change up immediately, since they symlink it.
 - **Compounding engineering:** when Claude does something wrong, add the rule to your project's `CLAUDE.md` so it doesn't recur.
 
 > **Restart after adding commands or agents.** Claude Code scans `.claude/commands/` and `.claude/agents/` at session start. New files aren't picked up until you `/exit` and relaunch `claude`. If `/<your-new-command>` returns "Unknown command", that's why.
@@ -671,7 +521,7 @@ Key behaviours worth internalizing:
 - `.claude/settings.plugins.example.json` — reference only, opt-in MCP-backed plugins (github, linear, context7)
 - `.claude/settings.codex.example.json` — reference only, opt-in Codex failover (`/codex:rescue` when tokens run low, `/codex:transfer` before they run out)
 - `.claude/potential-bugs.md`, `.claude/techdebt.md`, `.claude/plans/` — gitignored, auto-created by `/scan`, `/techdebt`, `/plan` on first run; never seeded in this repo
-- `ai-bridge/` — the control-panel template: `symlink/` (machinery, shared live by every instance) and `seed/` (starting content, copied once). A separate subtree; the user-wide `install.sh` never touches it
+- the control panel is **not in this repo** — it lives in [`cbmono/ai-bridge`](https://github.com/cbmono/ai-bridge), with its own installer, tests, and docs
 - `CLAUDE.md` (this repo's root) — guidance for Claude when editing **this config repo itself**, not a template
 - `.coderabbit.yaml` — this repo's own CodeRabbit settings; **not** installed into `~/.claude` (the installer only touches `.claude`). Tuned for **one review per PR**: no re-review on each push, no auto-reply to every comment. Copy it into your own repos if agent-authored PRs are burning review sessions there too
 

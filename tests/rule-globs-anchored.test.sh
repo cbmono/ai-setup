@@ -17,7 +17,9 @@
 #
 # So `install.sh` loaded the root-config rule while editing `ai-bridge/install.sh`,
 # and `.claude/hooks/**` loaded the parent-layer hook conventions while editing
-# `ai-bridge/symlink/.claude/hooks/*`. Both were real, both were invisible from
+# `ai-bridge/symlink/.claude/hooks/*`. (Those paths were measured when ai-bridge was
+# still a subtree of this repo; it has its own repo now, but the anchoring facts the
+# measurement established are unchanged.) Both were real, both were invisible from
 # reading the frontmatter, and the OFFICIAL DOCS SAY THE OPPOSITE — their table
 # claims `*.md` matches "Markdown files in the project root" and their guidance
 # advises against a leading slash. A convention that contradicts the documentation
@@ -36,8 +38,9 @@ ok() { # <name> <actual> <expected>
   else printf '  FAIL  %-58s got %s, want %s\n' "$1" "$2" "$3"; fail=$((fail+1)); fi
 }
 
-# Every rules file anywhere in the repo — the parent layer's and the ones that
-# ship into instances under ai-bridge/symlink/.
+# Every rules file anywhere in the repo. The find stays repo-wide rather than
+# hardcoding `.claude/rules/`: a second `.claude/rules/` directory has appeared here
+# before, and the anchoring hazard applies to whichever layer ships one.
 FILES="$(find "$REPO" -type d -name .git -prune -o -type f -path '*/.claude/rules/*.md' -print | sort)"
 ok "rules files found" "$([ -n "$FILES" ] && echo yes || echo no)" yes
 

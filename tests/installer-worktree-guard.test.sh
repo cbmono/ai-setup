@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
 #
-# installer-worktree-guard.test.sh — neither installer may run from a git worktree.
+# installer-worktree-guard.test.sh — the installer may not run from a git worktree.
 #
-# WHY. Both derive their source from `dirname $0` and then create symlinks pointing AT
-# that path: `~/.claude/*` for the root installer, an instance's whole machinery set for
-# ai-bridge/install.sh. A linked worktree is temporary by design — ExitWorktree or
+# WHY. It derives its source from `dirname $0` and then creates symlinks pointing AT
+# that path (`~/.claude/*`). A linked worktree is temporary by design — ExitWorktree or
 # `git worktree remove` deletes it — so every symlink made from one dangles the moment it
 # goes. Nothing fails at install time; the commands and hooks simply disappear later,
 # which is the worst shape a failure can take.
@@ -26,28 +25,21 @@ pass=0; fail=0
 ok() { if [ "$2" = "$3" ]; then printf '  PASS  %-54s (%s)\n' "$1" "$2"; pass=$((pass+1))
        else printf '  FAIL  %-54s got %s, want %s\n' "$1" "$2" "$3"; fail=$((fail+1)); fi; }
 
-# A fixture repo carrying copies of both installers, so the test never runs the real ones
+# A fixture repo carrying a copy of the installer, so the test never runs the real one
 # against the user's own ~/.claude.
-M="$TMP/main"; mkdir -p "$M/.claude/commands" "$M/ai-bridge/seed" "$M/ai-bridge/symlink/scripts"
+M="$TMP/main"; mkdir -p "$M/.claude/commands"
 cp "$REPO/install.sh" "$M/install.sh"
-cp "$REPO/ai-bridge/install.sh" "$M/ai-bridge/install.sh"
 printf '# c\n' > "$M/.claude/commands/x.md"
-printf '{}\n' > "$M/ai-bridge/seed/instance.config.json"
-printf '#!/usr/bin/env bash\nexit 0\n' > "$M/ai-bridge/symlink/scripts/s.sh"
-printf 'x\n' > "$M/ai-bridge/symlink/SCHEMA.md"
 ( cd "$M" && git init -q . && git add -A && git -c user.name=t -c user.email=t@t commit -qm init )
 git -C "$M" worktree add -q "$TMP/linked" -b wt >/dev/null 2>&1
 L="$TMP/linked"
 
 run_root()   { local src="$1" dest="$2"; CLAUDE_CONFIG_DIR="$dest" bash "$src/install.sh" >"$TMP/out" 2>&1; printf '%s' "$?"; }
-run_bridge() { local src="$1" target="$2"; bash "$src/ai-bridge/install.sh" "$target" >"$TMP/out" 2>&1; printf '%s' "$?"; }
 
 # --- the main working tree must still work (the non-vacuity half) -----------
 d="$TMP/dest1"; mkdir -p "$d"
 ok "root installer runs from the main tree"      "$(run_root "$M" "$d")" 0
-i="$TMP/inst1"; mkdir -p "$i"
-ok "ai-bridge installer runs from the main tree" "$(run_bridge "$M" "$i")" 0
-ok "…and it actually stamped the instance"       "$([ -e "$i/instance.config.json" ] && echo yes || echo no)" yes
+ok "…and it actually linked something"           "$([ -e "$d/commands/x.md" ] && echo yes || echo no)" yes
 
 # --- a linked worktree must be refused, exit 2, before any write -----------
 d2="$TMP/dest2"; mkdir -p "$d2"
@@ -61,13 +53,8 @@ ok "…tells you how to find the main tree"      "$(grep -q 'worktree list' "$TM
 # It must NOT print a computed path: both derivations are wrong once the git metadata
 # lives apart from the working tree, and a confidently wrong path to paste is worse than
 # none. Asserted so nobody "improves" the message by deriving one.
-ok "…and does not guess a checkout path"       "$(grep -qE '^Run it from.*/(install|ai-bridge)' "$TMP/out" && echo no || echo yes)" yes
+ok "…and does not guess a checkout path"       "$(grep -qE '^Run it from.*/install' "$TMP/out" && echo no || echo yes)" yes
 ok "…and wrote NOTHING into the destination"     "$(find "$d2" -mindepth 1 | wc -l | tr -d ' ')" 0
-
-i2="$TMP/inst2"; mkdir -p "$i2"
-rc="$(run_bridge "$L" "$i2")"
-ok "ai-bridge installer refuses from a worktree" "$rc" 2
-ok "…and stamped nothing"                        "$(find "$i2" -mindepth 1 | wc -l | tr -d ' ')" 0
 
 # --- a plain `git init` repo is a MAIN tree, so the guard must not fire there.
 # Every fixture in this suite is built that way; if the guard misread them, the whole
@@ -92,29 +79,20 @@ ok "outside a git repo it does not refuse"       "$([ "$rc" -ne 2 ] && echo yes 
 # way of deriving one is wrong in this layout.
 S="$TMP/sep"; SG="$TMP/sepgit"
 mkdir -p "$S/main" "$SG"
-cp "$REPO/install.sh" "$S/main/install.sh"; cp "$REPO/ai-bridge/install.sh" "$S/main/ai-bridge-install.sh"
-mkdir -p "$S/main/.claude/commands" "$S/main/ai-bridge/seed" "$S/main/ai-bridge/symlink/scripts"
-cp "$REPO/ai-bridge/install.sh" "$S/main/ai-bridge/install.sh"
+cp "$REPO/install.sh" "$S/main/install.sh"
+mkdir -p "$S/main/.claude/commands"
 printf '# c\n' > "$S/main/.claude/commands/x.md"
-printf '{}\n' > "$S/main/ai-bridge/seed/instance.config.json"
-printf 'x\n' > "$S/main/ai-bridge/symlink/SCHEMA.md"
-printf '#!/usr/bin/env bash\nexit 0\n' > "$S/main/ai-bridge/symlink/scripts/s.sh"
 ( cd "$S/main" && git init -q --separate-git-dir="$SG/real.git" . && git add -A \
   && git -c user.name=t -c user.email=t@t commit -qm init )
 git -C "$S/main" worktree add -q "$S/wt" -b sepwt >/dev/null 2>&1
 
 d5="$TMP/dest5"; mkdir -p "$d5"
 ok "separate metadata, main tree: root installs"   "$(run_root "$S/main" "$d5")" 0
-i5="$TMP/inst5"; mkdir -p "$i5"
-ok "separate metadata, main tree: bridge stamps"   "$(run_bridge "$S/main" "$i5")" 0
 
 d6="$TMP/dest6"; mkdir -p "$d6"
 ok "separate metadata, worktree: root refuses"     "$(run_root "$S/wt" "$d6")" 2
 ok "…and wrote nothing"                            "$(find "$d6" -mindepth 1 | wc -l | tr -d ' ')" 0
-i6="$TMP/inst6"; mkdir -p "$i6"
-ok "separate metadata, worktree: bridge refuses"   "$(run_bridge "$S/wt" "$i6")" 2
-ok "…and stamped nothing"                          "$(find "$i6" -mindepth 1 | wc -l | tr -d ' ')" 0
-ok "…and still names no derived path"              "$(grep -qE '^Run it from.*/(install|ai-bridge)' "$TMP/out" && echo no || echo yes)" yes
+ok "…and still names no derived path"              "$(grep -qE '^Run it from.*/install' "$TMP/out" && echo no || echo yes)" yes
 git -C "$S/main" worktree remove --force "$S/wt" 2>/dev/null
 
 printf '\n%s passed, %s failed\n' "$pass" "$fail"
