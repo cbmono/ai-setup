@@ -59,10 +59,12 @@ This repo ships mostly **commands** (`.claude/commands/<name>.md`, invoked only 
 
 No build step and no lint, but **there is a test suite** — POSIX shell harnesses under
 `tests/`. Run **all** of them before pushing:
-`for f in tests/*.test.sh; do bash "$f" || echo "FAILED: $f"; done`.
+`fails=0; for f in tests/*.test.sh; do bash "$f" || { echo "FAILED: $f"; fails=$((fails+1)); }; done; [ "$fails" -eq 0 ]`.
 Each prints its own tally and exits non-zero on failure — the format varies
 (`pass=N fail=N` in some, `N passed, N failed` in others), so **trust the exit
-code, not a grep for one wording**. (This section used to say "no build, lint, or test
+code, not a grep for one wording**. Note the counter: a bare
+`bash "$f" || echo "FAILED: $f"` names the failure but *swallows* it, so the loop
+exits 0 and a CI step or a `&&` chain built on it passes with tests red. (This section used to say "no build, lint, or test
 suite — markdown + JSON only", contradicting "What this repo is" above; a reviewer read it
 as policy and asked for shell changes to be dropped. Keep the two in step.) Then:
 
