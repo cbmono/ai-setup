@@ -85,7 +85,12 @@ ok "…and names the token as set, not its value"     "$(cnt "$OUT" '^ANTHROPIC_
 
 # A static guard, in the spirit of snapshot.test.sh's no-GNU-escape check: the slicing
 # expression must not come back, in any of its three spellings.
-ok "no key-slicing expression left in the script"   "$(grep -c 'KEY_HINT\|KEY:0\|KEY: -' "$SCRIPT")" 0
+# `\|` alternation is a GNU BRE extension, NOT POSIX. It happens to work on this
+# machine's grep (ugrep, which advertises GNU compatibility) — but this harness ships to
+# machines we never see, and a grep without it would match nothing and pass the check
+# while the slicing expression was still there. `-E` is POSIX. Same trap this repo
+# already recorded for `\b`.
+ok "no key-slicing expression left in the script"   "$(grep -Ec 'KEY_HINT|KEY:0|KEY: -' "$SCRIPT")" 0
 
 # --------------------------------------------- the launch banner: printed, key-free
 rm -f "$CHILD"

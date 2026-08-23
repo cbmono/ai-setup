@@ -12,7 +12,12 @@ Stage all changes, create a commit with a descriptive message, and push to the r
    If anything matches, **stop before staging** and report the matching paths and the `.gitignore` /
    `git rm --cached` fix. Only continue if the user tells you explicitly to include that path.
 2. `git add -A` to stage all changes.
-3. Run `git diff --cached` and `git status` to understand what's being committed.
+3. Run `git status` and `git diff --cached` to understand what's being committed. **If step 1
+   matched anything the user then authorised, exclude those paths from the diff** —
+   `git diff --cached -- . ':(exclude)<path>'` for each — because a bare `git diff --cached`
+   prints the file's contents to the terminal and into this transcript. Deciding not to *read*
+   the output is not the same as not emitting it, and the standing rule is that secrets are
+   never printed or logged, not that they are printed and ignored.
 4. Write a concise, descriptive commit message based on the changes. If `$ARGUMENTS` is provided, use it verbatim as the commit message instead.
 5. Commit.
 6. **Decide how to push:**
@@ -27,7 +32,8 @@ Stage all changes, create a commit with a descriptive message, and push to the r
 - **Never print the contents of a secret candidate.** Not `cat`, not `git diff`, not `git diff
   --cached` scoped to it, not an excerpt "to check whether it's real" — name the path and stop.
   Standing rule: never echo, print, or log secrets or environment variables. If the user does
-  authorise including such a path, still skip it when reading the diff in step 3.
+  authorise including such a path, EXCLUDE it from the step 3 diff with a pathspec — do not
+  merely avoid reading it.
 - Step 1 is the only secret gate, and it runs before `git add`. Don't move it after staging, and
   don't replace it with an un-stage step: a file that reached the index is a file a later `-A` or a
   stray `git commit -a` can still carry.
