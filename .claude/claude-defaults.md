@@ -20,7 +20,7 @@ Session-level rules. Keep this file under ~20 lines — it's re-sent every turn.
 
 ## PR sizing
 
-- **Keep PRs under ~500 LoC for reviewability.** If a change is heading past that, propose a `gh stack` split before committing. Line count is a heuristic — generated boilerplate, codemods, and dense logic are context-dependent — so suggest, don't block.
+- **Keep PRs within `maxPrLoc`** (from an OKF instance's `instance.config.json`; **500** when no such file is in play, e.g. any ordinary session) **for reviewability.** If a change is heading past it, propose a `gh stack` split before committing. Line count is a heuristic — generated boilerplate, codemods, and dense logic are context-dependent — so suggest, don't block.
 
 ## Output style
 
