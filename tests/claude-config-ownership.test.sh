@@ -72,6 +72,7 @@ hooks/format-on-write.sh
 hooks/statusline.sh
 MEMORY.md
 output-styles/brief.md
+settings.json
 scripts/codegraph-sync.sh
 scripts/deepseek-session.sh
 skills/README.md
@@ -125,7 +126,7 @@ EOF
 ok "every owned path is installed into the config dir" "$missing" 0
 # Pinned, so a NEW entry under .claude/ cannot slip in unlisted. When this fails after an
 # addition: add the path above AND check that ai-bridge is not shipping it too.
-ok "the manifest still has 25 entries"    "$total" 25
+ok "the manifest still has 26 entries"    "$total" 26
 
 # ------------------------------------------------ 2. the check can say "no" (non-vacuity)
 # Without this, "every owned path is installed" would also pass if `installed()` returned
@@ -155,6 +156,13 @@ printf '%s\n' $OWNED | sed '/^$/d' | sort > "$TMP/manifest"
   case " $EXCL " in *" $rel "*) continue ;; esac
   printf '%s\n' "$rel"
 done | sort > "$TMP/tracked"
+# settings.json is in EXCLUDE — the generic link loop must skip it, because it is the one
+# file here that can already hold permissions and plugins a human tuned by hand. But it IS
+# installed, by its own branch at the end of install.sh, so it belongs in the manifest and
+# therefore in this comparison too. Left out, both assertions below passed while the whole
+# permissions baseline could stop being linked without a single failure.
+printf '%s\n' settings.json >> "$TMP/tracked"
+sort -o "$TMP/tracked" "$TMP/tracked"
 ok "no tracked installable path is missing from the manifest" \
    "$(comm -13 "$TMP/manifest" "$TMP/tracked" | tr '\n' ' ' | sed 's/ *$//')" ""
 ok "…and no manifest entry has stopped being tracked" \
@@ -177,8 +185,64 @@ done <<EOF
 $OWNED
 EOF
 ok "--uninstall removes every owned path"  "$left" 0
-ok "…and the real config dir was never touched" \
-   "$([ "$DEST" != "${CLAUDE_CONFIG_DIR:-$HOME/.claude}" ] && echo yes || echo no)" yes
+# This used to read `[ "$DEST" != "${CLAUDE_CONFIG_DIR:-$HOME/.claude}" ]`, which cannot
+# fail: CLAUDE_CONFIG_DIR is only ever a per-command prefix here, never exported, so the
+# right-hand side is always $HOME/.claude while $DEST is always under $TMP. The property it
+# MEANT to assert is the one that would actually break — that no line above exported
+# CLAUDE_CONFIG_DIR into this shell, which is what would let a stray installer invocation
+# reach the real config dir. That is falsifiable: add an `export` anywhere above and it goes
+# red. (A stronger check — fingerprinting the real ~/.claude before and after — is a
+# redesign of this harness, not a fix, so it is reported rather than taken.)
+ok "…and CLAUDE_CONFIG_DIR was never exported" \
+   "${CLAUDE_CONFIG_DIR+exported}" ""
+ok "…so the config dir under test is the fixture's" \
+   "$([ "$DEST" != "${DEST#"$TMP"/}" ] && echo yes || echo no)" yes
+
+# ------------------------------------------------ 6. settings.json in the handover
+# THE ORDER-INDEPENDENCE DEFECT THIS GROUP EXISTS FOR. `cbmono/ai-bridge` used to link
+# ~/.claude/settings.json into its own checkout and has stopped. On a machine in that
+# state, running ai-setup FIRST and then ai-bridge's refresh left the file installed by
+# NOBODY: this installer saw a settings.json, said "already exists, left alone", and
+# ai-bridge's next `--config` retired its own now-dangling link. Gone with it: the whole
+# permissions.deny block (.env*, ssh keys, .aws/credentials, sudo, rm -rf ~), statusLine,
+# outputStyle and the PostToolUse hook — recoverable only by re-running this installer, and
+# nothing prompts that. The rule that fixes it: A SYMLINK IS NOT YOUR settings.json.
+sj_dest() { readlink "$1/settings.json" 2>/dev/null; }
+# The installer derives its own root with `cd && pwd`, which normalises away the trailing
+# slash $TMPDIR happily carries — so a link it creates is spelled with the NORMALISED path
+# and comparing against "$FIX/..." fails on a machine whose TMPDIR ends in `/`.
+FIXR="$(cd "$FIX" && pwd)"
+
+# (a) a RESOLVING link into some other checkout — the real handover state.
+D6="$TMP/cfg-foreign"; mkdir -p "$D6" "$TMP/other"; OTHERR="$(cd "$TMP/other" && pwd)"
+printf '{"permissions":{"deny":["Read(./.env)"]},"outputStyle":"Other"}\n' > "$TMP/other/settings.json"
+ln -s "$OTHERR/settings.json" "$D6/settings.json"
+CLAUDE_CONFIG_DIR="$D6" bash "$FIX/install.sh" >"$TMP/out6" 2>&1
+ok "a foreign settings.json link: exits 0"  "$?" 0
+ok "…is replaced by THIS repo's"            "$(sj_dest "$D6")" "$FIXR/.claude/settings.json"
+ok "…the old link is kept as a .bak"        "$(find "$D6" -maxdepth 1 -name 'settings.json.bak.*' | wc -l | tr -d ' ')" 1
+ok "…and the other checkout is untouched"   "$(cat "$OTHERR/settings.json")" \
+   '{"permissions":{"deny":["Read(./.env)"]},"outputStyle":"Other"}'
+ok "…so no path is installed by nobody"     "$([ -e "$D6/settings.json" ] && echo yes || echo no)" yes
+
+# (b) a REAL file — the property that must NOT regress. Yours stays yours.
+D7="$TMP/cfg-real"; mkdir -p "$D7"
+printf '{"permissions":{"allow":["Bash(mine:*)"]}}\n' > "$D7/settings.json"
+CLAUDE_CONFIG_DIR="$D7" bash "$FIX/install.sh" >"$TMP/out7" 2>&1
+ok "a REAL settings.json is not replaced"   "$(sj_dest "$D7")" ""
+ok "…and still holds your own rule"         "$(grep -c 'Bash(mine:\*)' "$D7/settings.json" | tr -d ' ')" 1
+
+# (c) non-vacuity for (a): the same fixture with the ADOPT branch removed must fail it.
+# Proves the assertions above are held by that branch and not by something incidental.
+FIX2="$TMP/repo-nofix"; cp -R "$FIX" "$FIX2"
+# The pre-fix condition, restored by narrowing the branch back to DANGLING links only.
+sed -e 's#^elif \[ -L "\$DEST/settings\.json" \]; then$#elif [ -L "$DEST/settings.json" ] \&\& [ ! -e "$DEST/settings.json" ]; then#' \
+    "$FIX/install.sh" > "$FIX2/install.sh"
+ok "the mutation applied"                   "$(grep -c '! -e "\$DEST/settings.json" \]; then' "$FIX2/install.sh" | tr -d ' ')" 1
+D8="$TMP/cfg-nofix"; mkdir -p "$D8"
+ln -s "$OTHERR/settings.json" "$D8/settings.json"
+CLAUDE_CONFIG_DIR="$D8" bash "$FIX2/install.sh" >"$TMP/out8" 2>&1
+ok "without the adopt branch it declines"   "$(sj_dest "$D8")" "$OTHERR/settings.json"
 
 printf '\n%s passed, %s failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]
