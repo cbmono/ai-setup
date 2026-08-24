@@ -5,7 +5,7 @@
 #
 # WHY. Until now TWO installers targeted `${CLAUDE_CONFIG_DIR:-~/.claude}`: this repo's,
 # and the `config/` layer of `cbmono/ai-bridge`, which was a fork of this `.claude/` tree.
-# 23 of the 25 entries below were shipped by both, 14 had diverged, and which copy a
+# 24 of the 26 entries below were shipped by both, 14 had diverged, and which copy a
 # machine ended up with was decided by whichever installer ran last — not by design. The
 # fork is being retired in ai-bridge's favour of *this* repo: **ai-setup owns `~/.claude`**,
 # and ai-bridge keeps only the three agents its own role agents probe for.
@@ -37,6 +37,9 @@
 set -uo pipefail
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
+# Read BEFORE anything here could set it: the property asserted at the end is that THIS
+# file exports no CLAUDE_CONFIG_DIR, not that nobody's environment has one.
+CCD_IN_ENV_AT_START="$(env | grep -c '^CLAUDE_CONFIG_DIR=' || true)"
 TMP="$(mktemp -d "${TMPDIR:-/tmp}/cfgown.XXXXXX")"
 if [ -z "$TMP" ] || [ ! -d "$TMP" ]; then
   echo "error: mktemp produced no directory (is TMPDIR set to a path that does not exist?)" >&2
@@ -185,18 +188,32 @@ done <<EOF
 $OWNED
 EOF
 ok "--uninstall removes every owned path"  "$left" 0
-# This used to read `[ "$DEST" != "${CLAUDE_CONFIG_DIR:-$HOME/.claude}" ]`, which cannot
-# fail: CLAUDE_CONFIG_DIR is only ever a per-command prefix here, never exported, so the
-# right-hand side is always $HOME/.claude while $DEST is always under $TMP. The property it
-# MEANT to assert is the one that would actually break — that no line above exported
-# CLAUDE_CONFIG_DIR into this shell, which is what would let a stray installer invocation
-# reach the real config dir. That is falsifiable: add an `export` anywhere above and it goes
-# red. (A stronger check — fingerprinting the real ~/.claude before and after — is a
-# redesign of this harness, not a fix, so it is reported rather than taken.)
-ok "…and CLAUDE_CONFIG_DIR was never exported" \
-   "${CLAUDE_CONFIG_DIR+exported}" ""
-ok "…so the config dir under test is the fixture's" \
-   "$([ "$DEST" != "${DEST#"$TMP"/}" ] && echo yes || echo no)" yes
+# THE SAFETY PROPERTY THIS PAIR IS FOR: nothing here can reach the real config dir. Both
+# assertions have now been wrong in opposite ways, which is worth recording because the
+# second failure was caused by fixing the first.
+#
+#   · it began as `[ "$DEST" != "${CLAUDE_CONFIG_DIR:-$HOME/.claude}" ]`, which cannot fail —
+#     CLAUDE_CONFIG_DIR is only ever a per-command prefix here, so the right-hand side is
+#     always $HOME/.claude while $DEST is always under $TMP;
+#   · it then became `"${CLAUDE_CONFIG_DIR+exported}"`, which is wrongly ARMED: `+` tests
+#     whether the variable is SET, not whether it is exported, so this suite went red for any
+#     contributor who has CLAUDE_CONFIG_DIR in their own environment — a false failure about
+#     their setup, in a harness that never reads the variable.
+#
+# What is true and falsifiable is the DELTA: this harness must not add an exported
+# CLAUDE_CONFIG_DIR to the environment a child process sees. Baselined before anything runs,
+# so an inherited one is fine and an `export` added anywhere above goes red. The second
+# assertion compares two variables of this file's own making ($DEST is built from $TMP), so
+# it too cannot fail; replaced by the property that would actually break — every installer
+# invocation carries a throwaway config dir. Add an unprefixed one and the counts diverge.
+# (A stronger check — fingerprinting the real ~/.claude around the run — stays out: its
+# top-level entries change on their own while Claude Code is running, so it would flake.)
+ok "…and this harness exported no CLAUDE_CONFIG_DIR" \
+   "$(env | grep -c '^CLAUDE_CONFIG_DIR=' || true)" "$CCD_IN_ENV_AT_START"
+# The `[$]` keeps each pattern from matching its own line.
+ok "…and every installer invocation names a throwaway one" \
+   "$(grep -c 'bash "[$]FIX' "$0" | tr -d ' ')" \
+   "$(grep -c 'CLAUDE_CONFIG_DIR="[$][A-Za-z0-9]*" bash "[$]FIX' "$0" | tr -d ' ')"
 
 # ------------------------------------------------ 6. settings.json in the handover
 # THE ORDER-INDEPENDENCE DEFECT THIS GROUP EXISTS FOR. `cbmono/ai-bridge` used to link

@@ -51,7 +51,7 @@ The everyday coding config the control panel runs on — and perfectly useful on
 
 > **This repo owns `~/.claude`.** For a while two installers claimed it: this one, and the
 > `config/` layer of [`cbmono/ai-bridge`](https://github.com/cbmono/ai-bridge), which was a
-> fork of this `.claude/` tree. 23 of the 25 entries were shipped by both and 14 had
+> fork of this `.claude/` tree. 24 of the 26 entries were shipped by both and 14 had
 > diverged, so **which copy a machine ended up with was decided by whichever installer ran
 > last.** That is not a style problem: two of the fixes that existed only in the private
 > fork closed *secret-exposure* paths, and this public repo went on shipping the defects

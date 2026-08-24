@@ -14,7 +14,7 @@ Public, opinionated Claude Code defaults for Node.js / TypeScript projects. It s
 ## This repo owns `~/.claude`
 
 Two installers used to claim `${CLAUDE_CONFIG_DIR:-~/.claude}`: this one, and the `config/`
-layer of `cbmono/ai-bridge`, which was a **fork** of this `.claude/` tree. 23 of 25 entries
+layer of `cbmono/ai-bridge`, which was a **fork** of this `.claude/` tree. 24 of 26 entries
 were shipped by both and 14 had diverged, so ownership was decided by whichever installer
 ran last. The cost was not cosmetic: fixes made in the private fork — including two
 secret-exposure paths — sat there for weeks while this **public** repo shipped the defects.
@@ -31,11 +31,15 @@ and installs nothing else. Consequences when working here:
 - **A new tracked, *installable* entry under `.claude/` fails that harness until it is added
   to the manifest.** That is the tripwire, not busywork: the moment to check ai-bridge is not
   shipping the same path is when the path is added. "Installable" is the operative word — a
-  path in the installer's `EXCLUDE` (an example settings file, `rules/`, the README) is
-  deliberately not installed, needs no manifest entry, and does not fail the harness.
-  `settings.json` is the exception that proves the rule: excluded from the generic link loop
-  because it can hold permissions a human tuned by hand, but installed by its own branch —
-  so it *is* in the manifest.
+  path in the installer's `EXCLUDE` **that no other branch installs** (an example settings
+  file, `rules/`, the README) is deliberately not installed, needs no manifest entry, and
+  does not fail the harness. That qualifier is load-bearing, not pedantry: `EXCLUDE` means
+  *the generic link loop skips this*, never *this is not installed*. `settings.json` is in
+  `EXCLUDE` — it can hold permissions a human tuned by hand — and is installed by its own
+  branch at the end of `install.sh`, so it **is** in the manifest, and the count is 26 rather
+  than the 25 an `EXCLUDE`-only derivation reports. Applying the rule without the qualifier
+  deletes that entry and the whole permissions baseline can stop being linked with nothing
+  going red.
 - **Do not "sync from the fork".** Divergence went in *both* directions — `commands/acp.md`
   here is stronger than the fork's, and `hooks/statusline.sh` / `scripts/codegraph-sync.sh`
   differ only in which repo they name. Port the fix, never the file wholesale.
