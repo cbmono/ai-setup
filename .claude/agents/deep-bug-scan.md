@@ -43,7 +43,13 @@ Severity levels:
 
 - Style / formatting / naming (lint's job)
 - DRY violations (tracked separately as tech debt)
-- Missing teardown / cleanup
+- Missing teardown in **tests** — fixture hygiene, review's job. **Cleanup that leaks a resource is
+  NOT skipped**: an unclosed DB connection, file handle, stream or socket; an uncleared
+  `setInterval` / `setTimeout`; an un-removed event listener or subscription; an unaborted
+  request; a lock or temp file never released. Report those — a leaked finite handle fails under
+  load, long after and far away from the code that caused it, which is precisely what a reader
+  cannot spot and this scan can. ("SQL / DB issues" above already asks for connection/handle
+  leaks; a blanket "skip cleanup" would contradict it.)
 - Typos in string literals that match an upstream system's actual typos
 
 ## Output
