@@ -207,6 +207,15 @@ ok "…so the config dir under test is the fixture's" \
 # permissions.deny block (.env*, ssh keys, .aws/credentials, sudo, rm -rf ~), statusLine,
 # outputStyle and the PostToolUse hook — recoverable only by re-running this installer, and
 # nothing prompts that. The rule that fixes it: A SYMLINK IS NOT YOUR settings.json.
+#
+# AND WHY THE ASSERTIONS BELOW ARE PRESENCE CHECKS, NOT DANGLING-LINK COUNTS. The evidence
+# offered twice for "the two installers compose in either order" was `0 dangling` — and
+# that number cannot see this defect at all: a path that was never linked is ABSENT, not
+# dangling. The failing run scored 0 dangling and exit 0 with the file gone. So each
+# assertion here reads the path itself (`sj_dest`, `-e`), and (c) mutation-tests the branch
+# they depend on so none of them can pass for an incidental reason. Same reason the ai-bridge
+# side asserts by SET MEMBERSHIP over CONFIG_MANAGED_TOPS rather than by sweeping for
+# dangling links: see its docs/claude-config-ownership.md, point 6.
 sj_dest() { readlink "$1/settings.json" 2>/dev/null; }
 # The installer derives its own root with `cd && pwd`, which normalises away the trailing
 # slash $TMPDIR happily carries — so a link it creates is spelled with the NORMALISED path
