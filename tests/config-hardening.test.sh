@@ -118,6 +118,18 @@ else
   allow() { jq -r '.permissions.allow[]' "$SET"; }
   has()   { allow | grep -qxF "$1" && echo yes || echo no; }
 
+  # THE SAME RULE UNDER A SECOND SPELLING, AND THE LOOP ABOVE CANNOT SEE IT. `Bash(*)` is
+  # documented as equivalent to naming the tool bare — both grant every shell command with no
+  # prompt — but the pattern list is selected with `grep '^Bash('`, so a bare `Bash` in `allow`
+  # is not merely accepted, it is never looked at: zero patterns flagged, unrestricted shell.
+  # Measured on this file before this assertion existed, same clone, one injection each:
+  # `Bash(*)` gave 70 passed / 1 failed, `Bash` gave 71 passed / 0 failed. Identical grant,
+  # opposite verdicts — so tightening `star_ok` to reject the bare wildcard closed one of the
+  # two spellings and left the other one wide open.
+  # Scoped to `allow` on purpose: a bare `Bash` in `deny` removes the tool outright, which is a
+  # configuration mistake but not a widened permission, and width is what this file guards.
+  ok "no bare 'Bash' catch-all (the widest rule there is)" "$(has 'Bash')" no
+
   # No auto-approved shell command may read arbitrary file CONTENTS or print an arbitrary
   # environment variable: either one walks straight past the Read/Edit denials below.
   ok "no blanket 'cat' allow (defeats the .env deny)"  "$(has 'Bash(cat:*)')"  no
