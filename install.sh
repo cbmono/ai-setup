@@ -163,6 +163,18 @@ excluded() {
 adopt_keys() {
   local target="$DEST/settings.json"
 
+  # NEVER through a symlink. `cat "$tmp" > "$target"` follows one, so a settings.json that
+  # is a link into some other checkout would be EDITED IN THAT REPO — a tracked-file
+  # modification, silently, in a directory nobody asked us to write to. The caller no
+  # longer reaches here with a symlink (that case is adopted outright above), so this is a
+  # second lock on the same door rather than the only one; a function that writes a file it
+  # did not create should not depend on its caller for that.
+  if [ -L "$target" ]; then
+    echo "      it is a symlink into another checkout, so nothing was merged into it —"
+    echo "      that would have written inside that repo. Nothing was changed."
+    return 0
+  fi
+
   if ! command -v jq >/dev/null 2>&1; then
     echo "      jq not found, so these were not merged for you. Install jq and re-run,"
     echo "      or copy the \"statusLine\" and \"outputStyle\" keys across by hand:"
@@ -277,11 +289,49 @@ EOF
 # enabled locally. Adopt the repo baseline only if you don't already have one.
 if ours settings.json; then
   echo "  ok    settings.json (already linked)"
-elif [ -L "$DEST/settings.json" ] && [ ! -e "$DEST/settings.json" ]; then
-  # Dangling symlink (e.g. this repo was moved) — nothing real to preserve, relink.
-  rm "$DEST/settings.json"
-  ln -s "$REPO_CLAUDE/settings.json" "$DEST/settings.json"
-  echo "  relink settings.json (was dangling)"
+elif [ -L "$DEST/settings.json" ]; then
+  # A SYMLINK IS NOT YOUR settings.json. Whatever it points at lives in somebody else's
+  # checkout — or nowhere, if this repo or that one was moved — so there is no content of
+  # yours here to protect, and the `already exists, left alone` branch below must not
+  # claim it. The link itself is kept as a .bak so the path it named is recoverable.
+  #
+  # WHY THIS IS NOT A TIDINESS FIX. `cbmono/ai-bridge`'s config layer used to link this
+  # exact path into its own checkout, and it has stopped: this repo owns
+  # ${CLAUDE_CONFIG_DIR:-~/.claude} now. On a machine in that state, running the two
+  # installers in the order ai-setup-first → ai-bridge-refresh left settings.json
+  # installed by NOBODY — this branch declined because "a settings.json already exists",
+  # ai-bridge's next `--config` retired its own now-dangling link, and the file was gone
+  # with the whole permissions.deny block (.env*, ssh keys, .aws/credentials, sudo,
+  # rm -rf ~), statusLine, outputStyle and the PostToolUse hook. Reproduced, and it is the
+  # reason the two-installer order used to matter here.
+  #
+  # It also removes the one path on which this installer could write INTO another repo:
+  # adopt_keys does `cat "$tmp" > "$target"`, and with $target a symlink into a git
+  # checkout that is a tracked-file modification nobody asked for.
+  as_was="$(readlink "$DEST/settings.json")"
+  if [ -e "$DEST/settings.json" ]; then
+    # It RESOLVES, so the path it names is worth keeping: move the link aside rather than
+    # deleting it, and say where it pointed.
+    as_bak="$DEST/settings.json.bak.$(date +%s)"
+    if ! mv "$DEST/settings.json" "$as_bak"; then
+      echo "error: could not move $DEST/settings.json aside — left untouched." >&2
+      exit 1
+    fi
+    if ! ln -s "$REPO_CLAUDE/settings.json" "$DEST/settings.json"; then
+      echo "error: could not link settings.json; your old link is at $(basename "$as_bak")." >&2
+      exit 1
+    fi
+    echo "  link  settings.json (replaced a link into another checkout -> $as_was)"
+    echo "        the old link is kept as $(basename "$as_bak"); nothing of yours was a file here."
+  else
+    # DANGLING — the path it names holds nothing at all, so a .bak of it would be pure
+    # debris of the kind this installer is elsewhere careful not to leave. Just relink.
+    rm -f "$DEST/settings.json"
+    if ! ln -s "$REPO_CLAUDE/settings.json" "$DEST/settings.json"; then
+      echo "error: could not link settings.json." >&2; exit 1
+    fi
+    echo "  relink settings.json (was dangling -> $as_was)"
+  fi
 elif [ -e "$DEST/settings.json" ]; then
   echo
   echo "note: $DEST/settings.json already exists, so your permissions and plugins were"

@@ -1,6 +1,6 @@
 # Project memory
 
-Durable conventions Claude Code should follow in this project. To make this auto-loaded every turn, add `@.claude/MEMORY.md` to your project's `CLAUDE.md` alongside `@.claude/claude-defaults.md`.
+Durable conventions Claude Code should follow. This file is **inert wherever it sits** — nothing loads it by itself — so it has to be imported explicitly. Inside this repo, add `@.claude/MEMORY.md` to `CLAUDE.md` alongside `@.claude/claude-defaults.md`. On a machine where `install.sh` has linked it, the path is `~/.claude/MEMORY.md`: import `@~/.claude/MEMORY.md` from the consuming project's `CLAUDE.md`, because `@.claude/MEMORY.md` there resolves against *that* project and finds nothing.
 
 ## Slash command triggers
 

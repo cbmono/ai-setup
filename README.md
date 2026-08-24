@@ -49,6 +49,25 @@ deep reference is in its `docs/`.
 
 The everyday coding config the control panel runs on — and perfectly useful on its own. These install into `~/.claude` and apply in every project.
 
+> **This repo owns `~/.claude`.** For a while two installers claimed it: this one, and the
+> `config/` layer of [`cbmono/ai-bridge`](https://github.com/cbmono/ai-bridge), which was a
+> fork of this `.claude/` tree. 24 of the 26 entries were shipped by both and 14 had
+> diverged, so **which copy a machine ended up with was decided by whichever installer ran
+> last.** That is not a style problem: two of the fixes that existed only in the private
+> fork closed *secret-exposure* paths, and this public repo went on shipping the defects
+> for weeks. A fix nobody can tell you are missing is the worst shape a defect can take.
+>
+> The fork is retired in this repo's favour. **ai-bridge no longer installs the
+> non-required set at all**; it keeps only the three agents its own role agents probe for
+> (`code-architect`, `deep-bug-scan`, `plan-architect`), so it still works on a machine
+> that never cloned this repo. Those three are the one sanctioned overlap, and this repo
+> ships them too — a superset, so whichever installer ran last, the agent exists.
+> Everything else under `~/.claude` comes from here, and `tests/claude-config-ownership.test.sh`
+> fails if one of the paths handed over stops being installable, or if a new **tracked,
+> installable** entry appears that the manifest has not been told about. Paths the installer
+> deliberately excludes — the example settings files, `rules/`, this README — need no manifest
+> entry and do not trip it.
+
 ## Getting started
 
 The recommended setup is **user-wide**: run `install.sh` once, and every project picks up the agents, commands, skills, and defaults automatically.

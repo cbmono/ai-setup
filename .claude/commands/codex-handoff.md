@@ -8,7 +8,8 @@ Requires the opt-in `codex` plugin (`openai/codex-plugin-cc`). If it isn't insta
 `/plugin marketplace add openai/codex-plugin-cc`, `/plugin install codex@openai-codex`,
 `/reload-plugins`, then `/codex:setup`.
 
-Argument: `$ARGUMENTS` — empty means **go to Codex**; `back` means **return to Claude**.
+Argument: `$ARGUMENTS` — empty means **go to Codex**; `back` means **return to Claude**, and
+`back <session-id>` returns from a specific handoff when the checkout has more than one on record.
 
 ## Preflight (both directions)
 
@@ -34,6 +35,12 @@ Argument: `$ARGUMENTS` — empty means **go to Codex**; `back` means **return to
    SESSION_LOG="$ROOT/.claude/codex-sessions.log"
    mkdir -p "$(dirname "$SESSION_LOG")"
    ```
+   **The log holds one append-only record per handoff, keyed by session id** —
+   `<utc-timestamp>\t<session-id>\t<baseline-head>`. Handoff state must never live in a single-slot
+   file: two handoffs from one checkout (a second problem the same afternoon, two agents, two
+   worktrees of the same repo) would overwrite each other's baseline, and `back` would silently
+   resume whichever was last without saying so. Everything the return leg needs is in the record it
+   selects.
 
 ## Direction A — Claude → Codex (no arguments)
 
@@ -49,10 +56,12 @@ Argument: `$ARGUMENTS` — empty means **go to Codex**; `back` means **return to
    before transferring; handing over the wrong conversation is confusing and wastes a large number
    of Codex tokens. (Transcripts are keyed by working directory, so a session started elsewhere
    lives under a different project folder.)
-5. **Record the pre-handoff baseline** *before* Codex can touch anything — the return leg needs it
-   to detect commits, not just working-tree edits:
+5. **Sample the pre-handoff baseline** *before* Codex can touch anything — the return leg needs it
+   to detect commits, not just working-tree edits. Read it into a variable now and write it beside
+   the session id in step 6, so it belongs to *this* handoff instead of clobbering a shared
+   `codex-baseline-head` slot:
    ```bash
-   git rev-parse HEAD > "$ROOT/.claude/codex-baseline-head" 2>/dev/null || true
+   BASELINE_HEAD="$(git rev-parse HEAD 2>/dev/null || true)"
    ```
 6. **Transfer, and capture the real session ID from the output** — do not write a placeholder, and
    do not record anything if the transfer failed:
@@ -61,13 +70,19 @@ Argument: `$ARGUMENTS` — empty means **go to Codex**; `back` means **return to
    echo "$OUT"
    SESSION_ID="$(printf '%s\n' "$OUT" | grep -oE '[0-9a-fA-F-]{36}' | head -1)"
    case "$SESSION_ID" in
-     [0-9a-fA-F]*-*-*-*-*) printf '%s\t%s\n' "$(date -u +%FT%TZ)" "$SESSION_ID" >> "$SESSION_LOG" ;;
+     [0-9a-fA-F]*-*-*-*-*)
+       printf '%s\t%s\t%s\n' "$(date -u +%FT%TZ)" "$SESSION_ID" "${BASELINE_HEAD:-none}" \
+         >> "$SESSION_LOG" ;;
      *) echo "Could not parse a session ID from the transfer output — not recording."; exit 1 ;;
    esac
    ```
+   One record, three fields, appended — never a rewrite, and never a second file. If the transfer
+   failed nothing is recorded, so an earlier handoff's record stays intact and resumable.
 7. **Report** the `codex resume <session-id>` command verbatim, and tell the user to run it with the
    `!` prefix (`! codex resume <id>`) so its output lands in this conversation, or in a plain
-   terminal if they're switching away from Claude entirely.
+   terminal if they're switching away from Claude entirely. Also give them the matching return
+   command, `/codex-handoff back <session-id>`, so a second handoff from this checkout can't leave
+   them guessing which one comes back.
 8. Note honestly what transferred: the **turn history**, not the tool-call internals. Codex starts
    with the conversation, not with Claude's live state — no worktrees, no in-flight edits.
 
@@ -76,16 +91,28 @@ Argument: `$ARGUMENTS` — empty means **go to Codex**; `back` means **return to
 There is no "transfer back" primitive: Claude Code can't be resumed *into* from Codex. What works is
 having Codex summarise itself and ingesting that — which this does in one step.
 
-9. **Read the session ID** from `$SESSION_LOG` (last field of the last line) and **validate it before
-   putting it in a command line** — an unvalidated value containing shell metacharacters would
-   execute:
+9. **Select the handoff by session id, then validate it before putting it in a command line** — an
+   unvalidated value containing shell metacharacters would execute. Set `WANT` to the id from
+   `$ARGUMENTS` if the user passed one (`back <session-id>`), otherwise leave it empty to take the
+   most recent record:
    ```bash
-   SESSION_ID="$(awk 'END{print $NF}' "$SESSION_LOG" 2>/dev/null)"
+   WANT=""            # the <session-id> the user asked for, empty for "the latest"
+   REC="$(awk -F'\t' -v want="$WANT" '
+     length($2) == 36 && $2 ~ /^[0-9a-fA-F-]+$/ && (want == "" || $2 == want) { rec = $0 }
+     END { if (rec != "") print rec }' "$SESSION_LOG" 2>/dev/null)"
+   SESSION_ID="$(printf '%s' "$REC" | cut -f2)"
+   BASE="$(printf '%s' "$REC" | cut -f3)"
    case "$SESSION_ID" in
      [0-9a-fA-F]*-*-*-*-*) : ;;
-     *) echo "No valid recorded session ID — ask the user for one."; exit 1 ;;
+     *) echo "No recorded handoff matching '${WANT:-<latest>}' — ask the user for a session ID."; exit 1 ;;
    esac
+   # A record written before the baseline moved into the log has no third field.
+   [ -n "$BASE" ] && [ "$BASE" != none ] || BASE="$(cat "$ROOT/.claude/codex-baseline-head" 2>/dev/null || true)"
    ```
+   `length($2) == 36` rather than a `{36}` interval — interval expressions aren't portable across
+   every `awk` this runs on. **Say which record you picked** (id and timestamp), and when the log
+   holds more than one, list the others so the user can redirect you before Codex is billed for the
+   wrong summary.
 10. **Ask Codex for a handoff brief, forced read-only.** `codex exec` defaults to read-only, but user
     or project config can set `sandbox_mode` to `workspace-write`/`danger-full-access`, and a
     summarise-only call must never write. Note `codex exec resume` rejects `--sandbox` (that flag is
@@ -94,9 +121,13 @@ having Codex summarise itself and ingesting that — which this does in one step
     codex exec resume "$SESSION_ID" -c sandbox_mode="read-only" "Summarise for a Claude Code session taking over from you: (1) what you changed, file by file; (2) what you verified and how; (3) what is still unfinished or uncertain; (4) any decision a reviewer would question. Be specific and terse. Do not re-explain the original task."
     ```
 11. **Verify against reality rather than trusting the summary — and check all four kinds of change.**
-    `git diff` alone sees only unstaged edits, so a clean worktree can hide work Codex **committed**:
+    `git diff` alone sees only unstaged edits, so a clean worktree can hide work Codex **committed**.
+    `BASE` is the baseline from the record step 9 selected — this handoff's, not the newest one's.
+    Re-derive it from the same record if this runs in a fresh shell; never fall back to "the last
+    line", which is the bug this keying removes:
     ```bash
-    BASE="$(cat "$ROOT/.claude/codex-baseline-head" 2>/dev/null)"
+    [ -n "${BASE:-}" ] || BASE="$(awk -F'\t' -v id="$SESSION_ID" '$2 == id { b = $3 } END { print b }' "$SESSION_LOG" 2>/dev/null)"
+    [ "$BASE" != none ] || BASE=""
     [ -n "$BASE" ] && git log --oneline "$BASE"..HEAD        # commits Codex made
     [ -n "$BASE" ] && git diff --stat "$BASE"..HEAD          # net committed change
     git diff --stat                                          # unstaged

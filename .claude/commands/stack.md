@@ -21,7 +21,8 @@ Each maps to a real `gh stack` subcommand (run `gh stack --help` to see the full
 
 ## Guardrails
 
-- Never pass `--force`-style flags that aren't already the default. `gh stack push` already uses `--force-with-lease --atomic`.
+- Never pass `--force`-style flags that aren't already the default. `gh stack push` already builds an explicit per-branch `--force-with-lease` refspec, so there is nothing to add.
+- **`gh stack push` is not atomic — a multi-branch push can partially succeed.** It pushes without `--atomic` (upstream `cmd/push.go`; recent `gh stack push --help` states it outright: "a branch may update even if another branch is rejected"). So when a push comes back non-zero, don't report it as "the push failed": say that **some branches may already be updated on the remote**, name the ones the output shows as pushed and the one that was rejected, and rerun only after the rejection is resolved — a blind rerun re-pushes what already landed and buries which lease actually failed. Don't generalise from `gh stack sync`, which *does* push atomically (`--force-with-lease --atomic`).
 - If `gh` isn't authenticated (`gh auth status` non-zero), tell the user to run `gh auth login` and stop.
 - If the extension isn't installed (`gh extension list` doesn't include `github/gh-stack`), tell the user to run `gh extension install github/gh-stack` and stop.
 - For `submit` / `sync`, always show the stack view first so the user sees what's about to happen.

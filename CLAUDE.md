@@ -9,7 +9,42 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repo is
 
-Public, opinionated Claude Code defaults for Node.js / TypeScript projects. It ships subagents, user-invocable slash commands, a permissions baseline, and a CLAUDE.md template that users drop into consumer projects. No application code and no build step. **It does have a test suite**: POSIX shell harnesses under `tests/` covering the installer, the rule globs, the skills allowlist, and the DeepSeek launcher's secret handling — run them all before pushing. So work here is markdown and JSON under `.claude/`, the top-level `README.md`, and **shell** under `tests/`, `.claude/hooks/`, `.claude/scripts/` and `install.sh`. This sentence used to read "no test suite … markdown and JSON", which was true when it was written and has been false for a while; a reviewer reading it as policy asked for shell changes to be removed. If you add a new kind of file here, fix this line in the same commit.
+Public, opinionated Claude Code defaults for Node.js / TypeScript projects. It ships subagents, user-invocable slash commands, a permissions baseline, and a CLAUDE.md template that users drop into consumer projects. No application code and no build step. **It does have a test suite**: POSIX shell harnesses under `tests/` covering the installer, the rule globs, the skills allowlist, the DeepSeek launcher's secret handling, the shipped commands' hardening (`config-hardening`) and who owns each `~/.claude` path (`claude-config-ownership`) — run them all before pushing. So work here is markdown and JSON under `.claude/`, the top-level `README.md`, and **shell** under `tests/`, `.claude/hooks/`, `.claude/scripts/` and `install.sh`. This sentence used to read "no test suite … markdown and JSON", which was true when it was written and has been false for a while; a reviewer reading it as policy asked for shell changes to be removed. If you add a new kind of file here, fix this line in the same commit.
+
+## This repo owns `~/.claude`
+
+Two installers used to claim `${CLAUDE_CONFIG_DIR:-~/.claude}`: this one, and the `config/`
+layer of `cbmono/ai-bridge`, which was a **fork** of this `.claude/` tree. 24 of 26 entries
+were shipped by both and 14 had diverged, so ownership was decided by whichever installer
+ran last. The cost was not cosmetic: fixes made in the private fork — including two
+secret-exposure paths — sat there for weeks while this **public** repo shipped the defects.
+
+Resolved by making this repo the owner. ai-bridge keeps only `config/required/` (the three
+agents it probes for by absolute path: `code-architect`, `deep-bug-scan`, `plan-architect`)
+and installs nothing else. Consequences when working here:
+
+- **A path that leaves `.claude/` is now installed by nobody**, silently — an absent agent
+  is a failed `test -f`, an absent command is a slash command that just does not exist.
+  `tests/claude-config-ownership.test.sh` holds the line: it runs the real installer and
+  asserts every owned path resolves in the config dir, so `EXCLUDE` or the top-level
+  linking cannot drop one without a failure.
+- **A new tracked, *installable* entry under `.claude/` fails that harness until it is added
+  to the manifest.** That is the tripwire, not busywork: the moment to check ai-bridge is not
+  shipping the same path is when the path is added. "Installable" is the operative word — a
+  path in the installer's `EXCLUDE` **that no other branch installs** (an example settings
+  file, `rules/`, the README) is deliberately not installed, needs no manifest entry, and
+  does not fail the harness. That qualifier is load-bearing, not pedantry: `EXCLUDE` means
+  *the generic link loop skips this*, never *this is not installed*. `settings.json` is in
+  `EXCLUDE` — it can hold permissions a human tuned by hand — and is installed by its own
+  branch at the end of `install.sh`, so it **is** in the manifest, and the count is 26 rather
+  than the 25 an `EXCLUDE`-only derivation reports. Applying the rule without the qualifier
+  deletes that entry and the whole permissions baseline can stop being linked with nothing
+  going red.
+- **Do not "sync from the fork".** Divergence went in *both* directions — `commands/acp.md`
+  here is stronger than the fork's, and `hooks/statusline.sh` / `scripts/codegraph-sync.sh`
+  differ only in which repo they name. Port the fix, never the file wholesale.
+- `tests/config-hardening.test.sh` pins the ported fixes (permission shapes, default-branch
+  detection, the fan-out prompt fencing, the handoff record). It came over with them.
 
 ## Layout
 
