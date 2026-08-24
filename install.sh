@@ -308,12 +308,30 @@ elif [ -L "$DEST/settings.json" ]; then
   # It also removes the one path on which this installer could write INTO another repo:
   # adopt_keys does `cat "$tmp" > "$target"`, and with $target a symlink into a git
   # checkout that is a tracked-file modification nobody asked for.
-  as_bak="$DEST/settings.json.bak.$(date +%s)"
   as_was="$(readlink "$DEST/settings.json")"
-  mv "$DEST/settings.json" "$as_bak"
-  ln -s "$REPO_CLAUDE/settings.json" "$DEST/settings.json"
-  echo "  link  settings.json (replaced a link into another checkout -> $as_was)"
-  echo "        the old link is kept as $(basename "$as_bak"); nothing of yours was a file here."
+  if [ -e "$DEST/settings.json" ]; then
+    # It RESOLVES, so the path it names is worth keeping: move the link aside rather than
+    # deleting it, and say where it pointed.
+    as_bak="$DEST/settings.json.bak.$(date +%s)"
+    if ! mv "$DEST/settings.json" "$as_bak"; then
+      echo "error: could not move $DEST/settings.json aside — left untouched." >&2
+      exit 1
+    fi
+    if ! ln -s "$REPO_CLAUDE/settings.json" "$DEST/settings.json"; then
+      echo "error: could not link settings.json; your old link is at $(basename "$as_bak")." >&2
+      exit 1
+    fi
+    echo "  link  settings.json (replaced a link into another checkout -> $as_was)"
+    echo "        the old link is kept as $(basename "$as_bak"); nothing of yours was a file here."
+  else
+    # DANGLING — the path it names holds nothing at all, so a .bak of it would be pure
+    # debris of the kind this installer is elsewhere careful not to leave. Just relink.
+    rm -f "$DEST/settings.json"
+    if ! ln -s "$REPO_CLAUDE/settings.json" "$DEST/settings.json"; then
+      echo "error: could not link settings.json." >&2; exit 1
+    fi
+    echo "  relink settings.json (was dangling -> $as_was)"
+  fi
 elif [ -e "$DEST/settings.json" ]; then
   echo
   echo "note: $DEST/settings.json already exists, so your permissions and plugins were"

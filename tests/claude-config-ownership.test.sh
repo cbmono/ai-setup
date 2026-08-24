@@ -225,6 +225,14 @@ ok "…and the other checkout is untouched"   "$(cat "$OTHERR/settings.json")" \
    '{"permissions":{"deny":["Read(./.env)"]},"outputStyle":"Other"}'
 ok "…so no path is installed by nobody"     "$([ -e "$D6/settings.json" ] && echo yes || echo no)" yes
 
+# (a2) a DANGLING link — no .bak, because a backup of a link that resolves to nothing is
+# pure debris. Relinked in place, and the path it named is still printed.
+D6b="$TMP/cfg-dangling"; mkdir -p "$D6b"
+ln -s "$TMP/gone/settings.json" "$D6b/settings.json"
+CLAUDE_CONFIG_DIR="$D6b" bash "$FIX/install.sh" >"$TMP/out6b" 2>&1
+ok "a dangling link is relinked"            "$(sj_dest "$D6b")" "$FIXR/.claude/settings.json"
+ok "…with no .bak left behind"              "$(find "$D6b" -maxdepth 1 -name 'settings.json.bak.*' | wc -l | tr -d ' ')" 0
+
 # (b) a REAL file — the property that must NOT regress. Yours stays yours.
 D7="$TMP/cfg-real"; mkdir -p "$D7"
 printf '{"permissions":{"allow":["Bash(mine:*)"]}}\n' > "$D7/settings.json"
