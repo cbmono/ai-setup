@@ -211,6 +211,10 @@ ok "--uninstall removes every owned path"  "$left" 0
 ok "…and this harness exported no CLAUDE_CONFIG_DIR" \
    "$(env | grep -c '^CLAUDE_CONFIG_DIR=' || true)" "$CCD_IN_ENV_AT_START"
 # The `[$]` keeps each pattern from matching its own line.
+# The third assertion keeps the pair from passing vacuously: if `$0` were unreadable both
+# greps would print nothing and two empty strings compare equal.
+ok "…and there were invocations to check" \
+   "$([ "$(grep -c 'bash "[$]FIX' "$0" | tr -d ' ')" -ge 4 ] && echo yes || echo no)" yes
 ok "…and every installer invocation names a throwaway one" \
    "$(grep -c 'bash "[$]FIX' "$0" | tr -d ' ')" \
    "$(grep -c 'CLAUDE_CONFIG_DIR="[$][A-Za-z0-9]*" bash "[$]FIX' "$0" | tr -d ' ')"
