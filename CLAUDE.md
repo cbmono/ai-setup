@@ -28,9 +28,14 @@ and installs nothing else. Consequences when working here:
   `tests/claude-config-ownership.test.sh` holds the line: it runs the real installer and
   asserts every owned path resolves in the config dir, so `EXCLUDE` or the top-level
   linking cannot drop one without a failure.
-- **A new entry under `.claude/` fails that harness until it is added to the manifest.**
-  That is the tripwire, not busywork: the moment to check ai-bridge is not shipping the
-  same path is when the path is added.
+- **A new tracked, *installable* entry under `.claude/` fails that harness until it is added
+  to the manifest.** That is the tripwire, not busywork: the moment to check ai-bridge is not
+  shipping the same path is when the path is added. "Installable" is the operative word — a
+  path in the installer's `EXCLUDE` (an example settings file, `rules/`, the README) is
+  deliberately not installed, needs no manifest entry, and does not fail the harness.
+  `settings.json` is the exception that proves the rule: excluded from the generic link loop
+  because it can hold permissions a human tuned by hand, but installed by its own branch —
+  so it *is* in the manifest.
 - **Do not "sync from the fork".** Divergence went in *both* directions — `commands/acp.md`
   here is stronger than the fork's, and `hooks/statusline.sh` / `scripts/codegraph-sync.sh`
   differ only in which repo they name. Port the fix, never the file wholesale.

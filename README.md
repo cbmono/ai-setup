@@ -63,8 +63,10 @@ The everyday coding config the control panel runs on — and perfectly useful on
 > that never cloned this repo. Those three are the one sanctioned overlap, and this repo
 > ships them too — a superset, so whichever installer ran last, the agent exists.
 > Everything else under `~/.claude` comes from here, and `tests/claude-config-ownership.test.sh`
-> fails if one of the paths handed over stops being installable, or if a new entry appears
-> that the manifest has not been told about.
+> fails if one of the paths handed over stops being installable, or if a new **tracked,
+> installable** entry appears that the manifest has not been told about. Paths the installer
+> deliberately excludes — the example settings files, `rules/`, this README — need no manifest
+> entry and do not trip it.
 
 ## Getting started
 

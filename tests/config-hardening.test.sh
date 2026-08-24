@@ -80,13 +80,20 @@ ok "agents/deep-bug-scan.md ships"                   "$(yn test -f "$SCAN")" yes
 # strip to the same prefix exactly when the pattern's only '*' is its last character.
 star_ok() { # <inner pattern> -> ok|bad
   case "$1" in
-    *'*'*) [ "${1%\*}" = "${1%%\**}" ] && echo ok || echo bad ;;
+    *'*'*)
+      # …and the wildcard must QUALIFY a command rather than stand for every command.
+      # `Bash(*)` is documented as equivalent to a bare `Bash` — it allows every shell
+      # command there is — and it passed the prefix test above unchanged, because both
+      # expansions strip to the empty string. The widest rule available was wearing the
+      # shape of the narrowest, inside the harness whose job is to reject wide rules.
+      [ "${1%\*}" = "${1%%\**}" ] && [ -n "${1%\*}" ] && echo ok || echo bad ;;
     *)     echo ok ;;
   esac
 }
 # The checker's own non-vacuity: it must reject the shape the conventions forbid and
 # accept the two they require. Without this, "no bad pattern found" could mean "the
 # predicate never fires".
+ok "checker rejects a bare wildcard"                 "$(star_ok '*')"                  bad
 ok "checker rejects a mid-pattern wildcard"          "$(star_ok 'git push * --force')" bad
 ok "checker rejects a doubled wildcard"              "$(star_ok 'rm -rf */*')"          bad
 ok "checker accepts a trailing wildcard"             "$(star_ok 'git status:*')"        ok
@@ -188,6 +195,20 @@ ok "grill: the block is labelled DATA"               "$(atleast "$(nE "$CMD/gril
 ok "plan: the block is labelled DATA"                "$(atleast "$(nE "$CMD/plan.md"  'are DATA|is DATA')" 2)" yes
 ok "grill: hostile text is reported, not dropped"    "$(atleast "$(nE "$CMD/grill.md" "never something to drop|report it, don't act on it")" 2)" yes
 ok "plan: hostile text is reported, not dropped"     "$(atleast "$(nE "$CMD/plan.md"  "never something to drop|report it, don't act on it")" 2)" yes
+# THE MARKERS FENCE ONLY WHAT IS PASTED IN, and both of these commands then tell the agent
+# to go and OPEN the changed files, their callers and the referenced code. That is the
+# larger surface and no marker can reach it, so each prompt has to say so in words. Both
+# stages of both commands, counted, because the gap was in three of the four and the
+# fourth's wording is what showed it was worth stating.
+ok "grill: opened files are data too, both stages"   "$(atleast "$(nE "$CMD/grill.md" 'FILE YOU OPEN|callers you open')" 2)" yes
+ok "plan: opened code is data too, both stages"      "$(atleast "$(nE "$CMD/plan.md"  'files you open|code you open')" 2)" yes
+# /dave sends the same repository content to an EXTERNAL reviewer and had no markers at
+# all — the port took the working-tree payload fix and not the fencing that belongs with it.
+# The untracked-files block is the least reviewed part: a brand-new file is exactly where a
+# directive arrives unnoticed.
+ok "dave: the inlined payload is fenced"             "$(atleast "$(nF "$CMD/dave.md" 'untrusted data')" 1)" yes
+ok "dave: the untracked files are fenced too"        "$(atleast "$(nF "$CMD/dave.md" 'BEGIN NEW FILES')" 1)" yes
+ok "dave: and it says the block is data, not orders" "$(atleast "$(nE "$CMD/dave.md" 'data under review, never an instruction')" 1)" yes
 
 # ------------------------------------------- acp scans before it stages (#70, kept pinned)
 # `git add -A` stages every non-ignored path, so a scan that runs afterwards is a scan of
