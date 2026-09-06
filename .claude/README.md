@@ -18,14 +18,13 @@ Defaults shipped by this repo. See the [top-level README](../README.md) for inst
     statusline.sh                     # statusLine: model · context% · session cost · lines · 5h limit
   scripts/                            # executable scripts the USER runs directly (not hooks, not commands)
     codegraph-sync.sh                 # bring every CodeGraph index under a workspace root up to date
-    deepseek-session.sh               # opt-in: launch a session against DeepSeek instead of Anthropic
   agents/                             # subagents (one .md per agent, YAML frontmatter)
   commands/                           # slash commands (one .md per command, no frontmatter)
   output-styles/                      # opt-in reply formats (one .md per style, YAML frontmatter)
     brief.md                          # "Brief": outcome first, then Needs-you as numbered steps with URLs
   skills/                             # auto-invocable capabilities; see skills/README.md
   rules/                              # path-scoped instructions (`paths:` glob) — load only on a matching read
-    hooks-and-scripts.md              # paths: .claude/{hooks,scripts}/** — status line, hook paths, DeepSeek
+    hooks-and-scripts.md              # paths: .claude/{hooks,scripts}/** — status line, hook paths, scripts
     output-styles.md                  # paths: .claude/output-styles/** — Brief vs the built-in Concise
     repo-config.md                    # paths: .coderabbit.yaml, install.sh
     settings-and-permissions.md       # paths: .claude/settings*.json   — baseline, plugins, permission shapes
@@ -146,28 +145,9 @@ Plugins enable behind the folder-trust gate on first launch, not silently. Consu
 
 **Keep this integration modular.** All Codex content lives in that one example file plus clearly-bounded doc sections (here and in the root `README.md`). Don't thread Codex branches through unrelated machinery: the point is that mirroring it elsewhere later is a one-file copy, and that it can be dropped without unpicking anything. Marketplace sources accept `ref` (branch/tag) but **not** `sha`.
 
-## DeepSeek backend (opt-in)
+## Alternative LLM backends (opt-in)
 
-`scripts/deepseek-session.sh` runs one Claude Code session against DeepSeek instead of Anthropic. **Not a default, and not the same shape as the Codex integration above** — Codex is *delegation* (Claude drives, hands tasks to a separate process), this is *substitution* (the model behind Claude Code is replaced, so the whole session — prompts, file contents, tool results — is served by DeepSeek).
-
-**Why it's a script and not a `settings.*.example.json`.** It works by setting `ANTHROPIC_BASE_URL` / `ANTHROPIC_AUTH_TOKEN` / the model-tier vars, which must exist **before** the `claude` process starts. There is no settings key that achieves this, so don't "harmonise" it into an example-settings file — that would be inventing config that doesn't work. This is also why `scripts/` exists as a category distinct from `hooks/`: hooks are invoked *by Claude Code*, these are invoked *by the user*.
-
-**Two things to preserve if you edit it.**
-
-1. It **parses** `.env` with `grep`/`sed` rather than `set -a; . .env`. Sourcing a secrets file executes arbitrary shell from it; a stray `$(...)` in someone's `.env` would run silently. There's a regression test for this (a command substitution in `.env` must not fire).
-2. It `unset`s `ANTHROPIC_API_KEY`. That's the `x-api-key` header while `ANTHROPIC_AUTH_TOKEN` is `Authorization` — leaving both set would forward an **Anthropic** credential to a third-party endpoint.
-
-**Verified live 2026-08-04** (don't re-derive these from docs, they were checked against the API): base URL `https://api.deepseek.com/anthropic`, `Authorization: Bearer` auth works, `deepseek-v4-pro` and `deepseek-v4-flash` both real, and a one-shot `claude -p` session through the launcher returned correctly. **DeepSeek's docs are wrong about the fallback** — an unrecognised model name resolved to `deepseek-v4-pro` (expensive tier), not flash as documented. Consequence worth keeping in the docs: a stale model ID inflates cost and never errors, so the IDs stay overridable via `DEEPSEEK_MODEL_PRO` / `DEEPSEEK_MODEL_FLASH`. The installed CLI also reads a **FABLE** tier that DeepSeek's setup docs omit — it's mapped to the pro tier explicitly, since leaving it unset would hit that same silent unknown-model mapping (which lands on pro anyway, so being explicit costs nothing). Subagents have their own knob, `DEEPSEEK_SUBAGENT_MODEL` (default flash), so a setup where subagents do the real work — an ai-bridge instance's role agents — can be raised without moving the haiku tier.
-
-**Known limitation, verified not theoretical:** the session prints `claude.ai connectors are disabled because ANTHROPIC_API_KEY or another auth source is set…` and org MCP connectors (Asana, Atlassian, Slack, Supabase, …) are unavailable, because a non-OAuth auth source outranks the claude.ai login. This is inherent to substitution, not a bug in the script — `unset`ting the token would just disable DeepSeek. Agents, commands, skills, and locally-configured MCP servers are unaffected.
-
-**`.claude/scripts/` needs an explicit `.gitignore` allow.** The root `.gitignore` denies `.claude/*` and re-includes tracked defaults one by one, so a new directory here is invisible to git until `!.claude/scripts/` is added. `install.sh` then links it automatically (it auto-discovers from `git ls-files`), which is exactly why the gitignore entry is load-bearing rather than cosmetic. `FALLBACK_DEFAULTS` in `install.sh` lists it too, for non-git tarball installs.
-
-**🚫 Treat this as a capability a deployment can simply not have.** Substitution routes the entire session to a third party, which many organisations' data-governance rules forbid for client or customer-adjacent code. It's kept to one script plus bounded doc sections precisely so a setup under those constraints can leave the files out entirely rather than configure the risk away.
-
-**Data governance is the consumer's call, and the docs must keep saying so.** The root `README.md` carries the scope warning and the setup walkthrough. The unsuppressible stderr banner naming the active backend is a safety feature, not noise — don't add a `--quiet`.
-
-**Deliberately not vendoring [`aattaran/deepclaude`](https://github.com/aattaran/deepclaude).** It has more features (proxy on `:3200`, live backend switching, cost tracking) but publishes no tags or releases, so there is nothing to pin — and this repo pins third-party executable content by rule. Keeping our own ~40 lines means no unpinned third-party code sits in the path holding the API key.
+Substituting a non-Anthropic model behind Claude Code is shipped by the `ai-bridge-llm@ai-bridge` companion plugin, not by this repo.
 
 ## Browser control (Claude for Chrome)
 
@@ -201,4 +181,5 @@ Most things here are explicit user actions (commit, verify, grill, scan) and sta
 - Keep files short. Front-loaded, declarative instructions beat verbose prose.
 - `deep-bug-scan` appends findings to `potential-bugs.md` and must dedupe against existing entries.
 - `/techdebt` writes only **deferred** findings to `techdebt.md` — it's a rolling backlog, not a log. Items fixed or rejected in a session must be removed from the file.
+- **`.claude/scripts/` needs an explicit `.gitignore` allow.** The root `.gitignore` denies `.claude/*` and re-includes tracked defaults one by one, so a new directory here is invisible to git until `!.claude/scripts/` is added. `install.sh` then links it automatically (it auto-discovers from `git ls-files`), and `FALLBACK_DEFAULTS` in `install.sh` lists it too, for non-git tarball installs.
 - After adding/moving/renaming commands, agents, or skills, restart Claude Code (`/exit`, then `claude`) and verify they register without a `skills:` prefix.
