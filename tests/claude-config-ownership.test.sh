@@ -5,10 +5,10 @@
 #
 # WHY. Until now TWO installers targeted `${CLAUDE_CONFIG_DIR:-~/.claude}`: this repo's,
 # and the `config/` layer of `cbmono/ai-bridge`, which was a fork of this `.claude/` tree.
-# 24 of the 26 entries below were shipped by both, 14 had diverged, and which copy a
-# machine ended up with was decided by whichever installer ran last — not by design. The
-# fork is being retired in ai-bridge's favour of *this* repo: **ai-setup owns `~/.claude`**,
-# and ai-bridge keeps only the three agents its own role agents probe for.
+# 24 of the 26 entries then in this manifest were shipped by both, 14 had diverged, and
+# which copy a machine ended up with was decided by whichever installer ran last — not by
+# design. The fork is being retired in ai-bridge's favour of *this* repo: **ai-setup owns
+# `~/.claude`**, and ai-bridge keeps only the three agents its own role agents probe for.
 #
 # That decision has a failure mode in each direction, and this file guards the one that
 # lives here:
@@ -77,7 +77,6 @@ MEMORY.md
 output-styles/brief.md
 settings.json
 scripts/codegraph-sync.sh
-scripts/deepseek-session.sh
 skills/README.md
 skills/test-locators/SKILL.md
 "
@@ -129,7 +128,7 @@ EOF
 ok "every owned path is installed into the config dir" "$missing" 0
 # Pinned, so a NEW entry under .claude/ cannot slip in unlisted. When this fails after an
 # addition: add the path above AND check that ai-bridge is not shipping it too.
-ok "the manifest still has 26 entries"    "$total" 26
+ok "the manifest still has 25 entries"    "$total" 25
 
 # ------------------------------------------------ 2. the check can say "no" (non-vacuity)
 # Without this, "every owned path is installed" would also pass if `installed()` returned
