@@ -349,7 +349,7 @@ One caveat: `/statusline` rewrites whichever settings file currently defines `st
 
 An output style changes how Claude *talks*, not how it codes. This repo ships one and **enables it by default**.
 
-**`Brief`** — the outcome in line one, then a `Needs you:` section *only when something actually blocks*, written as numbered imperative steps with the URL or path inline. It also carries three rules worth having on their own:
+**`Brief`** — the outcome in line one, then an `ℹ️ **Needs you:**` section *only when something actually blocks*, written as numbered imperative steps with the URL or path inline. It also carries three rules worth having on their own:
 
 1. **Answer vs deliverable.** An answer says its point and stops; a doc, plan, spec, or PR body runs as long as the work needs. Trims the reply, never the reasoning.
 2. **Never invent state.** Unknown is "unknown". A fabricated status is worse than a missing one — and cost never goes in prose, because the status line has the real figure.
