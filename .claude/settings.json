@@ -276,6 +276,12 @@
         "source": "github",
         "repo": "openai/codex-plugin-cc"
       }
+    },
+    "ai-bridge": {
+      "source": {
+        "source": "github",
+        "repo": "cbmono/ai-bridge"
+      }
     }
   },
   "outputStyle": "Brief",
@@ -286,32 +292,32 @@
   "autoMode": {
     "soft_deny": [
       "$defaults",
-      "Bash(op:*) writes/deletes in this repo \u2014 scope to read-only secret retrieval, not creation or deletion of secrets-manager entries"
+      "Bash(op:*) writes/deletes in this repo — scope to read-only secret retrieval, not creation or deletion of secrets-manager entries"
     ],
     "environment": [
       "### Org-wide",
       "**Organization**: None configured",
       "**Cloud provider(s)**: None configured",
-      "**Repository visibility**: PUBLIC \u2014 cbmono/ai-setup (github.com:cbmono/ai-setup.git) \u2014 a ruleset named `default` is active; treat as protection even though no classic protected branches are listed",
-      "**Internal sharing / snippet hosting**: None configured \u2014 treat public paste/gist services as outside the trust boundary",
+      "**Repository visibility**: PUBLIC — cbmono/ai-setup (github.com:cbmono/ai-setup.git) — a ruleset named `default` is active; treat as protection even though no classic protected branches are listed",
+      "**Internal sharing / snippet hosting**: None configured — treat public paste/gist services as outside the trust boundary",
       "**Secrets management**: `op` (1Password CLI) referenced as a secrets-manager marker in this repo's config scan",
-      "**Default / protected branches**: main (default); ruleset `default` active on cbmono/ai-setup \u2014 treat as protected despite no classic branch protection listed",
-      "**CI/CD deploy targets**: None configured \u2014 this repo has no CI/build step (config-only repo per CLAUDE.md)",
+      "**Default / protected branches**: main (default); ruleset `default` active on cbmono/ai-setup — treat as protected despite no classic branch protection listed",
+      "**CI/CD deploy targets**: None configured — this repo has no CI/build step (config-only repo per CLAUDE.md)",
       "**Network posture**: None configured",
-      "**Source control**: The trusted repo (cbmono/ai-setup, github.com) and its remote(s) only \u2014 no additional orgs configured",
+      "**Source control**: The trusted repo (cbmono/ai-setup, github.com) and its remote(s) only — no additional orgs configured",
       "**Trusted internal domains**: None configured",
       "**Trusted cloud buckets**: None configured",
       "**Key internal services**: None configured",
       "**Internal package registry**: None configured",
-      "**Sensitive data locations & audiences**: any file or store holding personal data, confidential business data, credentials, regulated data, or similarly sensitive material; preserve exact handles when known and share only with audiences cleared at the [named+specifics] bar; `.env` (gitignored) and `.env.example` in this repo hold/model secrets \u2014 never commit real values",
+      "**Sensitive data locations & audiences**: any file or store holding personal data, confidential business data, credentials, regulated data, or similarly sensitive material; preserve exact handles when known and share only with audiences cleared at the [named+specifics] bar; `.env` (gitignored) and `.env.example` in this repo hold/model secrets — never commit real values",
       "**Data retention / declassification**: None configured",
       "**Sensitive remote targets**: any namespace, host, or container whose name carries `prod` or `production` as a whole word or name segment",
-      "**Protected deployment namespaces / environments**: None configured \u2014 fall back to the Sensitive remote targets heuristic",
+      "**Protected deployment namespaces / environments**: None configured — fall back to the Sensitive remote targets heuristic",
       "**Protected IaC scopes**: IAM, RBAC, networking, quota, and node-pool resources; anything whose name or tag carries `prod` or `production` as a whole word or name segment",
       "### User-specific",
-      "**Primary use of Claude Code**: software development \u2014 this repo ships Claude Code defaults, agents, slash commands, and a control-panel template (ai-bridge)",
-      "**Trusted repo**: cbmono/ai-setup (github.com:cbmono/ai-setup.git), the working directory \u2014 PUBLIC, so only this repo's own work belongs here; confidential material (secrets, personal/entrusted data) is never cleared into it regardless of visibility; content ported or first read from outside this session's repo (e.g. from the sibling ~/workspace/ai-bridge checkout) is not this repo's own work and should not be pushed here",
-      "**Org-specific CLIs**: None configured \u2014 `codegraph`, `tot`, and `codex` appear frequently in this project's usage but are project tooling, not confirmed org-wide CLIs",
+      "**Primary use of Claude Code**: software development — this repo ships Claude Code defaults, agents, slash commands, and a control-panel template (ai-bridge)",
+      "**Trusted repo**: cbmono/ai-setup (github.com:cbmono/ai-setup.git), the working directory — PUBLIC, so only this repo's own work belongs here; confidential material (secrets, personal/entrusted data) is never cleared into it regardless of visibility; content ported or first read from outside this session's repo (e.g. from the sibling ~/workspace/ai-bridge checkout) is not this repo's own work and should not be pushed here",
+      "**Org-specific CLIs**: None configured — `codegraph`, `tot`, and `codex` appear frequently in this project's usage but are project tooling, not confirmed org-wide CLIs",
       "No routine under <user>/ prefix qualifiers were found"
     ]
   }
