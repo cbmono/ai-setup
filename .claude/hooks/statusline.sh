@@ -1,65 +1,140 @@
 #!/usr/bin/env bash
-#
-# statusline.sh — Claude Code status line (ai-setup baseline).
-#
-# Shows what a reply must never claim in prose: model, context used, session
-# cost, lines changed, and 5-hour rate-limit burn. Spend belongs here, on a line
-# fed real numbers by the harness, rather than in an answer where it would be
-# guesswork.
-#
-# Reads the status-line JSON on stdin (contract:
-# https://code.claude.com/docs/en/statusline) and prints one line. Every field is
-# optional by design — absent or null parts are dropped rather than rendered as
-# "null" or "0":
-#   * context_window.used_percentage  — null before the first API call and after /compact
-#   * cost.*                          — 0 until work happens
-#   * rate_limits.*                   — Claude.ai Pro/Max only, after the first response
-#
-# Universally safe, per the settings.json hook rule: it only reads stdin, writes
-# one line to stdout, and exits 0 on every input — including malformed JSON.
-#
-# To turn it off without editing this baseline, override the whole key in
-# .claude/settings.local.json (project) or your own settings:
-#   { "statusLine": { "type": "command", "command": "true" } }
-set -uo pipefail
+# Status line: robbyrussell-style prompt segment, followed by optional
+# Claude Code metadata segments (model, context %, rate limits, PR),
+# each shown only when its field is present in the input JSON.
+#   ➜  <dir> git:(<branch>) ✗ │ <model> │ ctx 42% │ 5h 31% ↻14:22 · 7d 12% │ PR #123 (approved)
+# Reads Claude Code's statusLine JSON from stdin. Always exits 0.
 
-input="$(cat)"
+input=$(cat 2>/dev/null)
 
-# jq isn't guaranteed on a fresh machine. Say so once, actionably, instead of
-# failing silently and leaving the user wondering where their status line went.
-if ! command -v jq >/dev/null 2>&1; then
-  printf '%s\n' "⚠ status line needs jq — install it (brew install jq) or unset statusLine"
-  exit 0
+# ANSI colors (render dimmed in the Claude Code status bar)
+GREEN=$'\033[1;32m'
+CYAN=$'\033[36m'
+BLUE=$'\033[1;34m'
+RED=$'\033[31m'
+YELLOW=$'\033[33m'
+MAGENTA=$'\033[35m'
+RESET=$'\033[0m'
+
+cwd=""
+model_name=""
+ctx_pct=""
+five_pct=""
+five_reset=""
+seven_pct=""
+pr_number=""
+pr_state=""
+
+if command -v jq >/dev/null 2>&1; then
+  # Delimit fields with the ASCII Unit Separator (octal \037 / 0x1F) rather
+  # than @tsv's tab: bash's `read` treats tab (like space/newline) as "IFS
+  # whitespace", so it collapses consecutive tab delimiters and trims
+  # leading/trailing ones -- silently shifting every later value one slot
+  # to the left whenever an earlier field is empty. \037 is not IFS
+  # whitespace, so each delimiter -- even next to another -- always marks
+  # exactly one field. It's built in bash ($'\037', same style as the ANSI
+  # color vars above) and passed to jq via --arg, so no escape sequence for
+  # it ever has to live inside the jq program text itself. jq's `join`
+  # turns missing/null elements into "" and numbers into their string form
+  # on its own, so no `// ""` defaults are needed here.
+  sep=$'\037'
+  line=$(printf '%s' "$input" | jq -r --arg sep "$sep" '
+    [
+      (.workspace.current_dir // .cwd),
+      .model.display_name,
+      (.context_window.used_percentage | if . == null then null else round end),
+      (.rate_limits.five_hour.used_percentage | if . == null then null else round end),
+      .rate_limits.five_hour.resets_at,
+      (.rate_limits.seven_day.used_percentage | if . == null then null else round end),
+      .pr.number,
+      .pr.review_state
+    ] | join($sep)
+  ' 2>/dev/null)
+  IFS="$sep" read -r cwd model_name ctx_pct five_pct five_reset seven_pct pr_number pr_state <<< "$line"
 fi
 
-printf '%s' "$input" | jq -r '
-  # 1.234 -> "1.23", 1.5 -> "1.50". jq has no float formatter, so round to
-  # integer cents and reassemble, keeping the trailing zero.
-  def money:
-    (. * 100 | round) as $c
-    | ($c % 100 | tostring) as $frac
-    | "\($c / 100 | floor).\(if ($frac | length) == 1 then "0" + $frac else $frac end)";
+[ -z "$cwd" ] && cwd="$PWD"
 
-  [
-    (.model.display_name // empty),
+# Basename of cwd (like %c in robbyrussell)
+dir=$(basename "$cwd")
 
-    (if (.context_window.used_percentage // null) != null
-       then "\(.context_window.used_percentage | floor)% ctx"
-       else empty end),
+# --- robbyrussell git segment ---
+git_segment=""
+if git -C "$cwd" --no-optional-locks rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  branch=$(git -C "$cwd" --no-optional-locks symbolic-ref --quiet --short HEAD 2>/dev/null)
+  [ -z "$branch" ] && branch=$(git -C "$cwd" --no-optional-locks rev-parse --short HEAD 2>/dev/null)
+  if [ -n "$branch" ]; then
+    dirty=""
+    if [ -n "$(git -C "$cwd" --no-optional-locks status --porcelain 2>/dev/null)" ]; then
+      dirty=" ${YELLOW}✗${RESET}"
+    fi
+    git_segment=" ${BLUE}git:(${RED}${branch}${BLUE})${RESET}${dirty}"
+  fi
+fi
 
-    (if (.cost.total_cost_usd // 0) > 0
-       then "$\(.cost.total_cost_usd | money)"
-       else empty end),
+line=$(printf "${GREEN}➜${RESET}  ${CYAN}%s${RESET}%s" "$dir" "$git_segment")
 
-    (if ((.cost.total_lines_added // 0) + (.cost.total_lines_removed // 0)) > 0
-       then "+\(.cost.total_lines_added // 0)/-\(.cost.total_lines_removed // 0)"
-       else empty end),
+# Green under 60, yellow 60-84, red 85+. Assumes $1 is an integer string.
+pct_color() {
+  case "$1" in
+    ''|*[!0-9]*) printf '%s' "$RESET" ;;
+    *)
+      if [ "$1" -ge 85 ]; then printf '%s' "$RED"
+      elif [ "$1" -ge 60 ]; then printf '%s' "$YELLOW"
+      else printf '%s' "$GREEN"
+      fi
+      ;;
+  esac
+}
 
-    (if (.rate_limits.five_hour.used_percentage // null) != null
-       then "5h \(.rate_limits.five_hour.used_percentage | floor)%"
-       else empty end)
-  ]
-  | join(" · ")
-' 2>/dev/null || true
+segments=()
 
+# --- model ---
+if [ -n "$model_name" ]; then
+  segments+=("$(printf "${MAGENTA}%s${RESET}" "$model_name")")
+fi
+
+# --- context window usage ---
+if [ -n "$ctx_pct" ]; then
+  c=$(pct_color "$ctx_pct")
+  segments+=("$(printf "${c}ctx %s%%${RESET}" "$ctx_pct")")
+fi
+
+# --- rate limits (5h / 7d) ---
+if [ -n "$five_pct" ] || [ -n "$seven_pct" ]; then
+  rl=""
+  if [ -n "$five_pct" ]; then
+    c=$(pct_color "$five_pct")
+    rl="${c}5h ${five_pct}%${RESET}"
+    if [ -n "$five_reset" ]; then
+      reset_hm=$(date -r "$five_reset" +%H:%M 2>/dev/null)
+      [ -n "$reset_hm" ] && rl="${rl} ↻${reset_hm}"
+    fi
+  fi
+  if [ -n "$seven_pct" ]; then
+    c=$(pct_color "$seven_pct")
+    seven_str="${c}7d ${seven_pct}%${RESET}"
+    if [ -n "$rl" ]; then
+      rl="${rl} · ${seven_str}"
+    else
+      rl="$seven_str"
+    fi
+  fi
+  [ -n "$rl" ] && segments+=("$rl")
+fi
+
+# --- open PR ---
+if [ -n "$pr_number" ]; then
+  if [ -n "$pr_state" ]; then
+    segments+=("$(printf "PR #%s (%s)" "$pr_number" "$pr_state")")
+  else
+    segments+=("$(printf "PR #%s" "$pr_number")")
+  fi
+fi
+
+for s in "${segments[@]}"; do
+  line="${line} │ ${s}"
+done
+
+printf "%s\n" "$line"
 exit 0
