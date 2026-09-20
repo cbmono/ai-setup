@@ -71,8 +71,7 @@
       "Bash(echo:*)",
       "Read(./**)",
       "Edit(./**)",
-      "mcp__claude-in-chrome__*",
-      "mcp__codegraph__*"
+      "mcp__claude-in-chrome__*"
     ],
     "deny": [
       "Bash(git push --force:*)",
