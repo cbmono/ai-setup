@@ -456,6 +456,24 @@ Key behaviours worth internalizing:
 
 ---
 
+# Theme previewer (`themes/`)
+
+A local tool for designing [Claude Code custom themes](https://code.claude.com/docs/en/terminal-config#create-a-custom-theme) with a live preview. Standalone: nothing here depends on ai-bridge or any plugin.
+
+```bash
+node themes/preview-app/server.mjs      # → http://127.0.0.1:4477
+```
+
+- **Your terminal's colors.** Start it from the terminal you use Claude Code in: it asks that terminal for its background, foreground and 16-color palette (OSC 10/11/4) and previews against them. `ansi:*` and `ansi256(n)` values resolve through that palette, as they would in the CLI. The result is cached per machine (gitignored), and a fallback palette is used when no terminal answers.
+- **Split view.** A mock Claude Code session on the left, the theme JSON on the right. Every valid edit repaints the preview immediately. Invalid values fall back to the base preset and get flagged, just as Claude Code ignores them.
+- **Inspect.** Hover any part of the preview to see the token that paints it; click to jump to its value in the JSON (⌥-click picks the shimmer pair). If the file doesn't set that token yet, it's added with its current value. Moving the caret onto a token line outlines everything that token paints.
+- **New… → Match my terminal** builds a theme from Claude Code's own ANSI preset, resolved through your palette, with backgrounds blended so diffs stay readable. New files list **every** token, so the JSON doubles as the full menu of options.
+- **Export…** produces a portable file: only the tokens that differ from the base, documented tokens only, values as `#rrggbb`. That's the strictest shape, so it loads anywhere, e.g. `~/.claude/themes/<slug>.json` (then `/theme` → `custom:<slug>`) or a plugin's themes directory.
+
+Theme files live in `themes/*.json`; `midnight.json` is the docs example. Full guide, options and limitations: [`themes/preview-app/README.md`](./themes/preview-app/README.md). Claude Code watches `~/.claude/themes/`, so symlinking a file there lets you check the real thing while you edit.
+
+---
+
 # Customizing
 
 - **Add a command:** drop an `.md` file in `.claude/commands/` — the filename (minus `.md`) becomes the `/command`. Use `$ARGUMENTS` for user-supplied args. No frontmatter needed. **Don't put a `README.md` in `.claude/commands/`** — Claude Code scans every `.md` there as a command, so a README becomes `/README`. See [`.claude/README.md`](./.claude/README.md) for the command-vs-skill distinction.
@@ -478,6 +496,7 @@ Key behaviours worth internalizing:
 - `.claude/settings.codex.example.json` — reference only, opt-in Codex failover (`/codex:rescue` when tokens run low, `/codex:transfer` before they run out)
 - `.claude/potential-bugs.md`, `.claude/techdebt.md`, `.claude/plans/` — gitignored, auto-created by `/scan`, `/techdebt`, `/plan` on first run; never seeded in this repo
 - the control panel is **not in this repo** — it lives in [`cbmono/ai-bridge`](https://github.com/cbmono/ai-bridge), with its own installer, tests, and docs
+- `themes/` — Claude Code theme files and the standalone previewer app ([above](#theme-previewer-themes)); not installed by `install.sh`
 - `CLAUDE.md` (this repo's root) — guidance for Claude when editing **this config repo itself**, not a template
 - `.coderabbit.yaml` — this repo's own CodeRabbit settings; **not** installed into `~/.claude` (the installer only touches `.claude`). Tuned for **one review per PR**: no re-review on each push, no auto-reply to every comment. Copy it into your own repos if agent-authored PRs are burning review sessions there too
 

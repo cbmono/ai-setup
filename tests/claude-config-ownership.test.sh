@@ -65,6 +65,7 @@ commands/acp.md
 commands/codex-handoff.md
 commands/dave.md
 commands/grill.md
+commands/my-ai-stats.md
 commands/plan.md
 commands/rabbit.md
 commands/scan.md
@@ -128,7 +129,7 @@ EOF
 ok "every owned path is installed into the config dir" "$missing" 0
 # Pinned, so a NEW entry under .claude/ cannot slip in unlisted. When this fails after an
 # addition: add the path above AND check that ai-bridge is not shipping it too.
-ok "the manifest still has 25 entries"    "$total" 25
+ok "the manifest still has 26 entries"    "$total" 26
 
 # ------------------------------------------------ 2. the check can say "no" (non-vacuity)
 # Without this, "every owned path is installed" would also pass if `installed()` returned

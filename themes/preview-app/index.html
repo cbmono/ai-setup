@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Claude Theme Preview</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="bar">
+    <strong class="brand">Theme preview</strong>
+    <label>Theme <select id="theme-select" data-testid="theme-select"></select></label>
+    <button id="btn-new" data-testid="btn-new">New…</button>
+    <button id="btn-save" data-testid="btn-save" title="Save to themes/ (⌘S / Ctrl+S)">Save</button>
+    <button id="btn-export" data-testid="btn-export">Export…</button>
+    <span class="grow"></span>
+    <label>Terminal <select id="term-select" data-testid="term-select"></select></label>
+    <span id="term-strip" class="term-strip" aria-label="Terminal palette"></span>
+  </header>
+
+  <main id="split" class="split">
+    <section class="pane pane-preview">
+      <div class="pane-bar">
+        <div class="seg" id="mode-seg" role="radiogroup" aria-label="Preview mode">
+          <button data-mode="default" class="on">default</button>
+          <button data-mode="plan">plan</button>
+          <button data-mode="accept">accept edits</button>
+          <button data-mode="auto">auto</button>
+          <button data-mode="bash">bash</button>
+        </div>
+        <label class="chk"><input type="checkbox" id="opt-menu" data-testid="opt-menu"> slash menu</label>
+        <span class="grow"></span>
+        <label class="chk" title="Hover to inspect, click to jump to the JSON value; ⌥-click picks the secondary (shimmer) token">
+          <input type="checkbox" id="opt-inspect" data-testid="opt-inspect" checked> inspect
+        </label>
+      </div>
+      <div class="term-window">
+        <div class="term-chrome"><i></i><i></i><i></i><span>claude — ai-setup</span></div>
+        <div id="preview" class="preview" data-testid="preview"></div>
+      </div>
+    </section>
+
+    <div id="splitter" class="splitter" role="separator" aria-orientation="vertical" tabindex="0"></div>
+
+    <section class="pane pane-editor">
+      <div class="pane-bar">
+        <span id="file-label" class="file-label">—</span>
+        <span id="dirty" class="dirty" hidden>● unsaved</span>
+        <span class="grow"></span>
+        <span id="parse-status" class="parse-status"></span>
+      </div>
+      <div class="editor">
+        <div class="gutter"><div id="gutter" class="gutter-inner"></div></div>
+        <div class="code">
+          <pre id="hl" class="hl" aria-hidden="true"></pre>
+          <textarea id="src" data-testid="json-editor" spellcheck="false" wrap="off" autocapitalize="off" autocomplete="off" aria-label="Theme JSON"></textarea>
+        </div>
+      </div>
+      <ul id="problems" class="problems" data-testid="problems"></ul>
+    </section>
+  </main>
+
+  <div id="tip" class="tip" hidden></div>
+  <div id="toast" class="toast" hidden></div>
+  <input type="color" id="picker" class="picker" tabindex="-1" aria-hidden="true">
+
+  <dialog id="dlg-new" data-testid="dlg-new">
+    <form method="dialog">
+      <h2>New theme</h2>
+      <label>File name (slug) <input name="slug" required pattern="[A-Za-z0-9][A-Za-z0-9_\-]{0,63}" placeholder="my-theme" data-testid="new-slug"></label>
+      <label>Display name <input name="display" placeholder="My Theme" data-testid="new-name"></label>
+      <label>Start from <select name="from" data-testid="new-from"></select></label>
+      <p class="hint">The new file lists every token, pre-filled with the starting values, so the JSON is the full menu of options.</p>
+      <menu><button value="cancel" formnovalidate>Cancel</button><button value="ok" class="primary" data-testid="new-create">Create</button></menu>
+    </form>
+  </dialog>
+
+  <dialog id="dlg-export" data-testid="dlg-export">
+    <form method="dialog">
+      <h2>Export portable theme</h2>
+      <div class="opts">
+        <label class="chk"><input type="checkbox" id="ex-changed" checked> only tokens that differ from the base</label>
+        <label class="chk"><input type="checkbox" id="ex-documented" checked> documented tokens only</label>
+        <label class="chk"><input type="checkbox" id="ex-hex" checked> normalize values to #rrggbb</label>
+      </div>
+      <textarea id="ex-out" readonly spellcheck="false" data-testid="export-output"></textarea>
+      <p class="hint">Works anywhere Claude Code loads themes: drop it in <code>~/.claude/themes/&lt;slug&gt;.json</code>
+        and pick <code>custom:&lt;slug&gt;</code> in <code>/theme</code>, or ship it in a plugin's themes directory.
+        All three options on gives the strictest shape: <code>#rrggbb</code> only, documented tokens only.</p>
+      <menu><button value="close">Close</button><button type="button" id="ex-download">Download</button><button type="button" id="ex-copy" class="primary">Copy</button></menu>
+    </form>
+  </dialog>
+
+  <script type="module" src="app.mjs"></script>
+</body>
+</html>

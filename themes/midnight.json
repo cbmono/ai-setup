@@ -1,0 +1,11 @@
+{
+  "name": "Midnight",
+  "base": "dark",
+  "overrides": {
+    "claude": "#a78bfa",
+    "planMode": "#38bdf8",
+    "diffAdded": "#14532d",
+    "diffRemoved": "#7f1d1d",
+    "userMessageBackground": "#1e1b4b"
+  }
+}

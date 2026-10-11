@@ -39,3 +39,6 @@ tmp/
 !.claude/settings.json
 !.claude/settings.plugins.example.json
 !.claude/settings.codex.example.json
+
+# Theme previewer: the terminal palette it detected on this machine
+themes/preview-app/*.local.json
