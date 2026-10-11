@@ -9,7 +9,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repo is
 
-Public, opinionated Claude Code defaults for Node.js / TypeScript projects. It ships subagents, user-invocable slash commands, a permissions baseline, and a CLAUDE.md template that users drop into consumer projects. No application code and no build step. **It does have a test suite**: POSIX shell harnesses under `tests/` covering the installer, the rule globs, the skills allowlist, the shipped commands' hardening (`config-hardening`) and who owns each `~/.claude` path (`claude-config-ownership`) — run them all before pushing. So work here is markdown and JSON under `.claude/`, the top-level `README.md`, **shell** under `tests/`, `.claude/hooks/`, `.claude/scripts/` and `install.sh`, and one small standalone app — the theme previewer under `themes/preview-app/` (dependency-free Node server + static HTML/CSS/ES modules, no `package.json`, no build). This sentence used to read "no test suite … markdown and JSON", which was true when it was written and has been false for a while; a reviewer reading it as policy asked for shell changes to be removed. If you add a new kind of file here, fix this line in the same commit.
+Public, opinionated Claude Code defaults for Node.js / TypeScript projects. It ships subagents, user-invocable slash commands, a permissions baseline, and a CLAUDE.md template that users drop into consumer projects. No application code and no build step. **It does have a test suite**: POSIX shell harnesses under `tests/` covering the installer, the rule globs, the skills allowlist, the shipped commands' hardening (`config-hardening`) and who owns each `~/.claude` path (`claude-config-ownership`) — run them all before pushing. So work here is markdown and JSON under `.claude/`, the top-level `README.md`, **shell** under `tests/`, `.claude/hooks/`, `.claude/scripts/` and `install.sh`, and one small standalone app — the theme previewer under `themes/preview-app/` (dependency-free Node server + static HTML/CSS/ES modules, no `package.json`, no build). `.github/` holds one CI workflow that runs that suite on every PR, and the `required-checks.txt` naming it. This sentence used to read "no test suite … markdown and JSON", which was true when it was written and has been false for a while; a reviewer reading it as policy asked for shell changes to be removed. If you add a new kind of file here, fix this line in the same commit.
 
 ## This repo owns `~/.claude`
 
@@ -110,5 +110,5 @@ as policy and asked for shell changes to be dropped. Keep the two in step.) Then
 
 ## Out of scope
 
-- Don't add CI, GitHub Actions, or a build step — this is a config-only repo.
+- Don't add a build step, or CI beyond the one workflow that runs `tests/` — this is a config-only repo.
 - Don't add a `package.json` unless you have a reason tied to tooling for editing markdown.
