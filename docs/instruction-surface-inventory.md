@@ -129,8 +129,12 @@ headline behind it.
 | 5 | `.claude/hooks/` — status-line contract, self-detection, absolute shell-expanded hook paths · `.claude/scripts/` | PATH-CORRELATED | `.claude/rules/hooks-and-scripts.md`; the absolute-path rule stays inline as a headline |
 | 6 | `settings.json` baseline · `enabledPlugins` policy · the `mcp__claude-in-chrome__*` allow rule · permission-pattern shapes · don't-block-harmless-files | PATH-CORRELATED | `.claude/rules/settings-and-permissions.md`; each keeps a headline inline |
 | 7 | `.coderabbit.yaml` · `install.sh` and the display-only `ADOPTABLE_KEYS` contract | PATH-CORRELATED | `.claude/rules/repo-config.md`; the display-only contract stays inline as a headline |
-| 8 | The `ai-bridge/` invariants (`AWAITING.md`, the deletable-capability pattern, build-vs-research asymmetry, `required-checks.sh`, `prune-worktrees.sh`, `validate-bundle.sh`, `migrate-bundle.sh`, the three-stage scaffold review, machinery retirement, retired seed content, the shared-instance `owner` gate with its tracked `defaultOwner` and per-machine config overrides, and the fifth knowledge kind) + the `ai-bridge/` layout entry — **no count is given, here or in `CLAUDE.md`**, because the number drifted twice in one day, in both directions | PATH-CORRELATED | `.claude/rules/ai-bridge.md` (`paths: /ai-bridge/**`), with **every headline consolidated into one always-loaded bullet** — every one of them is a prohibition, and a prohibition has to be in context before you consider the change it forbids. (Two conflict resolutions had left that bullet duplicated and divergent, and the Layout entry in the rules file triplicated; both are back to one copy carrying the union, each with an HTML comment saying to merge rather than append.) |
-| 9 | Verifying a change; out of scope | ALWAYS | inline (a fourth step added: how to verify a rule actually fires) |
+| 8 | Verifying a change; out of scope | ALWAYS | inline (a fourth step added: how to verify a rule actually fires) |
+| 9 | **This repo owns `~/.claude`** — the ownership decision, paths installed by nobody, the manifest tripwire and its `EXCLUDE` qualifier, don't sync from the fork | ALWAYS | inline — the tripwire must land when a path is *added*, a write no rule fires on (finding 2) |
+| 10 | The `@.claude/claude-defaults.md` and `@.claude/MEMORY.md` imports | ALWAYS | inline imports — both files load every turn with `CLAUDE.md` |
+| 11 | `.claude/output-styles/brief.md`, the default `outputStyle` | ALWAYS | not a `CLAUDE.md` rule — `settings.json` loads it every turn; listed so the always-loaded surface is complete |
+
+Re-checked against the tracked tree on 2026-10-14: the row for the deleted rules file was removed, rows 9–11 added. The four `.claude/rules/` files are rows 4–7.
 
 Nothing in the root file was classified DERIVABLE. `/doctor` independently
 reached the same conclusion — *"Nothing to cut. I looked for layout dumps,
@@ -151,7 +155,7 @@ per-area globs.
 - **Every prohibition relocated to a rule kept an always-loaded headline.** A
   rule fires on a read; a prohibition has to arrive before the edit. The
   headline is the trigger, the rule body is the reasoning.
-- **`.claude/claude-defaults.md` was not touched.** 29 lines, deliberately
+- **`.claude/claude-defaults.md` was not touched.** 29 lines then (41 at the 2026-10-14 re-check), deliberately
   lean, and consumers pin it by path.
 - **Nothing became a skill.** Skills load on intent match and their name and
   description stay resident every turn. Rules load deterministically on file
