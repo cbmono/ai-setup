@@ -20,6 +20,7 @@ pass=0; fail=0
 # Fresh throwaway config dir; echoes its path.
 newdir() { local d="$TMP/c$1"; rm -rf "$d"; mkdir -p "$d"; printf '%s' "$d"; }
 run()    { CLAUDE_CONFIG_DIR="$1" bash "$INSTALL" >"$TMP/out" 2>&1; }
+nbak()   { find "$1" -maxdepth 1 -name 'settings.json.bak.*' | wc -l | tr -d ' '; }
 
 ok() { # <name> <condition-description> <actual> <expected>
   if [ "$3" = "$4" ]; then
@@ -49,11 +50,11 @@ ok "user permissions preserved"             . "$(jq -r '.permissions.allow[0]' "
 ok "user deny rules preserved"              . "$(jq -r '.permissions.deny[0]' "$d/settings.json")" 'Bash(sudo:*)'
 ok "user env preserved"                     . "$(jq -r '.env.MY_PATH' "$d/settings.json")" /keep/me
 ok "user plugins preserved"                 . "$(jq -r '.enabledPlugins["mine@somewhere"]' "$d/settings.json")" true
-ok "backup written before edit"             . "$(ls "$d" | grep -c 'settings.json.bak.')" 1
+ok "backup written before edit"             . "$(nbak "$d")" 1
 
 # --- re-running must not re-edit or re-backup ------------------------------
 run "$d"
-ok "re-run makes no second backup"          . "$(ls "$d" | grep -c 'settings.json.bak.')" 1
+ok "re-run makes no second backup"          . "$(nbak "$d")" 1
 
 # --- the user's own value always wins -------------------------------------
 d="$(newdir 2)"
@@ -73,7 +74,7 @@ printf '{ "permissions": { "allow": [] }, }\n' > "$d/settings.json"   # trailing
 cksum_before="$(cksum < "$d/settings.json")"
 run "$d"
 ok "malformed settings.json left byte-identical" . "$(cksum < "$d/settings.json")" "$cksum_before"
-ok "malformed case makes no backup"             . "$(ls "$d" | grep -c 'settings.json.bak.' || true)" 0
+ok "malformed case makes no backup"             . "$(nbak "$d")" 0
 ok "malformed case explains itself"             . "$(grep -c 'could not merge' "$TMP/out")" 1
 
 # --- no settings.json at all: plain symlink, no merge path ----------------

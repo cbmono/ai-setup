@@ -27,7 +27,7 @@ mentions() {
   }' | LC_ALL=C sort
 }
 
-cd "$REPO"
+cd "$REPO" || exit 1
 got="$(printf 'a/b.md:  one two three four Ai-Bridge five six seven eight\n' | mentions)"
 ok "a mention is keyed by path and 3 words each side" "$got" "$(printf 'a/b.md\ttwo three four Ai-Bridge five six seven')"
 

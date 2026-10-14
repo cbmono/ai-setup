@@ -29,7 +29,7 @@ ok() { if [ "$2" = "$3" ]; then printf '  PASS  %-56s (%s)\n' "$1" "$2"; pass=$(
 # should be a reviewed diff — which is the whole point.
 ALLOWED="README.md test-locators"
 
-cd "$REPO"
+cd "$REPO" || exit 1
 tracked="$(git ls-files .claude/skills/ | sed 's#^\.claude/skills/##' | cut -d/ -f1 | sort -u)"
 ok "something under .claude/skills is tracked" "$([ -n "$tracked" ] && echo yes || echo no)" yes
 
