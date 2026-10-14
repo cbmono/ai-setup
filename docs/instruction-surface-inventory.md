@@ -124,7 +124,7 @@ headline behind it.
 |---|---|---|---|
 | 1 | What this repo is; the Layout map; commands-vs-skills | ALWAYS | inline (moved entries keep a one-line stub, so the map stays complete) |
 | 2 | Agents must stay generic · commands must stay generic · inventory lives in three places · the `README.md` template is consumer-facing | ALWAYS | inline — they apply to every edit in the repo |
-| 3 | Opus 4.8 is the target · **don't invent tool invocations** · fix-push-reply-once on review feedback · restart to verify registration · **don't rename `claude-defaults.md`** | ALWAYS | inline — cross-cutting, and the last one breaks every downstream consumer |
+| 3 | Claude 5 is the target · **don't invent tool invocations** · fix-push-reply-once on review feedback · restart to verify registration · **don't rename `claude-defaults.md`** | ALWAYS | inline — cross-cutting, and the last one breaks every downstream consumer |
 | 4 | `.claude/output-styles/` — the `Brief`-vs-`Concise` audit, marker discipline, `keep-coding-instructions` | PATH-CORRELATED | `.claude/rules/output-styles.md`. The `keep-coding-instructions: true` requirement stays inline: a new style file is *written*, and a rule only fires on a read (finding 2) |
 | 5 | `.claude/hooks/` — status-line contract, self-detection, absolute shell-expanded hook paths · `.claude/scripts/` | PATH-CORRELATED | `.claude/rules/hooks-and-scripts.md`; the absolute-path rule stays inline as a headline |
 | 6 | `settings.json` baseline · `enabledPlugins` policy · the `mcp__claude-in-chrome__*` allow rule · permission-pattern shapes · don't-block-harmless-files | PATH-CORRELATED | `.claude/rules/settings-and-permissions.md`; each keeps a headline inline |

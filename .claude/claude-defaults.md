@@ -5,12 +5,12 @@ Session-level rules. Keep this file under ~20 lines — it's re-sent every turn.
 ## Planning &amp; thinking (latest Opus)
 
 - **Front-load the spec.** Intent, constraints, acceptance criteria, and file paths belong in the first user turn — extra turns add reasoning overhead.
-- **Adaptive thinking.** 4.8 decides per-step whether to think. Steer via prompt: `think carefully and step-by-step` for hard problems, `respond directly` for lookups.
+- **Adaptive thinking.** The model decides how much to think; effort (`/effort`) is the main control. Prompt `respond directly` to cut thinking on lookups.
 - **Plan before editing non-trivial work.** Multi-file, cross-layer, or fuzzy-criteria tasks — confirm the approach with the user first.
 
 ## Parallelism &amp; delegation
 
-- **Spawn subagents explicitly** for genuinely independent work — don't serialize it. The `superpowers:dispatching-parallel-agents` skill owns the mechanics.
+- **Delegate only sizeable, genuinely independent work** — Claude 5 spawns subagents readily. Not for what a few tool calls finish, nor to double-check your own work. The `superpowers:dispatching-parallel-agents` skill owns the mechanics.
 - **Use tools proactively.** Grep/Glob the repo thoroughly before answering — don't rely on memory.
 - **Read before you write.** Before adding to a file, scan its exports, immediate callers, and shared utilities — duplicate helpers and silent breakage live there.
 
