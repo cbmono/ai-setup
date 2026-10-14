@@ -8,7 +8,6 @@ CLAUDE.md	instance template of ai-bridge (since renamed loopd),
 CLAUDE.md	layer of `cbmono/ai-bridge`, which was a
 README.md	`config/` layer of [`cbmono/ai-bridge`](https://github.com/cbmono/loopd) (now loopd), which
 docs/instruction-surface-inventory.md	## `ai-bridge/seed/CLAUDE.md` (the instance template)
-docs/instruction-surface-inventory.md	8 | The `ai-bridge/` invariants (`AWAITING.md`, the
 docs/instruction-surface-inventory.md	> **Historical note.** ai-bridge has since been
 docs/instruction-surface-inventory.md	> `.claude/rules/ai-bridge.md` was deleted with
 docs/instruction-surface-inventory.md	> ai-bridge rows as history;
@@ -17,12 +16,9 @@ docs/instruction-surface-inventory.md	`ai-bridge/CLAUDE.md` where this change
 docs/instruction-surface-inventory.md	`ai-bridge/seed/CLAUDE.md` lands at **198
 docs/instruction-surface-inventory.md	`ai-bridge` split as the
 docs/instruction-surface-inventory.md	`install.sh` fired for `ai-bridge/install.sh`, not only the
-docs/instruction-surface-inventory.md	kind) + the `ai-bridge/` layout entry —
 docs/instruction-surface-inventory.md	moved. Produced for ai-bridge v2 phase 4
 docs/instruction-surface-inventory.md	the instance template `ai-bridge/seed/CLAUDE.md` — classified
 docs/instruction-surface-inventory.md	the subtree. The ai-bridge half of
-docs/instruction-surface-inventory.md	| PATH-CORRELATED | `.claude/rules/ai-bridge.md` (`paths: /ai-bridge/**`), with
-docs/instruction-surface-inventory.md	| `.claude/rules/ai-bridge.md` (`paths: /ai-bridge/**`), with **every headline
 install.sh	# ai-bridge's next `--config` retired
 install.sh	A TIDINESS FIX. `cbmono/ai-bridge`'s config layer used
 install.sh	order ai-setup-first → ai-bridge-refresh left settings.json

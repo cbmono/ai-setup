@@ -239,7 +239,8 @@ link() {
     return
   fi
   if [ -e "$dst" ] || [ -L "$dst" ]; then
-    local bak="$dst.bak.$(date +%s)"
+    local bak
+    bak="$dst.bak.$(date +%s)"
     mv "$dst" "$bak"
     echo "  moved $name -> $(basename "$bak")"
   fi
