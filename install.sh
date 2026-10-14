@@ -63,8 +63,8 @@ SRC_DIR_FOR_GUARD="$REPO_ROOT"
 # Refuse to install from a git WORKTREE.
 #
 # This installer derives its source from `dirname $0` and then creates symlinks that
-# point AT that path (`~/.claude/*`). The ai-bridge installer, in its own repo, has the
-# same hazard and the same guard. A linked worktree is temporary by design: `ExitWorktree` or
+# point AT that path (`~/.claude/*`). loopd's config-layer installer, in its own repo, has
+# the same hazard and the same guard. A linked worktree is temporary by design: `ExitWorktree` or
 # `git worktree remove` deletes it, and every symlink created from it dangles the moment
 # it goes. That failure is silent — nothing errors at install time, and it surfaces later
 # as commands and hooks that have simply vanished.

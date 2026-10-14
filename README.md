@@ -12,7 +12,7 @@ Two layers, and you can use either one on its own:
 
 | Layer | What it is | Use it if… |
 | --- | --- | --- |
-| **[`ai-bridge`](https://github.com/cbmono/ai-bridge) — the control panel** *(now its own repo)* | A folder that acts as mission control for a group of repos: projects, tasks, a background project-manager loop, role agents, a knowledge base. | You want work happening while you're not watching |
+| **[`loopd`](https://github.com/cbmono/loopd) — the control panel** *(now its own repo)* | A folder that acts as mission control for a group of repos: projects, tasks, a background project-manager loop, role agents, a knowledge base. | You want work happening while you're not watching |
 | **[`.claude/`](#layer-2-the-claude-code-defaults) — the defaults** | Agents, slash commands, permissions, and hooks for everyday Claude Code use (`/plan`, `/grill`, `/verify`, `/scan`, …) | You just want a better-configured Claude Code |
 
 Built for Opus 4.8, Node.js/TypeScript projects, and stacked pull requests.
@@ -21,9 +21,9 @@ Built for Opus 4.8, Node.js/TypeScript projects, and stacked pull requests.
 
 ---
 
-# Layer 1: `ai-bridge` — the control panel
+# Layer 1: `loopd` — the control panel
 
-**This layer now lives in its own repo: [github.com/cbmono/ai-bridge](https://github.com/cbmono/ai-bridge).**
+**This layer now lives in its own repo: [github.com/cbmono/loopd](https://github.com/cbmono/loopd).**
 
 An **instance** of the control panel is a small git repo that sits beside your product
 repos. It holds no application code — only the state of the work: what you're trying to
@@ -40,7 +40,7 @@ Nothing here depends on it, and nothing there depends on this — but they compo
 control panel's agents are written assuming Layer 2 is installed.
 
 → **Setup, the core loop, the commands, the schema, sharing an instance, the board:**
-[`cbmono/ai-bridge`](https://github.com/cbmono/ai-bridge). Start with its README; the
+[`cbmono/loopd`](https://github.com/cbmono/loopd). Start with its README; the
 deep reference is in its `docs/`.
 
 ---
@@ -50,14 +50,14 @@ deep reference is in its `docs/`.
 The everyday coding config the control panel runs on — and perfectly useful on its own. These install into `~/.claude` and apply in every project.
 
 > **This repo owns `~/.claude`.** For a while two installers claimed it: this one, and the
-> `config/` layer of [`cbmono/ai-bridge`](https://github.com/cbmono/ai-bridge), which was a
+> `config/` layer of [`cbmono/ai-bridge`](https://github.com/cbmono/loopd) (now loopd), which was a
 > fork of this `.claude/` tree. 24 of the 26 entries were shipped by both and 14 had
 > diverged, so **which copy a machine ended up with was decided by whichever installer ran
 > last.** That is not a style problem: two of the fixes that existed only in the private
 > fork closed *secret-exposure* paths, and this public repo went on shipping the defects
 > for weeks. A fix nobody can tell you are missing is the worst shape a defect can take.
 >
-> The fork is retired in this repo's favour. **ai-bridge no longer installs the
+> The fork is retired in this repo's favour. **loopd no longer installs the
 > non-required set at all**; it keeps only the three agents its own role agents probe for
 > (`code-architect`, `deep-bug-scan`, `plan-architect`), so it still works on a machine
 > that never cloned this repo. Those three are the one sanctioned overlap, and this repo
@@ -219,7 +219,7 @@ Manage background jobs with `/codex:status`, `/codex:result`, and `/codex:cancel
 
 ## Alternative LLM backends (opt-in)
 
-Running a Claude Code session against a non-Anthropic backend now lives in the `ai-bridge-llm@ai-bridge` companion plugin, not in this repo.
+Running a Claude Code session against a non-Anthropic backend now lives in the `loopd-llm@loopd` companion plugin, not in this repo.
 
 ## Browser control (Claude for Chrome)
 
@@ -248,7 +248,7 @@ Two behaviors worth knowing before you rely on it:
 > | --- | --- |
 > | `~/.claude/settings.json` is a **symlink** to this repo (what `install.sh` does when you had none) | **Yes**, automatically |
 > | You have your **own real** `~/.claude/settings.json` | **No.** `install.sh` deliberately never edits it, so add the rule yourself (below) |
-> | ai-bridge **instances** | **Yes** — they read the control-panel repo's `symlink/.claude/settings.json`, which is symlinked, so no per-machine step |
+> | loopd **instances** | **Yes** — each bundle's `.claude/settings.json` is stamped from loopd's seed, so no per-machine step |
 >
 > If you're in the middle row, add this to your own `settings.json` (or `settings.local.json`) — one line, no need to adopt the whole baseline:
 >
@@ -256,7 +256,7 @@ Two behaviors worth knowing before you rely on it:
 > { "permissions": { "allow": ["mcp__claude-in-chrome__*"] } }
 > ```
 >
-> Two consequences worth being deliberate about. It applies to **ordinary sessions too**, not just ai-bridge — so once a browser is paired, Claude can act (including submitting forms) without asking anywhere. And it's a server-level rule: it can't distinguish read-only navigation from writes, because the tool names are injected by the extension and aren't enumerable from config. To keep prompts, shadow it in your own `settings.local.json`:
+> Two consequences worth being deliberate about. It applies to **ordinary sessions too**, not just loopd — so once a browser is paired, Claude can act (including submitting forms) without asking anywhere. And it's a server-level rule: it can't distinguish read-only navigation from writes, because the tool names are injected by the extension and aren't enumerable from config. To keep prompts, shadow it in your own `settings.local.json`:
 >
 > ```json
 > { "permissions": { "ask": ["mcp__claude-in-chrome__*"] } }
@@ -458,7 +458,7 @@ Key behaviours worth internalizing:
 
 # Theme previewer (`themes/`)
 
-A local tool for designing [Claude Code custom themes](https://code.claude.com/docs/en/terminal-config#create-a-custom-theme) with a live preview. Standalone: nothing here depends on ai-bridge or any plugin.
+A local tool for designing [Claude Code custom themes](https://code.claude.com/docs/en/terminal-config#create-a-custom-theme) with a live preview. Standalone: nothing here depends on loopd or any plugin.
 
 ```bash
 node themes/preview-app/server.mjs      # → http://127.0.0.1:4477
@@ -479,7 +479,7 @@ Theme files live in `themes/*.json`; `midnight.json` is the docs example. Full g
 - **Add a command:** drop an `.md` file in `.claude/commands/` — the filename (minus `.md`) becomes the `/command`. Use `$ARGUMENTS` for user-supplied args. No frontmatter needed. **Don't put a `README.md` in `.claude/commands/`** — Claude Code scans every `.md` there as a command, so a README becomes `/README`. See [`.claude/README.md`](./.claude/README.md) for the command-vs-skill distinction.
 - **Add an agent:** drop an `.md` file in `.claude/agents/` with YAML frontmatter (`name`, `description`, optional `model`, `isolation: worktree`).
 - **Adjust permissions:** edit `.claude/settings.json` for team-shared rules, `.claude/settings.local.json` for this machine only.
-- **Change the control panel's machinery:** that lives in [`cbmono/ai-bridge`](https://github.com/cbmono/ai-bridge) now, not here — edit `symlink/` there and every instance picks the change up immediately, since they symlink it.
+- **Change the control panel's machinery:** that lives in [`cbmono/loopd`](https://github.com/cbmono/loopd) now, not here — edit `plugin/` there and every instance picks the change up with the next plugin update.
 - **Compounding engineering:** when Claude does something wrong, add the rule to your project's `CLAUDE.md` so it doesn't recur.
 
 > **Restart after adding commands or agents.** Claude Code scans `.claude/commands/` and `.claude/agents/` at session start. New files aren't picked up until you `/exit` and relaunch `claude`. If `/<your-new-command>` returns "Unknown command", that's why.
@@ -495,7 +495,7 @@ Theme files live in `themes/*.json`; `midnight.json` is the docs example. Full g
 - `.claude/settings.plugins.example.json` — reference only, opt-in MCP-backed plugins (github, linear, context7)
 - `.claude/settings.codex.example.json` — reference only, opt-in Codex failover (`/codex:rescue` when tokens run low, `/codex:transfer` before they run out)
 - `.claude/potential-bugs.md`, `.claude/techdebt.md`, `.claude/plans/` — gitignored, auto-created by `/scan`, `/techdebt`, `/plan` on first run; never seeded in this repo
-- the control panel is **not in this repo** — it lives in [`cbmono/ai-bridge`](https://github.com/cbmono/ai-bridge), with its own installer, tests, and docs
+- the control panel is **not in this repo** — it lives in [`cbmono/loopd`](https://github.com/cbmono/loopd), with its own installer, tests, and docs
 - `themes/` — Claude Code theme files and the standalone previewer app ([above](#theme-previewer-themes)); not installed by `install.sh`
 - `CLAUDE.md` (this repo's root) — guidance for Claude when editing **this config repo itself**, not a template
 - `tests/` — the shell test suite; CI (`.github/workflows/tests.yml`) runs every `tests/*.test.sh` on every PR and every push to `main`

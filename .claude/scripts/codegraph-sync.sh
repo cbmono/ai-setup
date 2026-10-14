@@ -16,7 +16,7 @@
 #     rule the CLAUDE.md guidance states. This only syncs what is already indexed.
 #   * It never removes an index. `codegraph uninit` is a one-line manual call; a sweep
 #     that deletes indexes is the shape that destroyed three agents' worktrees once
-#     already (the ai-bridge repo's prune-worktrees.sh, report-only by design, for the
+#     already (the loopd repo's prune-worktrees.sh, report-only by design, for the
 #     same reason).
 #
 # Uses `codegraph sync` (incremental, "since last index"), not `codegraph index` (full

@@ -6,7 +6,7 @@ before anything was moved. Produced for ai-bridge v2 phase 4 (progressive
 disclosure), and kept as the record of *why* each rule sits where it does.
 
 > **Historical note.** ai-bridge has since been extracted into its own repo,
-> [`cbmono/ai-bridge`](https://github.com/cbmono/ai-bridge), and this repo's
+> [`cbmono/loopd`](https://github.com/cbmono/loopd) (renamed from ai-bridge), and this repo's
 > `.claude/rules/ai-bridge.md` was deleted with the subtree. The ai-bridge half of
 > this document is deliberately left as written: it is the record of the *method*
 > and of decisions that were re-argued more than once, and rewriting it to match

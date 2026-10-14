@@ -5,7 +5,7 @@ A mock Claude Code session renders in your terminal's colors next to the theme J
 valid edit repaints the preview, and clicking any part of the preview jumps to the JSON value
 that colors it.
 
-It is standalone: no dependencies, no build step, and nothing tied to ai-bridge or any other
+It is standalone: no dependencies, no build step, and nothing tied to loopd or any other
 plugin. The theme files it writes are plain Claude Code theme files, so they work in any setup.
 
 ## Run it
