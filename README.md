@@ -498,6 +498,7 @@ Theme files live in `themes/*.json`; `midnight.json` is the docs example. Full g
 - the control panel is **not in this repo** — it lives in [`cbmono/ai-bridge`](https://github.com/cbmono/ai-bridge), with its own installer, tests, and docs
 - `themes/` — Claude Code theme files and the standalone previewer app ([above](#theme-previewer-themes)); not installed by `install.sh`
 - `CLAUDE.md` (this repo's root) — guidance for Claude when editing **this config repo itself**, not a template
+- `tests/` — the shell test suite; CI (`.github/workflows/tests.yml`) runs every `tests/*.test.sh` on every PR and every push to `main`
 - `.coderabbit.yaml` — this repo's own CodeRabbit settings; **not** installed into `~/.claude` (the installer only touches `.claude`). Tuned for **one review per PR**: no re-review on each push, no auto-reply to every comment. Copy it into your own repos if agent-authored PRs are burning review sessions there too
 
 ---

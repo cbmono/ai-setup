@@ -1,0 +1,50 @@
+name: tests
+
+# No paths filter and no skip: `tests` is named in .github/required-checks.txt, and a
+# required check that does not run on a PR leaves that PR unmergeable.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+      - name: Install jq
+        run: command -v jq >/dev/null || { sudo apt-get update -q && sudo apt-get install -yq jq; }
+      # Harnesses print SKIP and exit 0 when jq or node is missing, so absence must fail here.
+      - name: Check tools
+        run: jq --version && node --version && git --version
+      - name: Run every tests/*.test.sh
+        env:
+          TMPDIR: ${{ runner.temp }}
+        run: |
+          touch "$RUNNER_TEMP/.suite-start"
+          n=0; fails=0
+          for f in $(git ls-files 'tests/*.test.sh'); do
+            n=$((n+1))
+            echo "::group::$f"
+            bash "$f" || { echo "::error::FAILED: $f"; fails=$((fails+1)); }
+            echo "::endgroup::"
+          done
+          echo "$n harnesses, $fails failed"
+          [ "$n" -gt 0 ] && [ "$fails" -eq 0 ]
+      - name: Suite wrote only under temp dirs
+        run: |
+          stray="$(find "$HOME" -path "$HOME/work" -prune -o -path "$HOME/runners" -prune -o -path "$HOME/actions-runner" -prune \
+            -o -newer "$RUNNER_TEMP/.suite-start" -print)"
+          dirty="$(git status --porcelain)"
+          [ -z "$stray$dirty" ] || { printf '%s\n' "$stray" "$dirty"; exit 1; }
