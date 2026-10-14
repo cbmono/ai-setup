@@ -15,7 +15,7 @@ Two layers, and you can use either one on its own:
 | **[`loopd`](https://github.com/cbmono/loopd) — the control panel** *(now its own repo)* | A folder that acts as mission control for a group of repos: projects, tasks, a background project-manager loop, role agents, a knowledge base. | You want work happening while you're not watching |
 | **[`.claude/`](#layer-2-the-claude-code-defaults) — the defaults** | Agents, slash commands, permissions, and hooks for everyday Claude Code use (`/plan`, `/grill`, `/verify`, `/scan`, …) | You just want a better-configured Claude Code |
 
-Built for Opus 4.8, Node.js/TypeScript projects, and stacked pull requests.
+Built for the Claude 5 models, Node.js/TypeScript projects, and stacked pull requests.
 
 **In a hurry?** [Set up the defaults](#getting-started) (2 minutes), then [set up a control panel](#setting-up-a-control-panel) (10 minutes).
 
@@ -441,17 +441,21 @@ Use the `stack-navigator` agent when you want a summary plus the recommended nex
 
 ---
 
-# Opus 4.8
+# Claude 5
 
+The current family is Fable 5.1, Opus 5.5, Sonnet 5.5 and Haiku 5.5
+([models overview](https://platform.claude.com/docs/en/models/overview)).
 This config targets Opus for planning and review, Sonnet for implementation (model
 aliases, so they track the current release rather than pinning a version that goes stale).
+On the Anthropic API `opus` and `sonnet` resolve to Opus 5.5 and Sonnet 5.5; some third-party
+providers resolve them to older models — pin them there with `ANTHROPIC_DEFAULT_OPUS_MODEL` /
+`ANTHROPIC_DEFAULT_SONNET_MODEL` ([model aliases](https://code.claude.com/docs/en/model-config#model-aliases)).
 
 Key behaviours worth internalizing:
 
-- **Default effort is `xhigh`.** Use `/model` to adjust — `high` for concurrent sessions, `max` for gnarly problems only.
-- **Adaptive thinking.** Fixed thinking budgets aren't supported; nudge with "think carefully and step-by-step" or "respond directly."
-- **Less delegation by default.** Tell it explicitly: "Spawn subagents in parallel for each..."
-- **Fewer tool calls.** Tell it explicitly: "Grep thoroughly before answering."
+- **Opus 5.5 defaults to `medium` effort**; this repo's `settings.json` raises it to `high`. Use `/effort` to adjust — `xhigh` or `max` for gnarly problems only.
+- **Adaptive thinking, always on for Opus 5.5.** Fixed thinking budgets aren't supported; effort sets the depth, and "respond directly" trims it.
+- **More delegation by default.** Cap it rather than prompt for it: subagents only for large, independent, parallel work.
 - **Front-load the spec.** Every turn adds reasoning overhead — state constraints, acceptance criteria, and file locations in turn one.
 
 ---
