@@ -7,25 +7,25 @@
 # and the `config/` layer of `cbmono/ai-bridge`, which was a fork of this `.claude/` tree.
 # 24 of the 26 entries then in this manifest were shipped by both, 14 had diverged, and
 # which copy a machine ended up with was decided by whichever installer ran last — not by
-# design. The fork is being retired in ai-bridge's favour of *this* repo: **ai-setup owns
-# `~/.claude`**, and ai-bridge keeps only the three agents its own role agents probe for.
+# design. The fork is retired in favour of *this* repo: **ai-setup owns
+# `~/.claude`**, and loopd keeps only the three agents its own role agents probe for.
 #
 # That decision has a failure mode in each direction, and this file guards the one that
 # lives here:
 #
-#   · ai-bridge stops installing the non-required set → if a path is missing HERE, it is
+#   · loopd stops installing the non-required set → if a path is missing HERE, it is
 #     now installed by NOBODY. Silently: an absent agent is a failed `test -f`, an absent
-#     command is a slash command that just does not exist. So the paths ai-bridge handed
+#     command is a slash command that just does not exist. So the paths the fork handed
 #     over are enumerated below and asserted to be **installable from this repo**, not
 #     merely present in it. `EXCLUDE` and the top-level linking are the parts that can
 #     drop one without any file disappearing, which is why the assertion runs the real
 #     installer instead of checking `git ls-files`.
 #   · the two layers start shipping the same path again → the count is PINNED. A new
 #     tracked, installable entry under `.claude/` fails here until it is added to the
-#     manifest, which is the moment to check that ai-bridge is not shipping it too.
+#     manifest, which is the moment to check that loopd is not shipping it too.
 #
 # THE ONE SANCTIONED OVERLAP is `agents/{code-architect,deep-bug-scan,plan-architect}.md`.
-# ai-bridge probes for those three by absolute path and must work on a machine that never
+# loopd probes for those three by absolute path and must work on a machine that never
 # cloned this repo, so it keeps its own copies in `config/required/`. They are asserted to
 # be in the manifest here as well: this repo is a superset, so whichever installer runs
 # last, the agent exists.
@@ -52,7 +52,7 @@ ok() { if [ "$2" = "$3" ]; then printf '  PASS  %-58s (%s)\n' "$1" "$2"; pass=$(
 
 # ---------------------------------------------------------------------- the manifest
 # Every `~/.claude` path this repo owns. Grouped only for reading; order is irrelevant.
-# The three marked (ai-bridge) are the sanctioned overlap described in the header.
+# The three in AI_BRIDGE_REQUIRED are the sanctioned overlap described in the header.
 OWNED="
 agents/build-validator.md
 agents/code-architect.md
@@ -128,7 +128,7 @@ $OWNED
 EOF
 ok "every owned path is installed into the config dir" "$missing" 0
 # Pinned, so a NEW entry under .claude/ cannot slip in unlisted. When this fails after an
-# addition: add the path above AND check that ai-bridge is not shipping it too.
+# addition: add the path above AND check that loopd is not shipping it too.
 ok "the manifest still has 26 entries"    "$total" 26
 
 # ------------------------------------------------ 2. the check can say "no" (non-vacuity)
@@ -172,10 +172,10 @@ ok "…and no manifest entry has stopped being tracked" \
    "$(comm -23 "$TMP/manifest" "$TMP/tracked" | tr '\n' ' ' | sed 's/ *$//')" ""
 
 # ------------------------------------------------ 4. the sanctioned overlap is covered
-# ai-bridge keeps its own copies of these three and probes for them by absolute path. This
+# loopd keeps its own copies of these three and probes for them by absolute path. This
 # repo must ship them too, or a machine that installs only these defaults loses them.
 for rel in $AI_BRIDGE_REQUIRED; do
-  ok "ai-bridge's required agent is shipped here: ${rel#agents/}" "$(installed "$rel")" yes
+  ok "loopd's required agent is shipped here: ${rel#agents/}" "$(installed "$rel")" yes
 done
 
 # ------------------------------------------------ 5. uninstall gives every owned path back
@@ -234,7 +234,7 @@ ok "…and every installer invocation names a throwaway one" \
 # that number cannot see this defect at all: a path that was never linked is ABSENT, not
 # dangling. The failing run scored 0 dangling and exit 0 with the file gone. So each
 # assertion here reads the path itself (`sj_dest`, `-e`), and (c) mutation-tests the branch
-# they depend on so none of them can pass for an incidental reason. Same reason the ai-bridge
+# they depend on so none of them can pass for an incidental reason. Same reason the loopd
 # side asserts by SET MEMBERSHIP over CONFIG_MANAGED_TOPS rather than by sweeping for
 # dangling links: see its docs/claude-config-ownership.md, point 6.
 sj_dest() { readlink "$1/settings.json" 2>/dev/null; }

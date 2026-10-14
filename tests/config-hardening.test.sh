@@ -9,7 +9,7 @@
 # — while THIS public repo went on shipping the defects. Ten fixes; two of them
 # secret-exposure paths, ported in #70. The remaining eight arrive with this harness,
 # together with the decision that closed the fork: **this repo owns `~/.claude`**, and
-# ai-bridge keeps only the three agents its own role agents probe for. A fix that lives
+# loopd keeps only the three agents its own role agents probe for. A fix that lives
 # only in a private fork is a fix the public consumers do not have, so the fixes and the
 # harness that pins them belong here, where the files are installed from.
 #

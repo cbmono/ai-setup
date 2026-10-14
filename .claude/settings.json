@@ -338,8 +338,8 @@
       "**Protected deployment namespaces / environments**: None configured — fall back to the Sensitive remote targets heuristic",
       "**Protected IaC scopes**: IAM, RBAC, networking, quota, and node-pool resources; anything whose name or tag carries `prod` or `production` as a whole word or name segment",
       "### User-specific",
-      "**Primary use of Claude Code**: software development — this repo ships Claude Code defaults, agents, slash commands, and a control-panel template (ai-bridge)",
-      "**Trusted repo**: cbmono/ai-setup (github.com:cbmono/ai-setup.git), the working directory — PUBLIC, so only this repo's own work belongs here; confidential material (secrets, personal/entrusted data) is never cleared into it regardless of visibility; content ported or first read from outside this session's repo (e.g. from the sibling ~/workspace/ai-bridge checkout) is not this repo's own work and should not be pushed here",
+      "**Primary use of Claude Code**: software development — this repo ships Claude Code defaults, agents, and slash commands; the control panel (loopd) lives in its own repo",
+      "**Trusted repo**: cbmono/ai-setup (github.com:cbmono/ai-setup.git), the working directory — PUBLIC, so only this repo's own work belongs here; confidential material (secrets, personal/entrusted data) is never cleared into it regardless of visibility; content ported or first read from outside this session's repo (e.g. from a sibling loopd checkout) is not this repo's own work and should not be pushed here",
       "**Org-specific CLIs**: None configured — `codegraph`, `tot`, and `codex` appear frequently in this project's usage but are project tooling, not confirmed org-wide CLIs",
       "No routine under <user>/ prefix qualifiers were found"
     ]

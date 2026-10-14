@@ -37,7 +37,7 @@ Defaults shipped by this repo. See the [top-level README](../README.md) for inst
 
 > Don't put a `README.md` inside `commands/` — Claude Code registers every `.md` there as a slash command, so a README becomes `/README`.
 
-> The ai-bridge control-panel template lives in **its own repo** now — [`cbmono/ai-bridge`](https://github.com/cbmono/ai-bridge). Its role agents (`project-manager`, `software-engineer`, `devops-engineer`, `qa-reviewer`, `cataloguer`, `auditor`, `oncall-guide`) and its commands (`/pm-loop`, `/new-project`, `/close-project`, `/answer`, `/audit`, `/pr-review-request`, `/fanout`) install into per-group *instances*, **not** into `~/.claude`, so they're intentionally absent from the inventories below.
+> The loopd control panel lives in **its own repo** — [`cbmono/loopd`](https://github.com/cbmono/loopd). It ships as a Claude Code plugin carrying its own role agents and commands, so they're intentionally absent from the inventories below.
 
 ## Agents
 
@@ -147,21 +147,21 @@ Plugins enable behind the folder-trust gate on first launch, not silently. Consu
 
 ## Alternative LLM backends (opt-in)
 
-Substituting a non-Anthropic model behind Claude Code is shipped by the `ai-bridge-llm@ai-bridge` companion plugin, not by this repo.
+Substituting a non-Anthropic model behind Claude Code is shipped by the `loopd-llm@loopd` companion plugin, not by this repo.
 
 ## Browser control (Claude for Chrome)
 
 **Nothing to ship here — this one is deliberately docs-only.** Claude for Chrome's `mcp__claude-in-chrome__*` tools are **injected by the extension** into a live paired session; they appear in no config file (`claude mcp list` doesn't list the server, and there's no stanza in `settings.json` or any `.mcp.json`). So there is no `settings.claudeforchrome.example.json` and there shouldn't be — inventing a `command`/`args` block would violate "don't invent tool invocations". Setup is: install the extension → grant **per-site** permissions in it → the tools appear. See the top-level `README.md` → "Browser control" for the consumer-facing version.
 
-Two verified behaviors that shape guidance elsewhere: background subagents **do** inherit the browser connection (it isn't foreground-only), but each gets its **own tab group** rather than the human's open tabs — so agents must navigate from an explicit URL. `settings.json` **allows `mcp__claude-in-chrome__*`** — the one MCP-tool permission in the baseline, and a deliberate exception to "consumers wire up their own integrations". Rationale: permissions belong in `settings.json` per this repo's rules, and leaving these tools prompting defeats the feature's main use case, since a *background* agent stalls on a prompt nobody sees (it reads as a hang, not a block). It's safe as a default because it is **inert until the consumer installs and pairs the extension** — no extension, no tools, nothing matches — which also means the extension's per-site permissions are the real gate. the ai-bridge repo's `symlink/.claude/settings.json` carries the same rule, because instance sessions read that file rather than this one. Two caveats to keep stated. It's server-level and cannot separate read-only navigation from **writes** (form submits, setting changes), as the tool names are extension-injected and not enumerable from config — and it applies to ordinary sessions, not only ai-bridge projects with delegated autonomy. To restore prompts without forking the baseline, shadow it in `.claude/settings.local.json` (or `~/.claude/settings.local.json` for a whole machine):
+Two verified behaviors that shape guidance elsewhere: background subagents **do** inherit the browser connection (it isn't foreground-only), but each gets its **own tab group** rather than the human's open tabs — so agents must navigate from an explicit URL. `settings.json` **allows `mcp__claude-in-chrome__*`** — the one MCP-tool permission in the baseline, and a deliberate exception to "consumers wire up their own integrations". Rationale: permissions belong in `settings.json` per this repo's rules, and leaving these tools prompting defeats the feature's main use case, since a *background* agent stalls on a prompt nobody sees (it reads as a hang, not a block). It's safe as a default because it is **inert until the consumer installs and pairs the extension** — no extension, no tools, nothing matches — which also means the extension's per-site permissions are the real gate. loopd's seed `.claude/settings.json` carries the same rule, because instance sessions read their bundle's copy of it rather than this one. Two caveats to keep stated. It's server-level and cannot separate read-only navigation from **writes** (form submits, setting changes), as the tool names are extension-injected and not enumerable from config — and it applies to ordinary sessions, not only loopd projects with delegated autonomy. To restore prompts without forking the baseline, shadow it in `.claude/settings.local.json` (or `~/.claude/settings.local.json` for a whole machine):
 
 ```json
 { "permissions": { "ask": ["mcp__claude-in-chrome__*"] } }
 ```
 
-And it only arrives by `git pull` where `~/.claude/settings.json` is a **symlink** to this repo; `install.sh` leaves a real one untouched by design, so those users add the one allow rule themselves. Instances are fine either way — they read the ai-bridge repo's `symlink/.claude/settings.json`.
+And it only arrives by `git pull` where `~/.claude/settings.json` is a **symlink** to this repo; `install.sh` leaves a real one untouched by design, so those users add the one allow rule themselves. Instances are fine either way — each bundle's `.claude/settings.json` is stamped from loopd's seed.
 
-The ai-bridge repo consumes this: a project opts in with `browser: claude-for-chrome`, and that repo's `symlink/SCHEMA.md` → "Browser access" holds the agent-facing rules (browser-first, degrade when absent, writes ask-first unless the project's autonomy delegates them).
+The loopd repo consumes this: a project opts in with `browser: claude-for-chrome`, and that repo's `plugin/seed/SCHEMA.md` → "Browser access" holds the agent-facing rules (browser-first, degrade when absent, writes ask-first unless the project's autonomy delegates them).
 
 ## Commands vs skills vs rules
 
