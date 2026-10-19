@@ -1,10 +1,11 @@
-// Base presets, extracted verbatim from the Claude Code 2.1.285 binary (the object
-// literals behind `bL()`, which picks a preset by name). Values keep Claude Code's own
+// Base presets, extracted verbatim from the Claude Code 2.1.303 binary (the object
+// literals behind `gj()`, which picks a preset by name). Values keep Claude Code's own
 // notation: rgb(…) for truecolor presets, ansi:<name> for the *-ansi ones.
 // Regenerate when a Claude Code release adds or recolors a token.
 export const PRESETS = {
   "dark": {
     "autoAccept": "rgb(175,135,255)",
+    "autoAcceptShimmer": "rgb(208,180,255)",
     "skill": "rgb(175,135,255)",
     "bashBorder": "rgb(253,93,177)",
     "claude": "rgb(215,119,87)",
@@ -78,6 +79,7 @@ export const PRESETS = {
   },
   "light": {
     "autoAccept": "rgb(135,0,255)",
+    "autoAcceptShimmer": "rgb(208,180,255)",
     "skill": "rgb(135,0,255)",
     "bashBorder": "rgb(255,0,135)",
     "claude": "rgb(215,119,87)",
@@ -88,7 +90,7 @@ export const PRESETS = {
     "permissionShimmer": "rgb(137,155,255)",
     "planMode": "rgb(0,102,102)",
     "ide": "rgb(71,130,200)",
-    "promptBorder": "rgb(153,153,153)",
+    "promptBorder": "rgb(138,138,138)",
     "promptBorderShimmer": "rgb(183,183,183)",
     "text": "rgb(0,0,0)",
     "inverseText": "rgb(255,255,255)",
@@ -151,6 +153,7 @@ export const PRESETS = {
   },
   "dark-daltonized": {
     "autoAccept": "rgb(175,135,255)",
+    "autoAcceptShimmer": "rgb(208,180,255)",
     "skill": "rgb(175,135,255)",
     "bashBorder": "rgb(51,153,255)",
     "claude": "rgb(255,153,51)",
@@ -224,6 +227,7 @@ export const PRESETS = {
   },
   "light-daltonized": {
     "autoAccept": "rgb(135,0,255)",
+    "autoAcceptShimmer": "rgb(208,180,255)",
     "skill": "rgb(135,0,255)",
     "bashBorder": "rgb(0,102,204)",
     "claude": "rgb(255,153,51)",
@@ -234,7 +238,7 @@ export const PRESETS = {
     "permissionShimmer": "rgb(101,152,255)",
     "planMode": "rgb(51,102,102)",
     "ide": "rgb(71,130,200)",
-    "promptBorder": "rgb(153,153,153)",
+    "promptBorder": "rgb(138,138,138)",
     "promptBorderShimmer": "rgb(183,183,183)",
     "text": "rgb(0,0,0)",
     "inverseText": "rgb(255,255,255)",
@@ -297,6 +301,7 @@ export const PRESETS = {
   },
   "dark-ansi": {
     "autoAccept": "ansi:magentaBright",
+    "autoAcceptShimmer": "ansi:magentaBright",
     "skill": "ansi:magentaBright",
     "bashBorder": "ansi:magentaBright",
     "claude": "ansi:redBright",
@@ -370,6 +375,7 @@ export const PRESETS = {
   },
   "light-ansi": {
     "autoAccept": "ansi:magenta",
+    "autoAcceptShimmer": "ansi:magentaBright",
     "skill": "ansi:magenta",
     "bashBorder": "ansi:magenta",
     "claude": "ansi:redBright",

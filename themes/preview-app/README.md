@@ -45,7 +45,7 @@ The cache is per machine and gitignored.
 
 1. **Pick or create a theme.** The **Theme** dropdown lists `themes/*.json`. **New…** creates a
    file from a base preset, from the current file, or from **Match my terminal**. New files list
-   **every** token (71), pre-filled, so the JSON doubles as the full menu of options.
+   **every** token (72), pre-filled, so the JSON doubles as the full menu of options.
 2. **Edit the JSON.** Valid changes repaint the preview immediately. Invalid colors fall back to
    the base preset and get a red mark; unknown tokens get a yellow one. That matches Claude Code,
    which ignores both silently. Broken JSON keeps the last valid preview until you fix it. Click a
@@ -109,14 +109,14 @@ The server binds to `127.0.0.1` and refuses requests with a foreign `Host` (DNS 
 - **The preview is an approximation.** It is hand-built HTML laid out like Claude Code, not the
   real renderer. Colors are exact; layout and glyphs are close. Check the final result in a real
   session (see the symlink tip above).
-- **Undocumented tokens.** Nine tokens (`skill`, `chromeYellow`, `clawd_body`, …) are accepted by
+- **Undocumented tokens.** Ten tokens (`skill`, `autoAcceptShimmer`, `chromeYellow`, …) are accepted by
   the CLI but not in the docs. Their descriptions and their places in the preview are inferred
   from their names, and Export leaves them out by default.
 
 ## Updating the base presets
 
-`presets.mjs` is a verbatim copy of the preset objects inside the Claude Code binary (2.1.285
-when this was written). When a release adds or recolors tokens, regenerate it rather than editing
+`presets.mjs` is a verbatim copy of the preset objects inside the Claude Code binary (2.1.303
+when last regenerated). When a release adds or recolors tokens, regenerate it rather than editing
 it by hand:
 
 1. Dump the binary's strings: `strings -n 6 "$(readlink -f "$(which claude)")" > /tmp/cc.txt`.

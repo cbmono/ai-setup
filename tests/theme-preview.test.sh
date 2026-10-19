@@ -60,10 +60,10 @@ done
 ok "at least one theme ships as an example" "$([ "$n_themes" -ge 1 ] && echo yes || echo no)" yes
 
 echo "== 4. generated themes are full and portable =="
-ok "a terminal-matched theme sets all 71 tokens as #rrggbb" "$(js '
+ok "a terminal-matched theme sets all 72 tokens as #rrggbb" "$(js '
   const { themeFromTerminal, FALLBACK_TERMINAL } = await import(process.argv[1] + "/tokens.mjs");
   const o = themeFromTerminal("t", FALLBACK_TERMINAL).overrides;
-  console.log(Object.keys(o).length + ":" + Object.values(o).every((v) => /^#[0-9a-f]{6}$/.test(v)));')" "71:true"
+  console.log(Object.keys(o).length + ":" + Object.values(o).every((v) => /^#[0-9a-f]{6}$/.test(v)));')" "72:true"
 ok "ansi values resolve through the terminal palette" "$(js '
   const { toHex } = await import(process.argv[1] + "/tokens.mjs");
   const term = { palette: Array.from({ length: 16 }, (_, i) => "#0000" + i.toString(16).padStart(2, "0")) };

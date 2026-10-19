@@ -45,6 +45,7 @@ export const TOKENS = {
   promptBorderShimmer: T(G.input, 'Shimmer pair of promptBorder'),
   planMode: T(G.input, 'Plan mode accent, plan messages and dialogs'),
   autoAccept: T(G.input, 'Accept-edits mode accent'),
+  autoAcceptShimmer: T(G.input, 'Not in the docs; lighter half of the auto-accept mode shimmer', false),
   bashBorder: T(G.input, 'Input box border while entering a ! shell command'),
   ide: T(G.input, 'IDE connection indicator'),
   fastMode: T(G.input, 'Fast mode indicator'),
@@ -93,7 +94,7 @@ export const ANSI_NAMES = ['black', 'red', 'green', 'yellow', 'blue', 'magenta',
   'blackBright', 'redBright', 'greenBright', 'yellowBright', 'blueBright', 'magentaBright',
   'cyanBright', 'whiteBright'];
 
-// Mirrors Claude Code's own validator (`CW()` in 2.1.285). An override that fails it is
+// Mirrors Claude Code's own validator (`Z4()` in 2.1.303). An override that fails it is
 // ignored by Claude Code and the token falls back to the base preset — the preview does
 // the same, so what you see is what the CLI would draw.
 export function isValidColor(v) {

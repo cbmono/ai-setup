@@ -68,7 +68,7 @@ function previewHTML(mode, menu) {
   const h = [];
   // header
   h.push(
-    row(fg('clawd_body', ' ▐▛███▜▌'), '   ', Tx('Claude Code', true), ' ', I('v2.1.285')),
+    row(fg('clawd_body', ' ▐▛███▜▌'), '   ', Tx('Claude Code', true), ' ', I('v2.1.303')),
     row(fg('clawd_body', '▝▜█████▛▘'), '  ', I('Opus 5.5 · Claude Max')),
     row(fg('clawd_body', '  ▘▘ ▝▝'), '    ', I('~/workspace/private/ai-setup')),
     gap,
