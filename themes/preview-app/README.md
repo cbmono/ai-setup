@@ -54,7 +54,9 @@ The cache is per machine and gitignored.
    it comes from your file or the base preset. Click to select that value in the JSON; ⌥-click
    picks the lighter "shimmer" partner some tokens have. If the file doesn't set the token yet, it
    is added with its current value. Moving the cursor onto a token line outlines everything that
-   token paints.
+   token paints. Some parts have no theme token: dimmed hints, the `❯` in the input, links, table
+   borders and your statusLine output. Claude Code draws them in dim text, the terminal
+   foreground or your ANSI palette. Hovering one says so, and clicking it does nothing.
 4. **Switch views.** The mode buttons (default, plan, accept edits, auto, bash) and the
    **slash menu** checkbox show the parts of the UI that only appear in those states. A token
    whose gutter swatch is faded isn't drawn in the current view.
@@ -108,7 +110,9 @@ The server binds to `127.0.0.1` and refuses requests with a foreign `Host` (DNS 
 
 - **The preview is an approximation.** It is hand-built HTML laid out like Claude Code, not the
   real renderer. Colors are exact; layout and glyphs are close. Check the final result in a real
-  session (see the symlink tip above).
+  session (see the symlink tip above). The input rules, the mode line, inline code, links,
+  tables, the statusLine row, the background-agents panel and the collapsed agent messages were
+  re-checked against the 2.1.303 renderer source. Older parts of the mock were not.
 - **Undocumented tokens.** Ten tokens (`skill`, `autoAcceptShimmer`, `chromeYellow`, …) are accepted by
   the CLI but not in the docs. Their descriptions and their places in the preview are inferred
   from their names, and Export leaves them out by default.

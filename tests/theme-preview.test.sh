@@ -70,6 +70,23 @@ ok "ansi values resolve through the terminal palette" "$(js '
   console.log([toHex("ansi:cyanBright", term), toHex("ansi256(3)", term), toHex("ansi256(196)", term), toHex("ansi256(244)", term)].join(" "));')" \
    "#00000e #000003 #ff0000 #808080"
 
+echo "== 4b. the preview names only real tokens and explained non-theme parts =="
+ok "every token the preview paints exists in TOKENS" "$(js '
+  const fs = await import("node:fs");
+  const { TOKENS } = await import(process.argv[1] + "/tokens.mjs");
+  const src = fs.readFileSync(process.argv[1] + "/app.mjs", "utf8");
+  const used = new Set();
+  for (const m of src.matchAll(/\b(?:fg|bg|shim|rowBg|box|rule|dot)\(\x27([A-Za-z_]+)\x27(?:,\s*\x27([A-Za-z_]+)\x27)?/g)) { used.add(m[1]); if (m[2] && TOKENS[m[2]]) used.add(m[2]); }
+  console.log([...used].filter((t) => !TOKENS[t]).join(" ") || "none");')" none
+ok "every non-theme part (data-nt) has an inspector note" "$(js '
+  const fs = await import("node:fs");
+  const src = fs.readFileSync(process.argv[1] + "/app.mjs", "utf8");
+  const block = /const NON_THEME = \{([\s\S]*?)\n\};/.exec(src)[1];
+  const known = new Set([...block.matchAll(/^\s+([a-z]+):/gm)].map((m) => m[1]));
+  const used = new Set([...src.matchAll(/\bnt\(\x27([a-z]+)\x27/g)].map((m) => m[1]));
+  for (const k of ["dim", "plain", "link"]) used.add(k);
+  console.log([...used].filter((k) => !known.has(k)).join(" ") || "none");')" none
+
 echo "== 5. terminal replies (OSC 10/11/4) parse in both terminator styles =="
 ok "fg (ST, 4-digit), bg (BEL, 2-digit), palette index" "$(js '
   const { parseReplies } = await import(process.argv[1] + "/server.mjs");
