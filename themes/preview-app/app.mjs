@@ -1,5 +1,5 @@
 import {
-  TOKENS, PRESETS, BASES, DEFAULT_BASE, FALLBACK_TERMINAL,
+  TOKENS, PRESETS, BASES, DEFAULT_BASE, FALLBACK_TERMINAL, ANSI_NAMES,
   isValidColor, toHex, resolveTheme, fullTheme, themeFromTerminal,
 } from './tokens.mjs';
 
@@ -44,11 +44,45 @@ const row = (...p) => `<div class="row">${p.join('')}</div>`;
 const rowBg = (t, ...p) => `<div class="row" data-t="${t}" style="background:${V(t)}">${p.join('')}</div>`;
 const flex = (l, r) => `<div class="row flex"><span>${l}</span><span>${r}</span></div>`;
 const gap = '<div class="gap"></div>';
-const box = (t, rows, tag = '') => `<div class="box" data-t="${t}" style="border-color:${V(t)}">${tag}${rows.join('')}</div>`;
+const box = (t, rows) => `<div class="box" data-t="${t}" style="border-color:${V(t)}">${rows.join('')}</div>`;
 const I = (s) => fg('inactive', esc(s));
 const Tx = (s, b) => fg('text', esc(s), b);
 const dot = (t = 'text') => fg(t, '⏺');
 const out = (...p) => row(`  ${I('⎿')}  `, ...p);
+
+// Parts Claude Code 2.1.303 draws WITHOUT a theme key (read from its renderer source).
+// data-nt names the entry here; the inspector explains it and a click does not jump to the JSON.
+const NON_THEME = {
+  dim: ['Dimmed terminal text', 'No theme key: Claude Code draws this with dimColor (SGR 2) over the terminal foreground.'],
+  plain: ['Terminal foreground', 'No theme key: drawn with no colour, so your terminal foreground shows.'],
+  link: ['Hyperlink', 'No theme key: an OSC 8 link in ANSI blueBright (ANSI blue on light themes), so your terminal palette colours it. The underline is your terminal\'s own link style.'],
+  statusline: ['Your statusLine', 'No theme key: the output of your statusLine command, with its own ANSI colours, drawn dimmed. Not theme-coloured.'],
+};
+const nt = (k, html, cls = '', style = '') => `<span data-nt="${k}" class="${cls}"${style ? ` style="${style}"` : ''}>${html}</span>`;
+const D = (s) => nt('dim', esc(s), 'dim');
+const P = (s, b = false) => nt('plain', b ? `<b>${esc(s)}</b>` : esc(s));
+const A = (name) => `var(--ansi-${name})`;
+const code = (s) => fg('permission', esc(s)); // markdown codespan: qn("permission")
+const link = (s) => nt('link', esc(s), 'link', `color:${A('link')}`);
+// The prompt input: a top and a bottom rule (round border, left and right sides off), no box.
+const rule = (t, tag = '') => `<div class="row rule" data-t="${t}" style="color:${V(t)}"><span class="line">${'─'.repeat(400)}</span>${tag ? `<span>${tag}──</span>` : ''}</div>`;
+
+// A markdown table as Claude Code draws it: box-drawing borders with no colour of their own,
+// header cells centred, a ├─┼─┤ separator between every row. Cells are [text, isCode].
+function mdTable(head, rows) {
+  const w = head.map((h, i) => Math.max(3, h.length, ...rows.map((r) => r[i][0].length)));
+  const edge = (l, m, r) => P(l + w.map((n) => '─'.repeat(n + 2)).join(m) + r);
+  const cell = ([s, isCode], i, centre) => {
+    const pad = w[i] - s.length;
+    const left = centre ? Math.floor(pad / 2) : 0;
+    return ' '.repeat(left) + (isCode ? code(s) : P(s)) + ' '.repeat(pad - left);
+  };
+  const line = (cells, centre) => P('│') + cells.map((c, i) => ` ${cell(c, i, centre)} ${P('│')}`).join('');
+  const lines = [edge('┌', '┬', '┐'), line(head.map((h) => [h, false]), true)];
+  rows.forEach((r) => lines.push(edge('├', '┼', '┤'), line(r, false)));
+  lines.push(edge('└', '┴', '┘'));
+  return lines.map((l) => `<div class="row tbl">  ${l}</div>`);
+}
 
 function diffLine(n, sign, t, word, pre, hit, post) {
   const lineNo = I(String(n).padStart(4));
@@ -68,7 +102,7 @@ function previewHTML(mode, menu) {
   const h = [];
   // header
   h.push(
-    row(fg('clawd_body', ' ▐▛███▜▌'), '   ', Tx('Claude Code', true), ' ', I('v2.1.285')),
+    row(fg('clawd_body', ' ▐▛███▜▌'), '   ', Tx('Claude Code', true), ' ', I('v2.1.303')),
     row(fg('clawd_body', '▝▜█████▛▘'), '  ', I('Opus 5.5 · Claude Max')),
     row(fg('clawd_body', '  ▘▘ ▝▝'), '    ', I('~/workspace/private/ai-setup')),
     gap,
@@ -77,7 +111,7 @@ function previewHTML(mode, menu) {
   );
   // conversation
   h.push(
-    rowBg('userMessageBackground', Tx('> make the diff colors match my terminal')),
+    rowBg('userMessageBackground', fg('inactive', '❯'), ' ', Tx('make the diff colors match my terminal')),
     gap,
     row(dot(), ' ', Tx("I'll check the current theme first.")),
     gap,
@@ -101,6 +135,9 @@ function previewHTML(mode, menu) {
     row('  ', I('agents  '), ...['red', 'blue', 'green', 'yellow', 'purple', 'orange', 'pink', 'cyan']
       .map((c) => bg(`${c}_FOR_SUBAGENTS_ONLY`, fg('inverseText', ` ${c} `), 'chip'))),
     gap,
+    row(D('› Message from @general-purpose (ctrl+o to expand)')),
+    row(D('› Message from @code-architect (ctrl+o to expand)')),
+    gap,
     row(dot('success'), ' ', Tx('Update', true), Tx('(src/theme.ts)')),
     out(fg('error', 'User rejected update to src/theme.ts')),
     diffLine(7, '-', 'diffRemovedDimmed', 'diffRemovedDimmed', '  const accent = ', 'base.claude', ';'),
@@ -115,7 +152,10 @@ function previewHTML(mode, menu) {
     row(dot(), ' ', Tx('Diff now '), bg('selectionBg', Tx('follows your terminal palette')), Tx('. '), fg('warning', '⚠ 2 tests still fail.'),
       ' ', fg('success', '✓ lint passed'), ' ', fg('merged', '⎇ PR #42 merged')),
     gap,
-    rowBg('userMessageBackgroundHover', Tx('> /usage')),
+    row(dot(), ' ', P('The accent now lives in '), code('themes/midnight.json'), P('; review it in '), link('ai-setup#79'), P('.')),
+    ...mdTable(['Token', 'Value'], [[['claude', true], ['#ff7ac2', false]], [['permission', true], ['#ff7ac2', false]]]),
+    gap,
+    rowBg('userMessageBackgroundHover', fg('inactive', '❯'), ' ', Tx('/usage')),
     out(Tx('Current session  '), fg('rate_limit_fill', '██████████████'), fg('rate_limit_empty', '██████'), Tx('  71% used')),
     row('     ', I('Resets 3pm (Europe/Berlin)')),
     gap,
@@ -148,15 +188,19 @@ function previewHTML(mode, menu) {
     ]));
   }
   h.push(row(shim('claude', 'claudeShimmer', '✻ Pondering…'), ' ', I('(12s · ↓ 1.2k tokens · '), shim('inactive', 'inactiveShimmer', 'esc to interrupt'), I(')')));
-  // input
+  // input: two rules in promptBorder (bashBorder in bash mode), no side borders. The prompt
+  // glyph is ❯ drawn dim; in bash mode it is "!" in bashBorder.
   const caret = `<span class="caret" data-t="text" style="background:${V('text')}"> </span>`;
   const bash = mode === 'bash';
-  const tag = `<span class="tag">${fg('effortUltra', 'ultracode')}</span>`;
+  const border = bash ? 'bashBorder' : 'promptBorder';
+  const tag = bash ? '' : ` ${fg('effortUltra', 'ultracode')} `;
   let input;
-  if (bash) input = row(fg('bashBorder', '! ', true), Tx('npm run build'), caret);
-  else if (menu) input = row(Tx('> /th'), caret);
-  else input = row(Tx('> '), rainbow('ultrathink'), Tx(' about the edge cases'), caret);
-  h.push(box(bash ? 'bashBorder' : 'promptBorder', [input], bash ? '' : tag));
+  if (bash) input = row(fg('bashBorder', '! '), Tx('npm run build'), caret);
+  else if (menu) input = row(D('❯ '), Tx('/th'), caret);
+  else input = row(D('❯ '), rainbow('ultrathink'), Tx(' about the edge cases'), caret);
+  h.push(rule(border, tag), input, rule(border));
+  // statusLine: a user command's output, its own ANSI colours, dimmed. Not theme-coloured.
+  h.push(row(' ', nt('statusline', `ai-setup · <span style="color:${A('green')}">main</span> · Opus 5.5 · ctx 38% · <span style="color:${A('yellow')}">2 bg jobs</span>`, 'dim')));
   // footer
   if (menu && !bash) {
     h.push(
@@ -165,16 +209,24 @@ function previewHTML(mode, menu) {
       row('  ', I('/todos              List current todo items')),
     );
   } else {
+    // The mode line: symbol + indicator + " on" in the mode's colour (Dd[mode].color in the
+    // binary), then a dim " (shift+tab to cycle)". Bash mode shows "! for shell mode" instead.
+    const cycle = D(' (shift+tab to cycle)');
     const left = {
-      default: I('? for shortcuts'),
-      plan: fg('planMode', '⏸ plan mode on') + I(' (shift+tab to cycle)'),
-      accept: fg('autoAccept', '⏵⏵ accept edits on') + I(' (shift+tab to cycle)'),
-      auto: shim('warning', 'warningShimmer', '⏵⏵ auto mode on') + I(' (shift+tab to cycle)'),
-      bash: fg('bashBorder', '! for bash mode'),
+      default: D('? for shortcuts'),
+      plan: fg('planMode', '⏸ plan mode on') + cycle,
+      accept: fg('autoAccept', '⏵⏵ accept edits on') + cycle,
+      auto: fg('warning', '⏵⏵ auto mode on') + cycle,
+      bash: fg('bashBorder', '! for shell mode'),
     }[mode];
     const right = [fg('chromeYellow', '◉ Chrome'), fg('ide', '◯ IDE: VS Code'), shim('fastMode', 'fastModeShimmer', '↯ fast')].join('  ');
     h.push(flex(` ${left}`, `${right} `));
   }
+  // Background agents panel: the viewed row is bold with no colour, the others are dimmed.
+  h.push(
+    row('  ', P('⏺ main', true)),
+    flex(`  ${D('○ general-purpose  Reviewing the theme loader')}`, `${D('2m 55s · ↓ 67.3k tokens')} `),
+  );
   return `<div class="scroll">${transcript.join('')}</div><div class="dock">${h.join('')}</div>`;
 }
 
@@ -185,6 +237,10 @@ function applyColors() {
   s.setProperty('--term-bg', state.term.background);
   s.setProperty('--term-fg', state.term.foreground);
   for (const [k, v] of Object.entries(hex)) s.setProperty(`--t-${k}`, v);
+  // Parts drawn in plain ANSI colours resolve through the terminal palette, as in the CLI.
+  ANSI_NAMES.forEach((n, i) => s.setProperty(`--ansi-${n}`, state.term.palette[i]));
+  const light = String(state.resolved.base).startsWith('light');
+  s.setProperty('--ansi-link', toHex(light ? 'ansi:blue' : 'ansi:blueBright', state.term));
 }
 
 function renderPreview() {
@@ -433,10 +489,13 @@ function tipFor(target) {
 
 function onPreviewMove(e) {
   if (!state.inspect) { el.tip.hidden = true; return; }
-  const target = e.target.closest('[data-t]');
+  const target = e.target.closest('[data-t],[data-nt]');
   // Outline only the innermost element, the one a click would pick; :hover would light up every ancestor box.
   if (target !== state.hov) { state.hov?.classList.remove('hov'); target?.classList.add('hov'); state.hov = target; }
-  if (target) el.tip.innerHTML = tipFor(target);
+  if (target?.dataset.nt) {
+    const [label, note] = NON_THEME[target.dataset.nt];
+    el.tip.innerHTML = `${esc(label)}<div class="d">${esc(note)}</div>`;
+  } else if (target) el.tip.innerHTML = tipFor(target);
   else el.tip.innerHTML = `<span class="sw" style="background:${state.term.background}"></span>Terminal background ${state.term.background}<div class="d">Set by your terminal, not by the theme</div>`;
   el.tip.hidden = false;
   const pad = 14;
@@ -448,8 +507,8 @@ function onPreviewMove(e) {
 
 function onPreviewClick(e) {
   if (!state.inspect) return;
-  const target = e.target.closest('[data-t]');
-  if (!target) return;
+  const target = e.target.closest('[data-t],[data-nt]');
+  if (!target || target.dataset.nt) return; // nothing in the theme JSON to jump to
   e.preventDefault();
   revealToken(e.altKey && target.dataset.t2 ? target.dataset.t2 : target.dataset.t);
 }

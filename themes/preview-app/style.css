@@ -77,8 +77,12 @@ label.chk { gap: 4px; cursor: pointer; }
 .preview b { font-weight: 700; }
 .preview .fill { display: inline-block; width: calc(100% - 7ch); vertical-align: top; }
 .preview .box { border: 1px solid; border-radius: 8px; padding: 2px 1ch; margin: 4px 0; position: relative; }
-.preview .box .tag { position: absolute; top: -0.75em; right: 2ch; background: var(--term-bg); padding: 0 1ch; line-height: 1.38; }
 .preview .chip { padding: 0 1ch; margin-right: 1ch; }
+.preview .rule { display: flex; overflow: hidden; }
+.preview .rule .line { flex: 1; min-width: 0; overflow: hidden; }
+.preview .tbl { min-height: 0; line-height: 1.15; } /* box-drawing rows touch, as in a terminal */
+.preview .dim { opacity: 0.55; } /* SGR 2: the terminal draws the colour at reduced intensity */
+.preview .link { text-decoration: underline dashed; text-underline-offset: 2px; }
 .preview .caret { animation: blink 1.1s steps(1) infinite; }
 .preview .gap { height: 0.7em; }
 
