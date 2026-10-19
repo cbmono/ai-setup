@@ -37,8 +37,9 @@ hand-drawn mock is shown instead.
   it forwards (typed keys, clicks, paste) is dropped. Enter in every encoding (CR, LF, kitty
   `CSI 13 u`, keypad `ESC O M`) is refused by the server and again by the PTY host.
 - **Nothing under `~/.claude` is written.** claude runs on a temp config dir, so it uses a separate
-  keychain entry and never reads your credentials. It makes no API calls: resuming a session
-  sends nothing, and nonessential traffic is off.
+  keychain entry and never reads your credentials. It opens no network connection. Resuming a
+  session sends nothing, and nonessential traffic, the auto-updater and the plugin-marketplace
+  auto-install are off. Without the last two, a fresh config dir would reach downloads.claude.ai.
 - **Nothing outlives the server.** There is one claude per browser tab. It is killed when the tab
   disconnects or after 30 minutes idle. On exit the server kills every claude and deletes the temp dirs.
 

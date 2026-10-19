@@ -100,7 +100,10 @@ class Live {
     const sl = userStatusLine(); if (sl) settings.statusLine = sl;
     const env = { HOME: homedir(), USER: process.env.USER || '', LANG: 'en_US.UTF-8', TERM: 'xterm-256color', COLORTERM: 'truecolor',
       PATH: [dirname(CLAUDE), '/opt/homebrew/bin', '/usr/local/bin', '/usr/bin', '/bin'].join(':'),
-      TERM_PROGRAM: 'Orca', FORCE_HYPERLINK: '1', CLAUDE_CONFIG_DIR: cfg, CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1' };
+      TERM_PROGRAM: 'Orca', FORCE_HYPERLINK: '1', CLAUDE_CONFIG_DIR: cfg,
+      // No network at all: a fresh config dir would otherwise fetch the official plugin
+      // marketplace and check for updates (downloads.claude.ai), even with the traffic switch.
+      CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1', DISABLE_AUTOUPDATER: '1', CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL: '1' };
     const argv = [CLAUDE, '--resume', sid, '--settings', JSON.stringify(settings), '--permission-mode', MODES[mode] ?? 'manual'];
     const host = spawn(PYTHON, ['-I', join(APP_DIR, 'pty-host.py'), String(cols), String(rows), '--', ...argv],
       { cwd, env, stdio: ['pipe', 'pipe', 'ignore'] });

@@ -199,6 +199,9 @@ sleep 4
 read -ra HOSTS <<< "$(pgrep -P "$LIVE_PID" | tr '\n' ' ')"
 read -ra KIDS <<< "$(for h in "${HOSTS[@]}"; do pgrep -P "$h"; done | tr '\n' ' ')"
 ok "one PTY host and one claude are running" "${#HOSTS[@]}:${#KIDS[@]}" 1:1
+if [ -n "$REAL" ] && command -v lsof >/dev/null 2>&1; then
+  ok "claude has no network socket open" "$(for p in "${KIDS[@]}"; do lsof -nP -a -i -p "$p" 2>/dev/null | tail -n +2; done | wc -l | tr -d ' ')" 0
+fi
 BODY='{"replies":"x\r\n\u001b[13u\u001b[?1;2c","menu":true}'   # JSON escapes: CR, LF, kitty Enter, DA1
 ok "Enter and typed text sent as replies never arrive" "$(post "$ID" "$BODY")" 200
 ok "the stream carries the terminal output" "$(grep -c '^event: out' "$TMP/stream.txt" | awk '{print ($1>0)?"yes":"no"}')" yes
