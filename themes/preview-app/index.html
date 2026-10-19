@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Claude Theme Preview</title>
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@6.0.0/css/xterm.css">
+  <script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@6.0.0/lib/xterm.js"></script>
 </head>
 <body>
   <header class="bar">
@@ -36,6 +38,8 @@
       </div>
       <div class="term-window">
         <div class="term-chrome"><i></i><i></i><i></i><span>claude — ai-setup</span></div>
+        <div id="live-banner" class="live-banner" data-testid="live-banner" hidden></div>
+        <div id="live" class="live" data-testid="live-preview" hidden></div>
         <div id="preview" class="preview" data-testid="preview"></div>
       </div>
     </section>

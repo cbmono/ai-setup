@@ -97,6 +97,11 @@ label.chk { gap: 4px; cursor: pointer; }
 @keyframes blink { 50% { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .shimmer, .glint, .caret { animation: none; } }
 
+.live { flex: 1; min-height: 0; overflow: hidden; padding: 4px; background: var(--term-bg); cursor: crosshair; }
+.live[hidden], .preview[hidden] { display: none; }
+.live-banner { padding: 5px 10px; font-size: 12px; background: var(--ui-panel); color: var(--ui-warn); border-bottom: 1px solid var(--ui-line); }
+.live-banner button { margin-left: 8px; padding: 0 8px; }
+
 .preview .hov { outline: 1px dashed var(--ui-accent); outline-offset: 1px; cursor: crosshair; }
 .preview .match { outline: 2px solid var(--ui-accent) !important; outline-offset: 1px; }
 
