@@ -1,12 +1,47 @@
 # Claude Code theme preview
 
 A local tool for designing [Claude Code custom themes](https://code.claude.com/docs/en/terminal-config#create-a-custom-theme).
-A mock Claude Code session renders in your terminal's colors next to the theme JSON. Every
-valid edit repaints the preview, and clicking any part of the preview jumps to the JSON value
-that colors it.
+The preview pane is **the real Claude Code**, running on a synthetic session and drawn by
+xterm.js with your terminal's palette and font, next to the theme JSON. Every valid edit
+repaints it, and clicking a cell jumps to the JSON value that colors it.
 
-It is standalone: no dependencies, no build step, and nothing tied to loopd or any other
+It is standalone: no npm dependencies, no build step, and nothing tied to loopd or any other
 plugin. The theme files it writes are plain Claude Code theme files, so they work in any setup.
+
+## How the live preview works
+
+1. The server starts `claude --resume <id>` inside a PTY (`pty-host.py`, Python stdlib only), with
+   a clean environment and a throwaway `CLAUDE_CONFIG_DIR` in the system temp dir. The session it
+   resumes is `fixture.mjs`: a made-up control-panel exchange (table, `Needs you:` list, inline
+   code, a link, Read/Update with a diff, a failing command, a subagent, `!` commands).
+   Nothing in it comes from a real session.
+2. Your theme JSON is written to `<temp>/themes/preview.json` and selected with
+   `--settings '{"theme":"custom:preview"}'`. Claude Code watches that file, so each edit repaints
+   the running session in well under a second.
+3. The bytes stream to the page over Server-Sent Events. xterm.js draws them and answers the
+   terminal queries Claude Code sends (device attributes, colors). The page posts those replies back.
+4. Your `statusLine` is read from `~/.claude/settings.json` (never written) and passed through
+   `--settings`, so the real status line renders.
+5. Font, weight, line height, cursor and minimum contrast come from Orca's settings when Orca is
+   installed (its profile database, opened read-only). Colors come from the terminal palette below.
+
+The mode buttons restart claude with `--permission-mode` (`default` is `manual`); **bash**
+types `!` into the empty prompt, and **slash menu** types `/` (unticking sends a backspace).
+Without `python3` or `claude` on `PATH` (or if xterm.js cannot load), a banner says why and the
+hand-drawn mock is shown instead.
+
+### Safety
+
+- **The prompt is never submitted.** The page can only send named keys (`!`, `/`, backspace, Esc,
+  shift+tab) and xterm.js's replies to terminal queries plus mouse-wheel reports. Everything else
+  it forwards (typed keys, clicks, paste) is dropped. Enter in every encoding (CR, LF, kitty
+  `CSI 13 u`, keypad `ESC O M`) is refused by the server and again by the PTY host.
+- **Nothing under `~/.claude` is written.** claude runs on a temp config dir, so it uses a separate
+  keychain entry and never reads your credentials. It opens no network connection. Resuming a
+  session sends nothing, and nonessential traffic, the auto-updater and the plugin-marketplace
+  auto-install are off. Without the last two, a fresh config dir would reach downloads.claude.ai.
+- **Nothing outlives the server.** There is one claude per browser tab. It is killed when the tab
+  disconnects or after 30 minutes idle. On exit the server kills every claude and deletes the temp dirs.
 
 ## Run it
 
@@ -14,7 +49,8 @@ plugin. The theme files it writes are plain Claude Code theme files, so they wor
 node themes/preview-app/server.mjs        # → http://127.0.0.1:4477
 ```
 
-Requires Node 18+. **Start it from the terminal you run Claude Code in** (not through `!` inside
+Requires Node 18+, `python3` (macOS ships `/usr/bin/python3`) and `claude` on `PATH`; Orca is
+optional. **Start it from the terminal you run Claude Code in** (not through `!` inside
 Claude Code), because the server asks that terminal for its colors when it starts.
 
 | Option | Default | What it does |
@@ -50,13 +86,14 @@ The cache is per machine and gitignored.
    the base preset and get a red mark; unknown tokens get a yellow one. That matches Claude Code,
    which ignores both silently. Broken JSON keeps the last valid preview until you fix it. Click a
    gutter swatch for a color picker. **⌘S / Ctrl+S** saves.
-3. **Inspect.** Hover the preview to see the token that paints an element, its value, and whether
-   it comes from your file or the base preset. Click to select that value in the JSON; ⌥-click
-   picks the lighter "shimmer" partner some tokens have. If the file doesn't set the token yet, it
-   is added with its current value. Moving the cursor onto a token line outlines everything that
-   token paints. Some parts have no theme token: dimmed hints, the `❯` in the input, links, table
-   borders and your statusLine output. Claude Code draws them in dim text, the terminal
-   foreground or your ANSI palette. Hovering one says so, and clicking it does nothing.
+3. **Inspect.** Hover a cell to see its exact text and background color and the token(s) that
+   produce it in the resolved theme (base preset plus your overrides). Click to select that value
+   in the JSON; if the file doesn't set the token yet, it is added with its current value. When
+   several tokens share the color, all are listed and the click picks the first. Some cells are
+   not theme-colored, and the inspector says so: body text and code-block syntax use your
+   terminal's foreground and ANSI colors, and links use ANSI blue. Measured on 2.1.303: inline code
+   uses the **base preset's** `permission` (`#b1b9f9` on dark), not your override, and the mascot
+   stays orange whatever `claude` is.
 4. **Switch views.** The mode buttons (default, plan, accept edits, auto, bash) and the
    **slash menu** checkbox show the parts of the UI that only appear in those states. A token
    whose gutter swatch is faded isn't drawn in the current view.
@@ -96,23 +133,30 @@ the real thing. A plugin can also ship the file in its themes directory.
 
 | File | What it is |
 | --- | --- |
-| `server.mjs` | Local server: terminal detection, static files, `GET/PUT /api/themes/<slug>` |
-| `index.html`, `style.css` | The page |
-| `app.mjs` | Preview markup, JSON editor, inspect, dialogs |
+| `server.mjs` | Local server: terminal detection, static files, `GET/PUT /api/themes/<slug>`, `/api/live/*` |
+| `live.mjs` | Live sessions: temp config, spawn, key and reply filter, cleanup; Orca settings |
+| `pty-host.py` | The PTY: spawns claude, relays bytes, resizes, refuses Enter |
+| `fixture.mjs` | The synthetic session claude resumes |
+| `term.mjs` | The page side: xterm.js, resize, the cell inspector |
+| `index.html`, `style.css` | The page (xterm.js 6.0.0 from jsDelivr) |
+| `app.mjs` | JSON editor, dialogs, and the mock preview used as the fallback |
 | `tokens.mjs` | Token descriptions, the color validator, color resolution, theme generators. Shared with the tests |
 | `presets.mjs` | The six base presets, extracted from the Claude Code binary |
 
 The server binds to `127.0.0.1` and refuses requests with a foreign `Host` (DNS rebinding) or
 `Origin` (another tab). It serves only the files listed above, and writes only
-`<THEMES_DIR>/<slug>.json` for slugs matching `[A-Za-z0-9][A-Za-z0-9_-]*`.
+`<THEMES_DIR>/<slug>.json` for slugs matching `[A-Za-z0-9][A-Za-z0-9_-]*`. Starting a live session
+is a `POST`, so the Origin check also keeps other sites from spawning claude.
 
 ## Limitations
 
-- **The preview is an approximation.** It is hand-built HTML laid out like Claude Code, not the
-  real renderer. Colors are exact; layout and glyphs are close. Check the final result in a real
-  session (see the symlink tip above). The input rules, the mode line, inline code, links,
-  tables, the statusLine row, the background-agents panel and the collapsed agent messages were
-  re-checked against the 2.1.303 renderer source. Older parts of the mock were not.
+- **xterm.js is not Orca's renderer.** The page uses xterm.js 6.0.0 with its DOM renderer; Orca
+  ships a 6.1 beta with WebGL. Glyph rasterization and box-drawing joins can differ by a pixel.
+- **The header is the temp config's.** It shows a temp path and `API Usage Billing`, because the
+  temp config dir is not signed in.
+- **One fixed session.** Permission dialogs, spinners and other in-flight UI need a live turn, which
+  would mean an API call; they are not shown. The mock (the fallback) still draws them, laid out
+  by hand.
 - **Undocumented tokens.** Ten tokens (`skill`, `autoAcceptShimmer`, `chromeYellow`, …) are accepted by
   the CLI but not in the docs. Their descriptions and their places in the preview are inferred
   from their names, and Export leaves them out by default.
@@ -140,4 +184,8 @@ bash tests/theme-preview.test.sh
 
 The test checks that every `themes/*.json` is a file Claude Code accepts, that the validator and
 color resolution match the CLI, that terminal replies parse, and that the server's write guards
-hold against a live instance.
+hold against a live instance. For the live preview it checks the key and reply filter, that the PTY host refuses
+Enter, and runs a session end to end against a private `HOME`: the real claude when it is
+installed, otherwise a stand-in that records every byte it receives (`THEME_PREVIEW_STAND_IN=1`
+forces the stand-in). It then asserts that server exit leaves no process and no temp dir behind,
+and that `$HOME/.claude/settings.json` and `$HOME/.claude.json` are unchanged.

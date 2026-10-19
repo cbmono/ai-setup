@@ -11,6 +11,7 @@ import { readFile, writeFile, readdir } from 'node:fs/promises';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, extname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { startLive, getLive, stopAll, unavailable, filterReplies, orcaTerminal } from './live.mjs';
 
 const APP_DIR = dirname(fileURLToPath(import.meta.url));
 const THEMES_DIR = process.env.THEMES_DIR || dirname(APP_DIR);
@@ -22,7 +23,10 @@ const PORT = Number(opt('--port', process.env.PORT || 4477));
 
 const SLUG = /^[a-z0-9][a-z0-9_-]{0,63}$/i;
 const STATIC = { '/': 'index.html', '/index.html': 'index.html', '/app.mjs': 'app.mjs',
-  '/tokens.mjs': 'tokens.mjs', '/presets.mjs': 'presets.mjs', '/style.css': 'style.css' };
+  '/tokens.mjs': 'tokens.mjs', '/presets.mjs': 'presets.mjs', '/style.css': 'style.css', '/term.mjs': 'term.mjs' };
+const LIVE_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+const int = (v, lo, hi) => (Number.isInteger(v) && v >= lo && v <= hi ? v : null);
+const isTheme = (t) => t && typeof t === 'object' && !Array.isArray(t);
 const MIME = { '.html': 'text/html; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8' };
 
@@ -127,6 +131,36 @@ export function makeServer(terminal) {
         return send(res, 200, await readFile(join(APP_DIR, f)), MIME[extname(f)]);
       }
       if (req.method === 'GET' && p === '/api/terminal') return send(res, 200, terminal ?? {});
+      if (req.method === 'GET' && p === '/api/live/config') return send(res, 200, { unavailable: unavailable(), orca: orcaTerminal() });
+      // Live preview. Starting one is a POST, so a cross-site page cannot spawn claude (Origin).
+      const lm = /^\/api\/live\/([^/]+)(\/stream)?$/.exec(p);
+      if (lm) {
+        if (!LIVE_ID.test(lm[1])) return send(res, 400, { error: 'invalid id' });
+        if (req.method === 'GET' && lm[2]) {
+          const s = getLive(lm[1]);
+          return s ? s.attach(res) : send(res, 404, { error: 'no live session' });
+        }
+        if (req.method !== 'POST' || lm[2]) return send(res, 405, { error: 'method not allowed' });
+        let b;
+        try { b = JSON.parse(await readBody(req)); } catch { return send(res, 400, { error: 'invalid JSON' }); }
+        if (!b || typeof b !== 'object') return send(res, 400, { error: 'invalid body' });
+        if (b.start) {
+          const why = unavailable();
+          if (why) return send(res, 503, { error: why });
+          const cols = int(b.cols, 20, 500); const rows = int(b.rows, 8, 200);
+          if (!cols || !rows) return send(res, 400, { error: 'invalid size' });
+          const s = startLive(lm[1], { cols, rows, mode: String(b.mode), menu: !!b.menu, theme: isTheme(b.theme) ? b.theme : null });
+          return s ? send(res, 200, { ok: true }) : send(res, 429, { error: 'too many live previews' });
+        }
+        const s = getLive(lm[1]);
+        if (!s) return send(res, 404, { error: 'no live session' });
+        s.touch();
+        if (isTheme(b.theme)) s.setTheme(b.theme);
+        if (Array.isArray(b.size) && int(b.size[0], 20, 500) && int(b.size[1], 8, 200)) s.resize(b.size[0], b.size[1]);
+        if (typeof b.menu === 'boolean') s.menuKey(b.menu);
+        if (typeof b.replies === 'string') s.write(filterReplies(b.replies));
+        return send(res, 200, { ok: true });
+      }
       if (req.method === 'GET' && p === '/api/themes') {
         const files = (await readdir(THEMES_DIR)).filter((f) => f.endsWith('.json') && SLUG.test(f.slice(0, -5)));
         const list = await Promise.all(files.sort().map(async (f) => {
@@ -163,6 +197,8 @@ export function makeServer(terminal) {
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
   const terminal = await loadTerminal();
+  // Every live claude and its temp dir go with the server.
+  for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP']) process.on(sig, () => stopAll().finally(() => process.exit(0)));
   makeServer(terminal).listen(PORT, '127.0.0.1', () => {
     console.log(`Claude Code theme preview → http://127.0.0.1:${PORT}`);
     console.log(`  themes:   ${THEMES_DIR}`);

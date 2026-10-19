@@ -2,6 +2,7 @@ import {
   TOKENS, PRESETS, BASES, DEFAULT_BASE, FALLBACK_TERMINAL, ANSI_NAMES,
   isValidColor, toHex, resolveTheme, fullTheme, themeFromTerminal,
 } from './tokens.mjs';
+import { LiveView } from './term.mjs';
 
 const $ = (s) => document.querySelector(s);
 const el = {
@@ -9,7 +10,7 @@ const el = {
   preview: $('#preview'), src: $('#src'), hl: $('#hl'), gutter: $('#gutter'), problems: $('#problems'),
   fileLabel: $('#file-label'), dirty: $('#dirty'), parse: $('#parse-status'),
   tip: $('#tip'), toast: $('#toast'), picker: $('#picker'), split: $('#split'), splitter: $('#splitter'),
-  dlgNew: $('#dlg-new'), dlgExport: $('#dlg-export'), exOut: $('#ex-out'),
+  dlgNew: $('#dlg-new'), dlgExport: $('#dlg-export'), exOut: $('#ex-out'), live: $('#live'), banner: $('#live-banner'),
 };
 
 const state = {
@@ -235,6 +236,7 @@ function applyColors() {
   const { hex } = state.resolved;
   const s = el.preview.style;
   s.setProperty('--term-bg', state.term.background);
+  el.live.style.background = state.term.background;
   s.setProperty('--term-fg', state.term.foreground);
   for (const [k, v] of Object.entries(hex)) s.setProperty(`--t-${k}`, v);
   // Parts drawn in plain ANSI colours resolve through the terminal palette, as in the CLI.
@@ -244,6 +246,7 @@ function applyColors() {
 }
 
 function renderPreview() {
+  if (state.live) { renderGutter(); return; }
   const prev = el.preview.querySelector('.scroll');
   const y = prev ? prev.scrollTop : null;
   el.preview.innerHTML = previewHTML(state.mode, state.menu);
@@ -363,6 +366,7 @@ function onSourceChange() {
     state.parseError = null;
     state.resolved = resolveTheme(parsed, state.term);
     applyColors();
+    state.live?.setTheme(parsed);
     el.parse.textContent = `base: ${state.resolved.base} · ${Object.keys(parsed.overrides ?? {}).length} overrides`;
     el.parse.className = 'parse-status';
   } catch (e) {
@@ -497,6 +501,10 @@ function onPreviewMove(e) {
     el.tip.innerHTML = `${esc(label)}<div class="d">${esc(note)}</div>`;
   } else if (target) el.tip.innerHTML = tipFor(target);
   else el.tip.innerHTML = `<span class="sw" style="background:${state.term.background}"></span>Terminal background ${state.term.background}<div class="d">Set by your terminal, not by the theme</div>`;
+  placeTip(e);
+}
+
+function placeTip(e) {
   el.tip.hidden = false;
   const pad = 14;
   const { innerWidth: W, innerHeight: H } = window;
@@ -632,6 +640,52 @@ function setTerminal(key) {
   renderTermStrip();
   if (state.parsed) state.resolved = resolveTheme(state.parsed, state.term);
   if (state.resolved) { applyColors(); renderGutter(); }
+  state.live?.setPalette(state.term);
+}
+
+// ---- live preview -----------------------------------------------------------------------
+// The real Claude Code in xterm.js when the server can run it; otherwise the mock, saying why.
+function banner(msg, retry = false) {
+  el.banner.hidden = !msg;
+  el.banner.innerHTML = msg ? `${esc(msg)}${retry ? ' <button type="button" data-testid="live-restart">Restart</button>' : ''}` : '';
+}
+
+async function startLive() {
+  try {
+    await state.live.start({ mode: state.mode, menu: state.menu, theme: state.parsed, term: state.term });
+    banner(null);
+  } catch (e) { fallbackToMock(`Live preview unavailable (${e.message}): showing the hand-drawn mock.`); }
+}
+
+function fallbackToMock(msg) {
+  state.live?.dispose();
+  state.live = null;
+  el.live.hidden = true;
+  el.preview.hidden = false;
+  banner(msg);
+  renderPreview();
+}
+
+async function initLive() {
+  let cfg = {};
+  try { cfg = await (await api('/api/live/config')).json(); } catch (e) { cfg.unavailable = e.message; }
+  if (!window.Terminal) cfg.unavailable ??= 'xterm.js did not load';
+  if (cfg.unavailable) { fallbackToMock(`Live preview unavailable (${cfg.unavailable}): showing the hand-drawn mock.`); return; }
+  el.preview.hidden = true;
+  el.live.hidden = false;
+  state.live = new LiveView(el.live, {
+    orca: cfg.orca,
+    state: () => ({ resolved: state.resolved, parsed: state.parsed }),
+    onTip: (html, e) => { if (html) { el.tip.innerHTML = html; placeTip(e); } else el.tip.hidden = true; },
+    onPick: (tok) => revealToken(tok),
+    onState: (msg) => banner(msg && `Live preview: ${msg}.`, !!msg),
+    onDrawn: (colors) => {
+      state.drawn = new Set(Object.keys(state.resolved.hex).filter((k) => colors.has(state.resolved.hex[k])));
+      renderGutter();
+    },
+  });
+  el.banner.addEventListener('click', (e) => { if (e.target.closest('button') && state.live) startLive(); });
+  await startLive();
 }
 
 async function initTerminals() {
@@ -702,11 +756,12 @@ function wire() {
     if (!b) return;
     state.mode = b.dataset.mode;
     $('#mode-seg').querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b));
-    renderPreview();
+    if (state.live) startLive(); else renderPreview();
   });
-  $('#opt-menu').addEventListener('change', (e) => { state.menu = e.target.checked; renderPreview(); });
+  $('#opt-menu').addEventListener('change', (e) => { state.menu = e.target.checked; if (state.live) state.live.setMenu(state.menu); else renderPreview(); });
   $('#opt-inspect').addEventListener('change', (e) => {
     state.inspect = e.target.checked;
+    if (state.live) state.live.enabled = state.inspect;
     el.preview.classList.toggle('inspect', state.inspect);
     if (!state.inspect) el.tip.hidden = true;
   });
@@ -762,9 +817,12 @@ async function boot() {
   applyColors();
   renderPreview();
   const list = await refreshList();
-  if (!list.length) { openNew(); return; }
-  const want = store.get('theme');
-  await loadTheme(list.some((t) => t.slug === want) ? want : list[0].slug);
+  if (list.length) {
+    const want = store.get('theme');
+    await loadTheme(list.some((t) => t.slug === want) ? want : list[0].slug);
+  }
+  await initLive();
+  if (!list.length) openNew();
 }
 
 boot().catch((e) => toast(`Failed to start: ${e.message}`, true));

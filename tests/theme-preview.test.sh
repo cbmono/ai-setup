@@ -21,6 +21,7 @@ ok() { if [ "$2" = "$3" ]; then printf '  PASS  %-58s (%s)\n' "$1" "$2"; pass=$(
 command -v node >/dev/null 2>&1 || { echo "SKIP: node not installed"; exit 0; }
 command -v curl >/dev/null 2>&1 || { echo "SKIP: curl not installed"; exit 0; }
 
+[ -n "${KEEP_TMP:-}" ] && trap - EXIT
 TMP="$(mktemp -d "${TMPDIR:-/tmp}/theme-preview.XXXXXX")" || {
   echo "theme-preview.test: mktemp -d failed under TMPDIR=${TMPDIR:-/tmp}" >&2; exit 2; }
 SRV_PID=""
@@ -109,6 +110,7 @@ code() { curl -s -o /dev/null -w '%{http_code}' "$@"; }
 ok "lists the theme files"              "$(curl -s "$B/api/themes")" '[{"slug":"seed","name":"Seed"}]'
 ok "serves the page"                    "$(code "$B/")" 200
 ok "does not serve its own source"      "$(code "$B/server.mjs")" 404
+ok "…nor the live-preview host"         "$(code "$B/pty-host.py")$(code "$B/live.mjs")" 404404
 ok "a slug with a dot is refused"       "$(code -X PUT --data '{}' "$B/api/themes/a.b")" 400
 ok "an encoded ../ never reaches the fs" "$(code "$B/api/themes/..%2Foutside")" 404
 ok "invalid JSON is refused"            "$(code -X PUT --data '{nope' "$B/api/themes/x")" 400
@@ -121,7 +123,104 @@ ok "the write landed in themes/"        "$(node -e 'console.log(JSON.parse(requi
 ok "nothing was written outside themes/" "$(cat "$TMP/outside.json")" secret
 ok "no terminal → no palette served"    "$(curl -s "$B/api/terminal")" '{}'
 
-echo "== 7. the per-machine palette cache stays out of git =="
+echo "== 7. live preview: nothing but terminal replies and named keys reach the PTY =="
+ok "Enter in every encoding, typed keys, clicks, ^C are dropped" "$(js '
+  const { filterReplies } = await import(process.argv[1] + "/live.mjs");
+  const bad = ["\r", "\n", "a\r", "\x1b[13u", "\x1b[13;2u", "\x1bOM", "hello", "\x1b[A", "\x1b[<0;3;4M", "\x03", "\x1b[200~x\r\x1b[201~"];
+  console.log(JSON.stringify(bad.map(filterReplies).join("")));')" '""'
+ok "query replies and wheel reports pass, Enter around them does not" "$(js '
+  const { filterReplies } = await import(process.argv[1] + "/live.mjs");
+  console.log(JSON.stringify(filterReplies("\r\x1b[?1;2c\nx\x1b[13;5R\x1b[<64;3;4M\x1b]11;rgb:1c1c/1e1e/2626\x1b\\\\")));')" \
+   '"\u001b[?1;2c\u001b[13;5R\u001b[<64;3;4M\u001b]11;rgb:1c1c/1e1e/2626\u001b\\"'
+ok "no named key is an Enter" "$(js '
+  const { KEYS, ENTER } = await import(process.argv[1] + "/live.mjs");
+  console.log(Object.entries(KEYS).filter(([, v]) => ENTER.test(v)).map(([k]) => k).join(" ") || "none");')" none
+
+# A stand-in claude: records the raw bytes its terminal delivers, so the assertions below see
+# exactly what reached the PTY. The real claude is used instead when it is installed.
+PY="$(command -v /usr/bin/python3 || command -v python3)"
+if [ -z "$PY" ]; then echo "  SKIP  live preview: python3 not installed"; else
+mkdir -p "$TMP/tmpdir" "$TMP/fake"
+FAKE="$TMP/fake/claude"
+cat > "$FAKE" <<EOF
+#!$PY
+import os, sys, termios, tty
+tty.setraw(0, termios.TCSANOW)  # NOW, not FLUSH: keep bytes that arrived early
+open("$TMP/fake/argv", "w").write("\n".join(sys.argv[1:]))
+os.write(1, b"FAKE CLAUDE READY\r\n")
+with open("$TMP/fake/input", "ab") as f:
+    while True:
+        d = os.read(0, 1024)
+        if not d: break
+        f.write(d); f.flush()
+EOF
+chmod +x "$FAKE"
+
+ok "the PTY host refuses Enter even when handed one" "$(
+  { printf '{"w":"%s"}\n' "$(printf 'a\rb' | base64)" "$(printf '/' | base64)"; sleep 1; } \
+    | "$PY" -I "$APP/pty-host.py" 80 24 -- "$FAKE" >/dev/null 2>&1; od -An -c "$TMP/fake/input" | tr -d ' ')" /
+rm -f "$TMP/fake/input"
+
+start_live() { # $1 = CLAUDE_BIN for the server (empty = the claude on PATH)
+  PORT2="$(node -e 'const s=require("net").createServer();s.listen(0,"127.0.0.1",()=>{console.log(s.address().port);s.close()})')"
+  L="http://127.0.0.1:$PORT2"
+  env -u CLAUDE_CONFIG_DIR ${1:+CLAUDE_BIN="$1"} HOME="$TMP/home" TMPDIR="$TMP/tmpdir" THEMES_DIR="$TMP/themes" TERMINAL_CACHE="$TMP/no-cache.json" \
+    node "$APP/server.mjs" --no-detect --port "$PORT2" > "$TMP/live.log" 2>&1 &
+  LIVE_PID=$!
+  disown "$LIVE_PID" 2>/dev/null || true
+  for _ in $(seq 1 50); do curl -s -o /dev/null "$L/api/themes" && break; sleep 0.1; done
+}
+ID=0b0e5c1a-7d6e-4c55-9a1f-1234567890ab
+post() { curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' --data "$2" "$L/api/live/$1"; }
+
+start_live "$TMP/fake/none"
+ok "no claude: the page is told why (and shows the mock)" "$(curl -s "$L/api/live/config" | node -pe 'JSON.parse(require("fs").readFileSync(0)).unavailable')" "claude not found on PATH"
+ok "…and a start is refused"            "$(post "$ID" '{"start":true,"cols":80,"rows":24}')" 503
+kill "$LIVE_PID"; wait "$LIVE_PID" 2>/dev/null
+
+# HOME is a stand-in too: other Claude sessions on this machine write the real ~/.claude.json
+# all the time, so only a private HOME can show that the preview itself writes nothing there.
+mkdir -p "$TMP/home/.claude"
+cat > "$TMP/home/.claude/settings.json" <<'EOF'
+{"statusLine":{"type":"command","command":"\"${CLAUDE_CONFIG_DIR:-$HOME/.claude}\"/sl.sh"}}
+EOF
+printf '{"hasCompletedOnboarding":true}\n' > "$TMP/home/.claude.json"
+REAL=""; [ -z "${THEME_PREVIEW_STAND_IN:-}" ] && command -v claude >/dev/null 2>&1 && REAL=yes
+snap() { for f in "$TMP/home/.claude/settings.json" "$TMP/home/.claude.json"; do [ -f "$f" ] && { stat -c '%Y' "$f" 2>/dev/null || stat -f '%m' "$f"; cksum < "$f"; }; done; }
+BEFORE="$(snap)"
+start_live "$([ -n "$REAL" ] || echo "$FAKE")"
+ok "a cross-origin page cannot start claude" "$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Origin: https://evil.example' --data '{"start":true,"cols":80,"rows":24}' "$L/api/live/$ID")" 403
+ok "a malformed session id is refused"  "$(post not-a-uuid '{"start":true,"cols":80,"rows":24}')" 400
+ok "an unknown session has no stream"   "$(code "$L/api/live/$ID/stream")" 404
+ok "start ($([ -n "$REAL" ] && echo real || echo stand-in) claude)" "$(post "$ID" '{"start":true,"cols":100,"rows":30,"mode":"plan","theme":{"name":"t","base":"dark"}}')" 200
+curl -s -N --max-time 8 "$L/api/live/$ID/stream" > "$TMP/stream.txt" &
+STREAM_PID=$!
+sleep 4
+read -ra HOSTS <<< "$(pgrep -P "$LIVE_PID" | tr '\n' ' ')"
+read -ra KIDS <<< "$(for h in "${HOSTS[@]}"; do pgrep -P "$h"; done | tr '\n' ' ')"
+ok "one PTY host and one claude are running" "${#HOSTS[@]}:${#KIDS[@]}" 1:1
+if [ -n "$REAL" ] && command -v lsof >/dev/null 2>&1; then
+  ok "claude has no network socket open" "$(for p in "${KIDS[@]}"; do lsof -nP -a -i -p "$p" 2>/dev/null | tail -n +2; done | wc -l | tr -d ' ')" 0
+fi
+BODY='{"replies":"x\r\n\u001b[13u\u001b[?1;2c","menu":true}'   # JSON escapes: CR, LF, kitty Enter, DA1
+ok "Enter and typed text sent as replies never arrive" "$(post "$ID" "$BODY")" 200
+ok "the stream carries the terminal output" "$(grep -c '^event: out' "$TMP/stream.txt" | awk '{print ($1>0)?"yes":"no"}')" yes
+if [ -z "$REAL" ]; then
+  sleep 1
+  ok "…the stand-in got only the menu's / and the DA1 reply" "$(od -An -c "$TMP/fake/input" | tr -d ' \n')" '/033[?1;2c'
+  ok "…and was started on the temp theme and the plan mode" "$(grep -c -e '"theme":"custom:preview"' -e '^plan$' "$TMP/fake/argv")" 2
+  ok "…with your statusLine, pointed at your real config dir" "$(grep -c -F "$(basename "$TMP")/home/.claude\\\"/sl.sh" "$TMP/fake/argv")" 1
+fi
+roots() { find "$TMP/tmpdir" -mindepth 1 -maxdepth 1 -name 'claude-theme-preview-*' | wc -l | tr -d ' '; }
+ok "the session lives in a temp config dir"  "$(roots)" 1
+kill "$LIVE_PID"; wait "$LIVE_PID" 2>/dev/null; wait "$STREAM_PID" 2>/dev/null
+sleep 1
+ok "server exit ends the host and claude (no strays)" "$(for p in "${HOSTS[@]}" "${KIDS[@]}"; do kill -0 "$p" 2>/dev/null && echo "$p"; done | tr '\n' ' ')" ""
+ok "server exit removes the temp dirs"   "$(roots)" 0
+ok "\$HOME/.claude/settings.json and \$HOME/.claude.json untouched" "$([ "$(snap)" = "$BEFORE" ] && echo same || echo changed)" same
+fi
+
+echo "== 8. the per-machine palette cache stays out of git =="
 ok "terminal-palette.local.json is ignored" \
    "$(git -C "$REPO" check-ignore -q themes/preview-app/terminal-palette.local.json && echo yes || echo no)" yes
 
