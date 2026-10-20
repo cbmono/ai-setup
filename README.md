@@ -109,7 +109,7 @@ One `.md` per command; filename becomes `/<name>`. No frontmatter required; `$AR
 | Command        | What it does                                                                                  | Dispatches agents             |
 | -------------- | --------------------------------------------------------------------------------------------- | ----------------------------- |
 | `/acp`         | Stage, commit with a generated message, and push (stack-aware)                                | —                             |
-| `/my-ai-stats [YYYY-MM]` | Share of your Claude Code runs that were sub-agents, for a month, from `~/.claude/projects` on this machine only | —                             |
+| `/my-ai-stats [YYYY-MM]` | Share of your Claude Code runs that were delegated — in-process sub-agents, background sessions, headless/SDK runs — vs interactive sessions, for a month, from `~/.claude/projects` on this machine only | —                             |
 | `/dave`        | Critique current diff/plan via Dave AI (Alteos-internal — requires `dave` CLI)                | —                             |
 | `/grill`       | Adversarial fan-out over your own diff — find what's wrong before a reviewer does             | diff-grill workflow; code-architect (fallback) |
 | `/plan`        | Draft → adversarial workflow grill → save plan to `.claude/plans/<slug>.md` (rides with the stack) | plan-grill workflow; plan-architect (fallback) |
